@@ -31,6 +31,13 @@ const soundMap: Record<Instrument, HTMLAudioElement> = browser
       }
     : ({} as Record<Instrument, HTMLAudioElement>);
 
+const metronomeSounds: Record<'high' | 'low', HTMLAudioElement> = browser
+    ? {
+          high: new Audio('/metronome.ogg'),
+          low: new Audio('/metronome.ogg')
+      }
+    : ({} as Record<'high' | 'low', HTMLAudioElement>); // TODO: replace with actual low sound
+
 function configureBaseAudio(): void {
     if (!browser) return;
     for (const instKey of Object.keys(soundMap)) {
@@ -132,7 +139,7 @@ export class Player {
     private _isPlaying = $state(false);
     private _currentTick = $state(0);
     private _tempo = $state(20);
-    private _ticksPerBeat = $state(4);
+    private _ticksPerBeat = $state(10);
     private _beatsPerBar = $state(4);
 
     // Looping and selection state
@@ -165,6 +172,21 @@ export class Player {
 
     get beatsPerBar() {
         return this._beatsPerBar;
+    }
+
+    // --- Bar/Beat helpers (considering tempo/time-signature changes) ---
+    /**
+     * Current bar index (0-based), derived from current tick and tempo changes.
+     */
+    get currentBar(): number {
+        return this.computeBarBeatAtTick(this._currentTick).bar;
+    }
+
+    /**
+     * Current beat index within the bar (0-based), derived from current tick.
+     */
+    get currentBeat(): number {
+        return this.computeBarBeatAtTick(this._currentTick).beat;
     }
 
     /** Current loop mode. */
@@ -211,6 +233,31 @@ export class Player {
         if (this._selectionStart !== null && this._selectionStart > clamped) {
             this._selectionStart = clamped;
         }
+    }
+
+    /**
+     * Jump to a specific bar (0-based). Sets the tick to the start of that bar.
+     */
+    setCurrentBar(bar: number) {
+        const { tick } = this.findTickForBarBeat(Math.max(0, bar | 0), 0);
+        this._currentTick = this.clampTick(tick);
+    }
+
+    /**
+     * Set the current beat (0-based) within the current bar.
+     */
+    setCurrentBeat(beat: number) {
+        const bar = this.currentBar;
+        const { tick } = this.findTickForBarBeat(bar, Math.max(0, beat | 0));
+        this._currentTick = this.clampTick(tick);
+    }
+
+    /**
+     * Jump directly to a given bar and beat (both 0-based).
+     */
+    setBarBeat(bar: number, beat: number) {
+        const { tick } = this.findTickForBarBeat(Math.max(0, bar | 0), Math.max(0, beat | 0));
+        this._currentTick = this.clampTick(tick);
     }
 
     /**
@@ -383,6 +430,104 @@ export class Player {
         return { tickNotes, tempoChanges };
     }
 
+    /**
+     * Compute an ordered list of tempo/time-signature segments covering the song.
+     * Assumes tempo changes occur at bar boundaries (common in editors).
+     */
+    private getSegments(): { start: number; end: number; tpb: number; bpb: number }[] {
+        const length = this.song?.length ?? Number.POSITIVE_INFINITY;
+        const changes = Array.from(this._tempoChanges.values()).sort((a, b) => a.tick - b.tick);
+
+        const segments: { start: number; end: number; tpb: number; bpb: number }[] = [];
+
+        // Determine base signature at 0 if no change at 0
+        const firstChangeAtZero = changes.length > 0 && changes[0].tick === 0;
+        let cursor = 0;
+        let currentTpb = firstChangeAtZero ? changes[0].ticksPerBeat : this._ticksPerBeat;
+        let currentBpb = firstChangeAtZero ? changes[0].beatsPerBar : this._beatsPerBar;
+
+        for (let i = firstChangeAtZero ? 1 : 0; i < changes.length; i++) {
+            const ch = changes[i];
+            if (cursor < ch.tick) {
+                segments.push({ start: cursor, end: ch.tick, tpb: currentTpb, bpb: currentBpb });
+                cursor = ch.tick;
+            }
+            currentTpb = ch.ticksPerBeat;
+            currentBpb = ch.beatsPerBar;
+        }
+
+        if (cursor < length) {
+            segments.push({ start: cursor, end: length, tpb: currentTpb, bpb: currentBpb });
+        }
+
+        // No song loaded and no changes: provide an open-ended default segment
+        if (!this.song && segments.length === 0) {
+            segments.push({
+                start: 0,
+                end: Number.POSITIVE_INFINITY,
+                tpb: this._ticksPerBeat,
+                bpb: this._beatsPerBar
+            });
+        }
+
+        return segments;
+    }
+
+    /**
+     * Convert a tick to bar/beat using the tempo/time-signature segments.
+     * Bar and beat are 0-based.
+     */
+    private computeBarBeatAtTick(tick: number): { bar: number; beat: number } {
+        const segments = this.getSegments();
+        let barAccum = 0;
+        for (const seg of segments) {
+            if (tick >= seg.end) {
+                const segTicks = seg.end - seg.start;
+                const barsInSeg = Math.floor(segTicks / (seg.tpb * seg.bpb));
+                barAccum += barsInSeg;
+                continue;
+            }
+            if (tick >= seg.start && tick < seg.end) {
+                const ticksInto = tick - seg.start;
+                const beatsInto = Math.floor(ticksInto / seg.tpb);
+                const barInSeg = Math.floor(beatsInto / seg.bpb);
+                const beatInBar = beatsInto % seg.bpb;
+                return { bar: barAccum + barInSeg, beat: beatInBar };
+            }
+        }
+        // Past end of song: clamp to last position
+        if (segments.length > 0) {
+            const last = segments[segments.length - 1];
+            const segTicks = Math.max(0, (this.song?.length ?? last.end) - last.start);
+            const barsInSeg = Math.floor(segTicks / (last.tpb * last.bpb));
+            return { bar: barAccum + barsInSeg, beat: 0 };
+        }
+        return { bar: 0, beat: 0 };
+    }
+
+    /**
+     * Convert bar/beat (0-based) to a tick, clamped to song bounds if loaded.
+     */
+    private findTickForBarBeat(bar: number, beat: number): { tick: number } {
+        const segments = this.getSegments();
+        const targetBar = Math.max(0, bar | 0);
+        let barAccum = 0;
+        for (const seg of segments) {
+            const barsInSeg = Math.floor((seg.end - seg.start) / (seg.tpb * seg.bpb));
+            if (targetBar < barAccum + barsInSeg) {
+                const barWithin = targetBar - barAccum;
+                const clampedBeat = Math.min(Math.max(0, beat | 0), seg.bpb - 1);
+                const tick = seg.start + barWithin * seg.bpb * seg.tpb + clampedBeat * seg.tpb;
+                return { tick };
+            }
+            barAccum += barsInSeg;
+        }
+
+        // If requesting a bar beyond the song, clamp to end
+        const endTick = this.song?.length ?? bar * this._beatsPerBar * this._ticksPerBeat;
+        return { tick: endTick };
+    }
+
     private stopInternal() {
         this._isPlaying = false;
         if (this.interval) {
@@ -391,3 +536,5 @@ export class Player {
         }
     }
 }
+
+export const player = new Player();
