@@ -33,10 +33,10 @@ const soundMap: Record<Instrument, HTMLAudioElement> = browser
 
 const metronomeSounds: Record<'high' | 'low', HTMLAudioElement> = browser
     ? {
-          high: new Audio('/metronome.ogg'),
-          low: new Audio('/metronome.ogg')
+          high: new Audio('/metronome.wav'),
+          low: new Audio('/metronome.wav')
       }
-    : ({} as Record<'high' | 'low', HTMLAudioElement>); // TODO: replace with actual low sound
+    : ({} as Record<'high' | 'low', HTMLAudioElement>);
 
 function configureBaseAudio(): void {
     if (!browser) return;
@@ -49,6 +49,15 @@ function configureBaseAudio(): void {
         (el as any).mozPreservesPitch = false;
         (el as any).webkitPreservesPitch = false;
     }
+    // Metronome base config
+    metronomeSounds.high.preload = 'auto';
+    metronomeSounds.low.preload = 'auto';
+    ;(metronomeSounds.high as any).preservesPitch = false;
+    ;(metronomeSounds.high as any).mozPreservesPitch = false;
+    ;(metronomeSounds.high as any).webkitPreservesPitch = false;
+    ;(metronomeSounds.low as any).preservesPitch = false;
+    ;(metronomeSounds.low as any).mozPreservesPitch = false;
+    ;(metronomeSounds.low as any).webkitPreservesPitch = false;
 }
 
 const audioPool: Record<Instrument, HTMLAudioElement[]> = browser
@@ -141,6 +150,7 @@ export class Player {
     private _tempo = $state(20);
     private _ticksPerBeat = $state(10);
     private _beatsPerBar = $state(4);
+    private _metronomeEnabled = $state(false);
 
     // Looping and selection state
     private _loopMode = $state<LoopMode>(LoopMode.Off);
@@ -172,6 +182,10 @@ export class Player {
 
     get beatsPerBar() {
         return this._beatsPerBar;
+    }
+
+    get metronomeEnabled() {
+        return this._metronomeEnabled;
     }
 
     // --- Bar/Beat helpers (considering tempo/time-signature changes) ---
@@ -209,6 +223,11 @@ export class Player {
      */
     setLoopMode(mode: LoopMode) {
         this._loopMode = mode;
+    }
+
+    /** Enable or disable the metronome clicks during playback. */
+    setMetronomeEnabled(on: boolean) {
+        this._metronomeEnabled = !!on;
     }
 
     /**
@@ -314,6 +333,18 @@ export class Player {
             this._ticksPerBeat = change.ticksPerBeat;
             this._beatsPerBar = change.beatsPerBar;
         }
+        // Metronome: click on each beat boundary (accent first beat of bar)
+        if (this._metronomeEnabled) {
+            const seg = this.getSegmentAtTick(this._currentTick);
+            if (seg) {
+                const ticksInto = this._currentTick - seg.start;
+                if (ticksInto >= 0 && seg.tpb > 0 && ticksInto % seg.tpb === 0) {
+                    const beatsInto = Math.floor(ticksInto / seg.tpb);
+                    const beatInBar = beatsInto % seg.bpb;
+                    this.playMetronome(beatInBar === 0);
+                }
+            }
+        }
         this._currentTick++;
     }
 
@@ -386,6 +417,31 @@ export class Player {
             this._nextTickAt += 1000 / this._tempo;
             this.schedule();
         }, delay);
+    }
+
+    /**
+     * Return the time-signature segment active at a tick.
+     */
+    private getSegmentAtTick(tick: number): { start: number; end: number; tpb: number; bpb: number } | null {
+        const segments = this.getSegments();
+        for (const seg of segments) {
+            if (tick >= seg.start && tick < seg.end) return seg;
+        }
+        return segments.length ? segments[segments.length - 1] : null;
+    }
+
+    /**
+     * Play a metronome click. Accent alters playback rate/volume slightly.
+     */
+    private playMetronome(accent: boolean) {
+        if (!browser) return;
+        const base = accent ? metronomeSounds.high : metronomeSounds.low;
+        try {
+            base.currentTime = 0;
+        } catch {}
+        base.volume = accent ? 0.65 : 0.4;
+        base.playbackRate = accent ? 1.05 : 0.95;
+        void base.play();
     }
 
     private static atSongEnd(currentTick: number, song: Song | null): boolean {
