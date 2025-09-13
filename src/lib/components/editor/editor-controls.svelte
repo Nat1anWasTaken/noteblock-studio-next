@@ -1,5 +1,11 @@
 <script lang="ts">
     import Button from '$lib/components/ui/button/button.svelte';
+    import {
+        TooltipContent,
+        TooltipProvider,
+        Tooltip as TooltipRoot,
+        TooltipTrigger
+    } from '$lib/components/ui/tooltip';
     import { LoopMode, player } from '$lib/playback.svelte';
     import {
         ChevronDown,
@@ -56,10 +62,38 @@
                 return '';
         }
     });
+
+    const loopModeLabel = $derived.by(() => {
+        switch (player.loopMode) {
+            case LoopMode.Selection:
+                return 'Loop: Selection';
+            case LoopMode.Song:
+                return 'Loop: Song';
+            case LoopMode.Off:
+            default:
+                return 'Loop: Off';
+        }
+    });
+    const metronomeLabel = $derived(player.metronomeEnabled ? 'Metronome: On' : 'Metronome: Off');
 </script>
 
+{#snippet tooltipped(
+    { label, children }: { label: string; children: any }
+)}
+    <TooltipRoot>
+        <TooltipTrigger>
+            {#snippet child({ props })}
+                {@render children?.({ props })}
+            {/snippet}
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{label}</TooltipContent>
+    </TooltipRoot>
+{/snippet}
+
 <!-- Control bar container -->
-<div class="flex h-12 w-full items-center gap-3 border-b border-border px-3 py-8 sm:px-4">
+<div
+    class="flex h-12 w-full items-center gap-3 border-b border-border bg-secondary px-3 py-8 text-secondary-foreground sm:px-4"
+>
     <!-- Left: Back + Project name -->
     <div class="flex min-w-0 items-center gap-2">
         <Button variant="ghost" size="icon" aria-label="Back" class="text-primary">
@@ -73,62 +107,92 @@
 
     <!-- Center: Transport + readouts -->
     <div class="mx-auto flex items-center gap-2">
-        <!-- Transport group -->
-        <div
-            class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 px-1.5 shadow-xs dark:bg-background/20"
-        >
-            <Button variant="ghost" size="icon" aria-label="Rewind to start" onclick={rewind}>
-                <SkipBack class="size-5" />
-            </Button>
-            <Button variant="ghost" size="icon" aria-label="Play/Pause" onclick={togglePlay}>
-                {#if player.isPlaying}
-                    <Pause class="size-5" />
-                {:else}
-                    <Play class="size-5" />
-                {/if}
-            </Button>
-            <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Loop"
-                class={loopModeButtonClass}
-                onclick={cycleLoop}
+        <TooltipProvider>
+            <!-- Transport group -->
+            <div
+                class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 px-1.5 shadow-xs dark:bg-background/20"
             >
-                <Repeat class="size-5" />
-            </Button>
-        </div>
+                {#snippet rewindBtn({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Rewind to start"
+                        onclick={rewind}
+                    >
+                        <SkipBack class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({ label: 'Rewind to start', children: rewindBtn })}
 
-        <!-- Position readout -->
-        <div
-            class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
-        >
-            {positionBar}
-            {positionBeat}
-            {positionTickInBeat}
-        </div>
+                {#snippet playPauseBtn({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Play/Pause"
+                        onclick={togglePlay}
+                    >
+                        {#if player.isPlaying}
+                            <Pause class="size-5" />
+                        {:else}
+                            <Play class="size-5" />
+                        {/if}
+                    </Button>
+                {/snippet}
+                {@render tooltipped({ label: player.isPlaying ? 'Pause' : 'Play', children: playPauseBtn })}
 
-        <!-- Tempo -->
-        <div
-            class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
-        >
-            <div class="rounded-sm bg-background/40">
-                <span class="font-mono text-sm tabular-nums">{player.tempo.toFixed(1)}</span>
-                <span class="text-xs">ticks / s</span>
+                {#snippet loopBtn({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Loop"
+                        class={loopModeButtonClass}
+                        onclick={cycleLoop}
+                    >
+                        <Repeat class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({ label: loopModeLabel, children: loopBtn })}
             </div>
-        </div>
 
-        <!-- Metronome / count-in badges -->
-        <div class="flex items-center gap-2">
-            <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Metronome"
-                onclick={toggleMetronome}
-                class={metronomeButtonClass}
+            <!-- Position readout -->
+            <div
+                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
             >
-                <Volume2 class="size-5" />
-            </Button>
-        </div>
+                {positionBar}
+                {positionBeat}
+                {positionTickInBeat}
+            </div>
+
+            <!-- Tempo -->
+            <div
+                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
+            >
+                <div class="rounded-sm">
+                    <span class="font-mono text-sm tabular-nums">{player.tempo.toFixed(1)}</span>
+                    <span class="text-xs">ticks / s</span>
+                </div>
+            </div>
+
+            <!-- Metronome / count-in badges -->
+            <div class="flex items-center gap-2">
+                {#snippet metronomeBtn({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Metronome"
+                        onclick={toggleMetronome}
+                        class={metronomeButtonClass}
+                    >
+                        <Volume2 class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({ label: metronomeLabel, children: metronomeBtn })}
+            </div>
+        </TooltipProvider>
     </div>
 
     <!-- Right: Placeholder actions (undo, help, more) -->
