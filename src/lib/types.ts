@@ -8,12 +8,14 @@ export interface Song {
 	description: string;
 }
 
-export interface Channel {
+export type Channel = NoteChannel | TempoChannel;
+
+export interface BaseChannel {
 	kind: 'note' | 'tempo';
 	name: string;
 }
 
-export interface TempoChannel extends Channel {
+export interface TempoChannel extends BaseChannel {
 	kind: 'tempo';
 	tempoChanges: TempoChange[];
 }
@@ -25,7 +27,7 @@ export interface TempoChange {
 	beatsPerBar: number; // Beats per bar (for time signature changes)
 }
 
-export interface NoteChannel extends Channel {
+export interface NoteChannel extends BaseChannel {
 	kind: 'note';
 	sections: NoteSection[];
 	pan: number; // -100 (left) to 100 (right)
