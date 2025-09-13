@@ -1,26 +1,35 @@
 import { browser } from '$app/environment';
 import { Instrument, type Note, type Song, type TempoChange } from './types';
 
+/**
+ * Loop behavior for playback.
+ */
+export enum LoopMode {
+    Off = 'off',
+    Song = 'song',
+    Selection = 'selection'
+}
+
 const soundMap: Record<Instrument, HTMLAudioElement> = browser
-	? {
-			[Instrument.Banjo]: new Audio('/notes/banjo.ogg'),
-			[Instrument.DoubleBass]: new Audio('/notes/bass.ogg'),
-			[Instrument.BassDrum]: new Audio('/notes/bd.ogg'),
-			[Instrument.Bell]: new Audio('/notes/bell.ogg'),
-			[Instrument.Bit]: new Audio('/notes/bit.ogg'),
-			[Instrument.CowBell]: new Audio('/notes/cow_bell.ogg'),
-			[Instrument.Didgeridoo]: new Audio('/notes/didgeridoo.ogg'),
-			[Instrument.Flute]: new Audio('/notes/flute.ogg'),
-			[Instrument.Guitar]: new Audio('/notes/guitar.ogg'),
-			[Instrument.Piano]: new Audio('/notes/harp.ogg'),
-			[Instrument.Click]: new Audio('/notes/hat.ogg'),
-			[Instrument.Chime]: new Audio('/notes/icechime.ogg'),
-			[Instrument.IronXylophone]: new Audio('/notes/iron_xylophone.ogg'),
-			[Instrument.Pling]: new Audio('/notes/pling.ogg'),
-			[Instrument.SnareDrum]: new Audio('/notes/snare.ogg'),
-			[Instrument.Xylophone]: new Audio('/notes/xylobone.ogg')
-		}
-	: ({} as Record<Instrument, HTMLAudioElement>);
+    ? {
+          [Instrument.Banjo]: new Audio('/notes/banjo.ogg'),
+          [Instrument.DoubleBass]: new Audio('/notes/bass.ogg'),
+          [Instrument.BassDrum]: new Audio('/notes/bd.ogg'),
+          [Instrument.Bell]: new Audio('/notes/bell.ogg'),
+          [Instrument.Bit]: new Audio('/notes/bit.ogg'),
+          [Instrument.CowBell]: new Audio('/notes/cow_bell.ogg'),
+          [Instrument.Didgeridoo]: new Audio('/notes/didgeridoo.ogg'),
+          [Instrument.Flute]: new Audio('/notes/flute.ogg'),
+          [Instrument.Guitar]: new Audio('/notes/guitar.ogg'),
+          [Instrument.Piano]: new Audio('/notes/harp.ogg'),
+          [Instrument.Click]: new Audio('/notes/hat.ogg'),
+          [Instrument.Chime]: new Audio('/notes/icechime.ogg'),
+          [Instrument.IronXylophone]: new Audio('/notes/iron_xylophone.ogg'),
+          [Instrument.Pling]: new Audio('/notes/pling.ogg'),
+          [Instrument.SnareDrum]: new Audio('/notes/snare.ogg'),
+          [Instrument.Xylophone]: new Audio('/notes/xylobone.ogg')
+      }
+    : ({} as Record<Instrument, HTMLAudioElement>);
 
 function configureBaseAudio(): void {
     if (!browser) return;
@@ -56,7 +65,9 @@ function getPooledAudio(instrument: Instrument): HTMLAudioElement {
     const pool = (audioPool[instrument] ||= []);
     for (const el of pool) {
         if (el.ended || el.paused) {
-            try { el.currentTime = 0; } catch {}
+            try {
+                el.currentTime = 0;
+            } catch {}
             return el;
         }
     }
@@ -66,7 +77,9 @@ function getPooledAudio(instrument: Instrument): HTMLAudioElement {
         return el;
     }
     const reused = pool[0];
-    try { reused.currentTime = 0; } catch {}
+    try {
+        reused.currentTime = 0;
+    } catch {}
     return reused;
 }
 
@@ -80,7 +93,7 @@ configureBaseAudio();
  * (e.g., `key` 0–87, `velocity` 0–100, `pitch` in cents).
  */
 export async function playNote(note: Note) {
-	return await playSound(note.instrument, note.key, note.velocity, note.pitch);
+    return await playSound(note.instrument, note.key, note.velocity, note.pitch);
 }
 
 /**
@@ -94,174 +107,287 @@ export async function playNote(note: Note) {
  * Returns a promise from `HTMLAudioElement.play()` resolving when playback starts.
  */
 export async function playSound(
-	instrument: Instrument,
-	key: number,
-	velocity: number,
-	pitch: number
+    instrument: Instrument,
+    key: number,
+    velocity: number,
+    pitch: number
 ) {
-	if (!browser) return;
-	const audio = getPooledAudio(instrument);
+    if (!browser) return;
+    const audio = getPooledAudio(instrument);
 
-	// Set volume based on velocity
-	audio.volume = (velocity / 100) * 0.5;
+    // Set volume based on velocity
+    audio.volume = (velocity / 100) * 0.5;
 
-	const baseSampleKey = 33;
-	const keyOffset = key - baseSampleKey;
-	const pitchOffset = pitch / 1200; // Convert cents to semitones
+    const baseSampleKey = 33;
+    const keyOffset = key - baseSampleKey;
+    const pitchOffset = pitch / 1200; // Convert cents to semitones
 
-	// Combine key and pitch offsets: 2^(semitones/12)
-	audio.playbackRate = Math.pow(2, (keyOffset + pitchOffset) / 12);
+    // Combine key and pitch offsets: 2^(semitones/12)
+    audio.playbackRate = Math.pow(2, (keyOffset + pitchOffset) / 12);
 
-	return await audio.play();
+    return await audio.play();
 }
 
 export class Player {
-	private _isPlaying = $state(false);
-	private _currentTick = $state(0);
-	private _tempo = $state(20);
-	private _ticksPerBeat = $state(4);
-	private _beatsPerBar = $state(4);
+    private _isPlaying = $state(false);
+    private _currentTick = $state(0);
+    private _tempo = $state(20);
+    private _ticksPerBeat = $state(4);
+    private _beatsPerBar = $state(4);
 
-	private interval: ReturnType<typeof setTimeout> | null = null;
-	private _nextTickAt = 0;
-	private _tickNotes: Map<number, Note[]> = new Map();
-	private _tempoChanges: Map<number, TempoChange> = new Map();
+    // Looping and selection state
+    private _loopMode = $state<LoopMode>(LoopMode.Off);
+    private _selectionStart = $state<number | null>(null);
+    private _selectionEnd = $state<number | null>(null);
 
-	public song: Song | null = null;
+    private interval: ReturnType<typeof setTimeout> | null = null;
+    private _nextTickAt = 0;
+    private _tickNotes: Map<number, Note[]> = new Map();
+    private _tempoChanges: Map<number, TempoChange> = new Map();
 
-	get isPlaying() {
-		return this._isPlaying;
-	}
+    public song: Song | null = null;
 
-	get currentTick() {
-		return this._currentTick;
-	}
+    get isPlaying() {
+        return this._isPlaying;
+    }
 
-	get tempo() {
-		return this._tempo;
-	}
+    get currentTick() {
+        return this._currentTick;
+    }
 
-	get ticksPerBeat() {
-		return this._ticksPerBeat;
-	}
+    get tempo() {
+        return this._tempo;
+    }
 
-	get beatsPerBar() {
-		return this._beatsPerBar;
-	}
+    get ticksPerBeat() {
+        return this._ticksPerBeat;
+    }
 
-	nextTick() {
-		if (!this.song) return;
-		if (Player.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
-		const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
-		if (notes) {
-			for (const n of notes) playNote(n);
-		}
-		const change = Player.getTempoChangeAtTick(this._tempoChanges, this._currentTick);
-		if (change) {
-			this._tempo = change.tempo;
-			this._ticksPerBeat = change.ticksPerBeat;
-			this._beatsPerBar = change.beatsPerBar;
-		}
-		this._currentTick++;
-	}
+    get beatsPerBar() {
+        return this._beatsPerBar;
+    }
 
-	/**
-	 * Start playing the loaded song from the current tick.
-	 * Throws if no song is loaded.
-	 *
-	 */
-	async resume() {
-		if (!this.song) throw new Error('No song loaded');
+    /** Current loop mode. */
+    get loopMode() {
+        return this._loopMode;
+    }
 
-		this._isPlaying = true;
+    /** Selection start tick (inclusive) or null. */
+    get selectionStart() {
+        return this._selectionStart;
+    }
 
-		if (!this.interval) this._nextTickAt = performance.now();
-		this.schedule();
-	}
+    /** Selection end tick (exclusive) or null. */
+    get selectionEnd() {
+        return this._selectionEnd;
+    }
 
-	/**
-	 * Pause playback.
-	 * Throws if the player is not running.
-	 */
-	async pause() {
-		this._isPlaying = false;
+    /**
+     * Change loop mode.
+     */
+    setLoopMode(mode: LoopMode) {
+        this._loopMode = mode;
+    }
 
-		if (!this.interval) {
-			throw new Error('Player is not running');
-		}
+    /**
+     * Set selection start tick (inclusive). Clamps to valid range.
+     */
+    setSelectionStart(tick: number) {
+        const clamped = this.clampTick(tick);
+        this._selectionStart = clamped;
+        // Ensure start <= end when both set
+        if (this._selectionEnd !== null && this._selectionEnd < clamped) {
+            this._selectionEnd = clamped;
+        }
+    }
 
-		clearTimeout(this.interval);
-		this.interval = null;
-	}
+    /**
+     * Set selection end tick (exclusive). Clamps to valid range.
+     */
+    setSelectionEnd(tick: number) {
+        const clamped = this.clampTick(tick);
+        this._selectionEnd = clamped;
+        // Ensure start <= end when both set
+        if (this._selectionStart !== null && this._selectionStart > clamped) {
+            this._selectionStart = clamped;
+        }
+    }
 
-	/**
-	 * Set the song to be played.
-	 * @param song The song to load into the player.
-	 */
-	setSong(song: Song) {
-		this.song = song;
-		this._currentTick = 0;
-		this._tempo = song.tempo ?? this._tempo;
-		const { tickNotes, tempoChanges } = Player.buildIndexes(song);
-		this._tickNotes = tickNotes;
-		this._tempoChanges = tempoChanges;
-	}
+    /**
+     * Clear any active selection.
+     */
+    clearSelection() {
+        this._selectionStart = null;
+        this._selectionEnd = null;
+    }
 
-	private schedule() {
-		if (!this._isPlaying) return;
-		const delay = Math.max(0, this._nextTickAt - performance.now());
-		this.interval = setTimeout(() => {
-			this.nextTick();
-			if (!this._isPlaying) return;
-			this._nextTickAt += 1000 / this._tempo;
-			this.schedule();
-		}, delay);
-	}
+    /** Clamp an arbitrary tick to [0, song.length] if a song is loaded, or [0, +Inf) otherwise. */
+    private clampTick(tick: number): number {
+        const base = Math.max(0, tick | 0);
+        if (!this.song) return base;
+        return Math.min(base, this.song.length);
+    }
 
-	private static atSongEnd(currentTick: number, song: Song | null): boolean {
-		return !!song && currentTick >= song.length;
-	}
+    private hasValidSelection(): boolean {
+        return (
+            this._selectionStart !== null &&
+            this._selectionEnd !== null &&
+            this._selectionEnd > this._selectionStart
+        );
+    }
 
-	private static getNotesAtTick(map: Map<number, Note[]>, tick: number): Note[] | undefined {
-		return map.get(tick);
-	}
+    nextTick() {
+        if (!this.song) return;
 
-	private static getTempoChangeAtTick(map: Map<number, TempoChange>, tick: number): TempoChange | undefined {
-		return map.get(tick);
-	}
+        // Handle loop boundaries before emitting notes
+        if (this._loopMode === LoopMode.Selection && this.hasValidSelection()) {
+            const start = this._selectionStart as number;
+            const end = Math.min(this._selectionEnd as number, this.song.length);
+            // If we've just left the selection on the right bound, wrap to start
+            if (this._currentTick >= end) {
+                this._currentTick = start;
+            } else if (this._currentTick < start) {
+                // Before selection: do not force-jump; stop at song end if reached
+                if (Player.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
+            }
+        } else if (this._loopMode === LoopMode.Song) {
+            if (Player.atSongEnd(this._currentTick, this.song)) {
+                this._currentTick = 0;
+            }
+        } else {
+            if (Player.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
+        }
+        const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
+        if (notes) {
+            for (const n of notes) playNote(n);
+        }
+        const change = Player.getTempoChangeAtTick(this._tempoChanges, this._currentTick);
+        if (change) {
+            this._tempo = change.tempo;
+            this._ticksPerBeat = change.ticksPerBeat;
+            this._beatsPerBar = change.beatsPerBar;
+        }
+        this._currentTick++;
+    }
 
-	private static buildIndexes(song: Song) {
-		const tickNotes = new Map<number, Note[]>();
-		const tempoChanges = new Map<number, TempoChange>();
+    /**
+     * Start playing the loaded song from the current tick.
+     * Throws if no song is loaded.
+     *
+     */
+    async resume() {
+        if (!this.song) throw new Error('No song loaded');
 
-		for (const channel of song.channels) {
-			if (channel.kind !== 'note') continue;
-			for (const section of channel.sections) {
-				const base = section.startingTick;
-				for (const note of section.notes) {
-					const absTick = base + note.tick;
-					const arr = tickNotes.get(absTick);
-					if (arr) arr.push(note);
-					else tickNotes.set(absTick, [note]);
-				}
-			}
-		}
+        this._isPlaying = true;
 
-		for (const channel of song.channels) {
-			if (channel.kind !== 'tempo') continue;
-			for (const t of channel.tempoChanges) {
-				tempoChanges.set(t.tick, t);
-			}
-		}
+        // Do not force cursor into selection on resume; only ensure song loop wraps
+        if (this._loopMode === LoopMode.Song) {
+            if (Player.atSongEnd(this._currentTick, this.song)) this._currentTick = 0;
+        }
 
-		return { tickNotes, tempoChanges };
-	}
+        if (!this.interval) this._nextTickAt = performance.now();
+        this.schedule();
+    }
 
-	private stopInternal() {
-		this._isPlaying = false;
-		if (this.interval) {
-			clearTimeout(this.interval);
-			this.interval = null;
-		}
-	}
+    /**
+     * Pause playback.
+     * Throws if the player is not running.
+     */
+    async pause() {
+        this._isPlaying = false;
+
+        if (!this.interval) {
+            throw new Error('Player is not running');
+        }
+
+        clearTimeout(this.interval);
+        this.interval = null;
+    }
+
+    /**
+     * Set the song to be played.
+     * @param song The song to load into the player.
+     */
+    setSong(song: Song) {
+        this.song = song;
+        this._currentTick = 0;
+        this._tempo = song.tempo ?? this._tempo;
+        const { tickNotes, tempoChanges } = Player.buildIndexes(song);
+        this._tickNotes = tickNotes;
+        this._tempoChanges = tempoChanges;
+
+        // Normalize selection to the bounds of the new song
+        if (this._selectionStart !== null)
+            this._selectionStart = this.clampTick(this._selectionStart);
+        if (this._selectionEnd !== null) this._selectionEnd = this.clampTick(this._selectionEnd);
+        if (
+            this._selectionStart !== null &&
+            this._selectionEnd !== null &&
+            this._selectionEnd < this._selectionStart
+        ) {
+            // Keep consistent invariant start <= end
+            this._selectionEnd = this._selectionStart;
+        }
+    }
+
+    private schedule() {
+        if (!this._isPlaying) return;
+        const delay = Math.max(0, this._nextTickAt - performance.now());
+        this.interval = setTimeout(() => {
+            this.nextTick();
+            if (!this._isPlaying) return;
+            this._nextTickAt += 1000 / this._tempo;
+            this.schedule();
+        }, delay);
+    }
+
+    private static atSongEnd(currentTick: number, song: Song | null): boolean {
+        return !!song && currentTick >= song.length;
+    }
+
+    private static getNotesAtTick(map: Map<number, Note[]>, tick: number): Note[] | undefined {
+        return map.get(tick);
+    }
+
+    private static getTempoChangeAtTick(
+        map: Map<number, TempoChange>,
+        tick: number
+    ): TempoChange | undefined {
+        return map.get(tick);
+    }
+
+    private static buildIndexes(song: Song) {
+        const tickNotes = new Map<number, Note[]>();
+        const tempoChanges = new Map<number, TempoChange>();
+
+        for (const channel of song.channels) {
+            if (channel.kind !== 'note') continue;
+            for (const section of channel.sections) {
+                const base = section.startingTick;
+                for (const note of section.notes) {
+                    const absTick = base + note.tick;
+                    const arr = tickNotes.get(absTick);
+                    if (arr) arr.push(note);
+                    else tickNotes.set(absTick, [note]);
+                }
+            }
+        }
+
+        for (const channel of song.channels) {
+            if (channel.kind !== 'tempo') continue;
+            for (const t of channel.tempoChanges) {
+                tempoChanges.set(t.tick, t);
+            }
+        }
+
+        return { tickNotes, tempoChanges };
+    }
+
+    private stopInternal() {
+        this._isPlaying = false;
+        if (this.interval) {
+            clearTimeout(this.interval);
+            this.interval = null;
+        }
+    }
 }
