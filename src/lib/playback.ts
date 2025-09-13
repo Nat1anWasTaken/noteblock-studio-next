@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { Instrument, type Note } from './noteblocks';
+import { Instrument, type Note } from './types';
 
 const soundMap: Record<Instrument, HTMLAudioElement> = browser
 	? {
