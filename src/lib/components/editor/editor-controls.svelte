@@ -7,15 +7,13 @@
         TooltipTrigger
     } from '$lib/components/ui/tooltip';
     import { LoopMode, player } from '$lib/playback.svelte';
-    import {
-        ChevronDown,
-        ChevronLeft,
-        Pause,
-        Play,
-        Repeat,
-        SkipBack,
-        Volume2
-    } from '@lucide/svelte';
+    import ChevronDown from '~icons/lucide/chevron-down';
+    import ChevronLeft from '~icons/lucide/chevron-left';
+    import Pause from '~icons/lucide/pause';
+    import Play from '~icons/lucide/play';
+    import Repeat from '~icons/lucide/repeat';
+    import SkipBack from '~icons/lucide/skip-back';
+    import Volume2 from '~icons/lucide/volume-2';
 
     const rewind = () => player.setBarBeat(0, 0);
     const togglePlay = () => (player.isPlaying ? player.pause() : player.resume());
