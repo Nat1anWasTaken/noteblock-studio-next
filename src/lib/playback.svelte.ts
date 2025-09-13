@@ -52,12 +52,12 @@ function configureBaseAudio(): void {
     // Metronome base config
     metronomeSounds.high.preload = 'auto';
     metronomeSounds.low.preload = 'auto';
-    ;(metronomeSounds.high as any).preservesPitch = false;
-    ;(metronomeSounds.high as any).mozPreservesPitch = false;
-    ;(metronomeSounds.high as any).webkitPreservesPitch = false;
-    ;(metronomeSounds.low as any).preservesPitch = false;
-    ;(metronomeSounds.low as any).mozPreservesPitch = false;
-    ;(metronomeSounds.low as any).webkitPreservesPitch = false;
+    (metronomeSounds.high as any).preservesPitch = false;
+    (metronomeSounds.high as any).mozPreservesPitch = false;
+    (metronomeSounds.high as any).webkitPreservesPitch = false;
+    (metronomeSounds.low as any).preservesPitch = false;
+    (metronomeSounds.low as any).mozPreservesPitch = false;
+    (metronomeSounds.low as any).webkitPreservesPitch = false;
 }
 
 const audioPool: Record<Instrument, HTMLAudioElement[]> = browser
@@ -422,7 +422,9 @@ export class Player {
     /**
      * Return the time-signature segment active at a tick.
      */
-    private getSegmentAtTick(tick: number): { start: number; end: number; tpb: number; bpb: number } | null {
+    private getSegmentAtTick(
+        tick: number
+    ): { start: number; end: number; tpb: number; bpb: number } | null {
         const segments = this.getSegments();
         for (const seg of segments) {
             if (tick >= seg.start && tick < seg.end) return seg;
@@ -440,7 +442,6 @@ export class Player {
             base.currentTime = 0;
         } catch {}
         base.volume = accent ? 0.65 : 0.4;
-        base.playbackRate = accent ? 1.05 : 0.95;
         void base.play();
     }
 
