@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      mode-watcher:
+        specifier: ^1.1.0
+        version: 1.1.0(svelte@5.38.10)
     devDependencies:
       '@internationalized/date':
         specifier: ^3.9.0
@@ -694,6 +698,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  mode-watcher@1.1.0:
+    resolution: {integrity: sha512-mUT9RRGPDYenk59qJauN1rhsIMKBmWA3xMF+uRwE8MW/tjhaDSCCARqkSuDTq8vr4/2KcAxIGVjACxTjdk5C3g==}
+    peerDependencies:
+      svelte: ^5.27.0
+
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
     engines: {node: '>=4'}
@@ -802,6 +811,16 @@ packages:
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
 
+  runed@0.23.4:
+    resolution: {integrity: sha512-9q8oUiBYeXIDLWNK5DfCWlkL0EW3oGbk845VdKlPeia28l751VpfesaB/+7pI6rnbx1I6rqoZ2fZxptOJLxILA==}
+    peerDependencies:
+      svelte: ^5.7.0
+
+  runed@0.25.0:
+    resolution: {integrity: sha512-7+ma4AG9FT2sWQEA0Egf6mb7PBT2vHyuHail1ie8ropfSjvZGtEAx8YTmUjv/APCsdRRxEVvArNjALk9zFSOrg==}
+    peerDependencies:
+      svelte: ^5.7.0
+
   runed@0.29.2:
     resolution: {integrity: sha512-0cq6cA6sYGZwl/FvVqjx9YN+1xEBu9sDDyuWdDW1yWX7JF2wmvmVKfH+hVCZs+csW+P3ARH92MjI3H9QTagOQA==}
     peerDependencies:
@@ -832,6 +851,12 @@ packages:
     peerDependencies:
       svelte: ^4.0.0 || ^5.0.0-next.0
       typescript: '>=5.0.0'
+
+  svelte-toolbelt@0.7.1:
+    resolution: {integrity: sha512-HcBOcR17Vx9bjaOceUvxkY3nGmbBmCBBbuWLLEWO6jtmWH8f/QoWmbyUfQZrpDINH39en1b8mptfPQT9VKQ1xQ==}
+    engines: {node: '>=18', pnpm: '>=8.7.0'}
+    peerDependencies:
+      svelte: ^5.0.0
 
   svelte-toolbelt@0.9.3:
     resolution: {integrity: sha512-HCSWxCtVmv+c6g1ACb8LTwHVbDqLKJvHpo6J8TaqwUme2hj9ATJCpjCPNISR1OCq2Q4U1KT41if9ON0isINQZw==}
@@ -1414,6 +1439,12 @@ snapshots:
 
   mkdirp@3.0.1: {}
 
+  mode-watcher@1.1.0(svelte@5.38.10):
+    dependencies:
+      runed: 0.25.0(svelte@5.38.10)
+      svelte: 5.38.10
+      svelte-toolbelt: 0.7.1(svelte@5.38.10)
+
   mri@1.2.0: {}
 
   mrmime@2.0.1: {}
@@ -1474,6 +1505,16 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.50.1
       fsevents: 2.3.3
 
+  runed@0.23.4(svelte@5.38.10):
+    dependencies:
+      esm-env: 1.2.2
+      svelte: 5.38.10
+
+  runed@0.25.0(svelte@5.38.10):
+    dependencies:
+      esm-env: 1.2.2
+      svelte: 5.38.10
+
   runed@0.29.2(svelte@5.38.10):
     dependencies:
       esm-env: 1.2.2
@@ -1508,6 +1549,13 @@ snapshots:
       typescript: 5.9.2
     transitivePeerDependencies:
       - picomatch
+
+  svelte-toolbelt@0.7.1(svelte@5.38.10):
+    dependencies:
+      clsx: 2.1.1
+      runed: 0.23.4(svelte@5.38.10)
+      style-to-object: 1.0.9
+      svelte: 5.38.10
 
   svelte-toolbelt@0.9.3(svelte@5.38.10):
     dependencies:
