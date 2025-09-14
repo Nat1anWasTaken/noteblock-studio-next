@@ -7,8 +7,10 @@
     import EditorHeader from './editor-controls.svelte';
     import NoteChannelInfo from './note-channel-info.svelte';
     import NoteSection from './note-section.svelte';
+    import PlayheadCursor from './playhead-cursor.svelte';
     import RulerRow from './ruler-row.svelte';
     import TempoChannelInfo from './tempo-channel-info.svelte';
+    import TimelineGrid from './timeline-grid.svelte';
 
     onMount(() => {
         player.setSong(sample);
@@ -25,7 +27,6 @@
         }
     });
 
-    const range = (n: number) => Array.from({ length: n }, (_, i) => i);
     const channels = $derived(player.song?.channels ?? []);
 </script>
 
@@ -36,7 +37,7 @@
         <Resizable.Pane class="bg-accent" defaultSize={32} />
         <Resizable.Handle />
         <Resizable.Pane>
-            <div class="flex h-full w-full flex-col">
+            <div class="relative flex h-full w-full flex-col">
                 <!-- Ruler / Controls Row -->
                 <RulerRow {gutterWidth} />
 
@@ -78,21 +79,7 @@
                             class="relative"
                             style={`width:${editorState.contentWidth}px; min-height:${Math.max(1, channels.length) * editorState.rowHeight}px;`}
                         >
-                            {#each range(editorState.totalBars) as barIdx}
-                                <div
-                                    class="absolute inset-y-0 border-r border-border"
-                                    style={`left:${barIdx * editorState.barWidth}px; width:${editorState.barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.25)' : ''}`}
-                                >
-                                    {#each range(editorState.beatsPerBar) as beatIdx}
-                                        {#if beatIdx > 0}
-                                            <div
-                                                class="absolute inset-y-0 border-l border-border/80"
-                                                style={`left:${beatIdx * editorState.pxPerBeat}px`}
-                                            ></div>
-                                        {/if}
-                                    {/each}
-                                </div>
-                            {/each}
+                            <TimelineGrid />
 
                             <!-- Channel row separators -->
                             {#each channels as _, i}
@@ -117,6 +104,8 @@
                         </div>
                     </div>
                 </div>
+                <!-- Single playhead overlay spanning ruler and timeline -->
+                <PlayheadCursor {gutterWidth} />
             </div>
         </Resizable.Pane>
     </Resizable.PaneGroup>

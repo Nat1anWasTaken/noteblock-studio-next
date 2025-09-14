@@ -2,7 +2,6 @@
     import Button from '$lib/components/ui/button/button.svelte';
     import { editorState } from '$lib/editor-state.svelte';
     import { cn } from '$lib/utils';
-    import { createEventDispatcher } from 'svelte';
     import Plus from '~icons/lucide/plus';
     import ZoomIn from '~icons/lucide/zoom-in';
     import ZoomOut from '~icons/lucide/zoom-out';
@@ -31,6 +30,9 @@
 
     // Render helpers
     const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+    // Unified timeline grid + playhead
+    import TimelineGrid from './timeline-grid.svelte';
 </script>
 
 <div
@@ -79,36 +81,14 @@
         onscroll={onScroll}
     >
         <div class="relative h-full" style={`width:${editorState.contentWidth}px`}>
-            <!-- Bars -->
-            {#each range(editorState.totalBars) as barIdx}
-                <div
-                    class="absolute top-0 h-full border-r border-border"
-                    style={`left:${barIdx * editorState.barWidth}px; width:${editorState.barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.25)' : ''}`}
-                >
-                    <!-- Bar label -->
-                    <div
-                        class="absolute top-1 left-1 rounded bg-secondary px-1.5 py-0.5 text-[11px] leading-none text-secondary-foreground"
-                    >
-                        {barIdx + 1}
-                    </div>
-                    <!-- Beat ticks -->
-                    {#each range(editorState.beatsPerBar) as beatIdx}
-                        {#if beatIdx > 0}
-                            <div
-                                class="absolute top-0 h-full border-l border-border/80"
-                                style={`left:${beatIdx * editorState.pxPerBeat}px`}
-                            ></div>
-                        {/if}
-                    {/each}
-                </div>
-            {/each}
+            <TimelineGrid showLabels />
         </div>
     </div>
 </div>
 
 <style>
     .scrollbar-thin::-webkit-scrollbar {
-        height: 8px;
+        height: 0px;
     }
     .scrollbar-thin::-webkit-scrollbar-thumb {
         background-color: hsl(var(--muted-foreground) / 0.25);
