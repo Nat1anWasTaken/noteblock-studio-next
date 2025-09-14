@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { disableScrollHandling } from '$app/navigation';
     import Button from '$lib/components/ui/button/button.svelte';
     import {
         TooltipContent,
@@ -7,6 +8,9 @@
         TooltipTrigger
     } from '$lib/components/ui/tooltip';
     import { LoopMode, player } from '$lib/playback.svelte';
+    import { cn } from '$lib/utils';
+    import type { Tooltip } from 'bits-ui';
+    import type { Snippet } from 'svelte';
     import ChevronDown from '~icons/lucide/chevron-down';
     import ChevronLeft from '~icons/lucide/chevron-left';
     import Pause from '~icons/lucide/pause';
@@ -14,6 +18,12 @@
     import Repeat from '~icons/lucide/repeat';
     import SkipBack from '~icons/lucide/skip-back';
     import Volume2 from '~icons/lucide/volume-2';
+
+    interface Props {
+        class?: string;
+    }
+
+    let { class: className }: Props = $props();
 
     const rewind = () => player.setBarBeat(0, 0);
     const togglePlay = () => (player.isPlaying ? player.pause() : player.resume());
@@ -75,10 +85,16 @@
     const metronomeLabel = $derived(player.metronomeEnabled ? 'Metronome: On' : 'Metronome: Off');
 </script>
 
-{#snippet tooltipped(
-    { label, children }: { label: string; children: any }
-)}
-    <TooltipRoot>
+{#snippet tooltipped({
+    label,
+    children,
+    disableCloseOnTriggerClick = false
+}: {
+    label: string;
+    children: Snippet<[{ props: any }]>;
+    disableCloseOnTriggerClick?: boolean;
+})}
+    <TooltipRoot {disableCloseOnTriggerClick}>
         <TooltipTrigger>
             {#snippet child({ props })}
                 {@render children?.({ props })}
@@ -90,7 +106,10 @@
 
 <!-- Control bar container -->
 <div
-    class="flex h-12 w-full items-center gap-3 border-b border-border bg-secondary px-3 py-8 text-secondary-foreground sm:px-4"
+    class={cn(
+        'flex h-12 w-full items-center gap-3 border-b border-border bg-secondary px-3 py-8 text-secondary-foreground sm:px-4',
+        className
+    )}
 >
     <!-- Left: Back + Project name -->
     <div class="flex min-w-0 items-center gap-2">
@@ -108,9 +127,9 @@
         <TooltipProvider>
             <!-- Transport group -->
             <div
-                class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 px-1.5 shadow-xs dark:bg-background/20"
+                class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
             >
-                {#snippet rewindBtn({ props }: { props: any })}
+                {#snippet rewindButton({ props }: { props: any })}
                     <Button
                         {...props}
                         variant="ghost"
@@ -121,9 +140,9 @@
                         <SkipBack class="size-5" />
                     </Button>
                 {/snippet}
-                {@render tooltipped({ label: 'Rewind to start', children: rewindBtn })}
+                {@render tooltipped({ label: 'Rewind to start', children: rewindButton })}
 
-                {#snippet playPauseBtn({ props }: { props: any })}
+                {#snippet playPauseButton({ props }: { props: any })}
                     <Button
                         {...props}
                         variant="ghost"
@@ -138,9 +157,12 @@
                         {/if}
                     </Button>
                 {/snippet}
-                {@render tooltipped({ label: player.isPlaying ? 'Pause' : 'Play', children: playPauseBtn })}
+                {@render tooltipped({
+                    label: player.isPlaying ? 'Pause' : 'Play',
+                    children: playPauseButton
+                })}
 
-                {#snippet loopBtn({ props }: { props: any })}
+                {#snippet loopButton({ props }: { props: any })}
                     <Button
                         {...props}
                         variant="ghost"
@@ -152,7 +174,11 @@
                         <Repeat class="size-5" />
                     </Button>
                 {/snippet}
-                {@render tooltipped({ label: loopModeLabel, children: loopBtn })}
+                {@render tooltipped({
+                    label: loopModeLabel,
+                    children: loopButton,
+                    disableCloseOnTriggerClick: true
+                })}
             </div>
 
             <!-- Position readout -->
@@ -175,8 +201,8 @@
             </div>
 
             <!-- Metronome / count-in badges -->
-            <div class="flex items-center gap-2">
-                {#snippet metronomeBtn({ props }: { props: any })}
+            <div class="flex items-center gap-2 rounded-md bg-background/20 shadow-xs">
+                {#snippet metronomeButton({ props }: { props: any })}
                     <Button
                         {...props}
                         variant="ghost"
@@ -188,7 +214,11 @@
                         <Volume2 class="size-5" />
                     </Button>
                 {/snippet}
-                {@render tooltipped({ label: metronomeLabel, children: metronomeBtn })}
+                {@render tooltipped({
+                    label: metronomeLabel,
+                    children: metronomeButton,
+                    disableCloseOnTriggerClick: true
+                })}
             </div>
         </TooltipProvider>
     </div>
