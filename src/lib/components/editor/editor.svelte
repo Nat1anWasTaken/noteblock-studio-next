@@ -22,6 +22,7 @@
     const gutterWidth = 240;
 
     let channelScroller: HTMLDivElement | null = null;
+    let timelineContentEl: HTMLDivElement | null = null;
     const onChannelsScroll = () => editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
     $effect(() => {
         if (!channelScroller) return;
@@ -92,8 +93,16 @@
                         bind:this={channelScroller}
                         class="flex-1 overflow-auto bg-background"
                         onscroll={onChannelsScroll}
+                        onpointerdown={(e) => {
+                            // Forward background clicks to the same blank-timeline handler
+                            if (e.button !== 0) return;
+                            if (e.target !== e.currentTarget) return;
+                            const contentEl = timelineContentEl;
+                            if (contentEl) editorMouse.handleTimelineBlankPointerDown(contentEl, e);
+                        }}
                     >
                         <div
+                            bind:this={timelineContentEl}
                             class="relative"
                             style={`width:${editorState.contentWidth}px; min-height:${Math.max(1, channels.length) * editorState.rowHeight}px;`}
                         >
