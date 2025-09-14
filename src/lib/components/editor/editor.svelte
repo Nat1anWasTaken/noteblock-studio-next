@@ -37,6 +37,10 @@
         editorState.ticksPerBeat > 0 ? editorState.pxPerBeat / editorState.ticksPerBeat : 0
     );
     const playheadContentX = $derived(player.currentTick * pxPerTick);
+    // Keep about one beat of space from the left edge when auto-scrolling
+    const leftPadding = $derived(
+        Math.min(240, Math.max(48, Math.round(editorState.pxPerBeat * 1)))
+    );
     $effect(() => {
         // Re-run when playhead moves or viewport changes
         const scroller = channelScroller;
@@ -54,8 +58,8 @@
         const isOutOfView = x < left + 4 || x > right - 4; // small margin
         if (!isOutOfView) return;
 
-        // Center playhead in viewport, clamped to content bounds
-        const desired = Math.round(x - viewportWidth / 2);
+        // Place playhead near the left edge (with padding), clamped to content bounds
+        const desired = Math.round(x - leftPadding);
         const maxScroll = Math.max(0, editorState.contentWidth - viewportWidth);
         const clamped = Math.min(maxScroll, Math.max(0, desired));
         if (Math.abs(clamped - left) > 1) {
