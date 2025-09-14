@@ -7,12 +7,13 @@
     import { onMount } from 'svelte';
     import EditorHeader from './editor-controls.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
-    import NoteChannelInfo from './note-channel-info.svelte';
-    import NoteSection from './note-section.svelte';
+    import NoteChannelInfo from './note-channel/note-channel-info.svelte';
+    import NoteChannel from './note-channel/note-channel.svelte';
     import PlayheadCursor from './playhead-cursor.svelte';
     import RulerRow from './ruler-row.svelte';
     import SelectionOverlay from './selection-overlay.svelte';
-    import TempoChannelInfo from './tempo-channel-info.svelte';
+    import TempoChannelInfo from './tempo-channel/tempo-channel-info.svelte';
+    import TempoChannel from './tempo-channel/tempo-channel.svelte';
     import TimelineGrid from './timeline-grid.svelte';
 
     onMount(async () => {
@@ -167,16 +168,20 @@
                                 ></div>
                             {/each}
 
-                            <!-- Render note sections for each channel -->
+                            <!-- Render channel contents: note sections or tempo markers -->
                             {#each channels as ch, chIdx}
                                 {#if ch.kind === 'note'}
-                                    {#each ch.sections as section}
-                                        <NoteSection
-                                            {section}
-                                            channelIndex={chIdx}
-                                            rowHeight={editorState.rowHeight}
-                                        />
-                                    {/each}
+                                    <NoteChannel
+                                        channel={ch}
+                                        index={chIdx}
+                                        rowHeight={editorState.rowHeight}
+                                    />
+                                {:else}
+                                    <TempoChannel
+                                        channel={ch}
+                                        index={chIdx}
+                                        rowHeight={editorState.rowHeight}
+                                    />
                                 {/if}
                             {/each}
 
