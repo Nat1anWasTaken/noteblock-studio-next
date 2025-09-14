@@ -87,7 +87,14 @@
     <EditorHeader />
 
     <Resizable.PaneGroup direction="horizontal">
-        <Resizable.Pane class="bg-accent" defaultSize={32} />
+        <Resizable.Pane class="bg-accent" defaultSize={16}>
+            <!-- Left sidebar for future tools -->
+            <div
+                class="flex h-full w-full items-center justify-center text-sm text-muted-foreground"
+            >
+                Sidebar (future)
+            </div>
+        </Resizable.Pane>
         <Resizable.Handle />
         <Resizable.Pane>
             <div class="relative flex h-full w-full flex-col">
