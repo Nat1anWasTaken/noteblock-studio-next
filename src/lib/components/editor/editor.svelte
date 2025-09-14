@@ -4,18 +4,17 @@
     import { player } from '$lib/playback.svelte';
     import { sample } from '$lib/sample-song';
     import { onMount } from 'svelte';
-    import NoteChannelInfo from './note-channel-info.svelte';
-    import TempoChannelInfo from './tempo-channel-info.svelte';
     import EditorHeader from './editor-controls.svelte';
-    import RulerRow from './ruler-row.svelte';
+    import NoteChannelInfo from './note-channel-info.svelte';
     import NoteSection from './note-section.svelte';
+    import RulerRow from './ruler-row.svelte';
+    import TempoChannelInfo from './tempo-channel-info.svelte';
 
     onMount(() => {
         player.setSong(sample);
     });
 
     const gutterWidth = 240;
-    const rowHeight = 72;
 
     let channelScroller: HTMLDivElement | null = null;
     const onChannelsScroll = () => editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
@@ -53,9 +52,17 @@
                         {:else}
                             {#each channels as ch, i}
                                 {#if ch.kind === 'note'}
-                                    <NoteChannelInfo channel={ch} index={i} height={rowHeight} />
+                                    <NoteChannelInfo
+                                        channel={ch}
+                                        index={i}
+                                        height={editorState.rowHeight}
+                                    />
                                 {:else}
-                                    <TempoChannelInfo channel={ch} index={i} height={rowHeight} />
+                                    <TempoChannelInfo
+                                        channel={ch}
+                                        index={i}
+                                        height={editorState.rowHeight}
+                                    />
                                 {/if}
                             {/each}
                         {/if}
@@ -69,7 +76,7 @@
                     >
                         <div
                             class="relative"
-                            style={`width:${editorState.contentWidth}px; min-height:${Math.max(1, channels.length) * rowHeight}px;`}
+                            style={`width:${editorState.contentWidth}px; min-height:${Math.max(1, channels.length) * editorState.rowHeight}px;`}
                         >
                             {#each range(editorState.totalBars) as barIdx}
                                 <div
@@ -91,7 +98,7 @@
                             {#each channels as _, i}
                                 <div
                                     class="pointer-events-none absolute right-0 left-0 border-b border-border"
-                                    style={`top:${(i + 1) * rowHeight}px; height:0`}
+                                    style={`top:${(i + 1) * editorState.rowHeight}px; height:0`}
                                 ></div>
                             {/each}
 
@@ -99,7 +106,11 @@
                             {#each channels as ch, chIdx}
                                 {#if ch.kind === 'note'}
                                     {#each ch.sections as section}
-                                        <NoteSection section={section} channelIndex={chIdx} rowHeight={rowHeight} />
+                                        <NoteSection
+                                            {section}
+                                            channelIndex={chIdx}
+                                            rowHeight={editorState.rowHeight}
+                                        />
                                     {/each}
                                 {/if}
                             {/each}

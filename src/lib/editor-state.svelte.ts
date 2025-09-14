@@ -26,6 +26,26 @@ export class EditorState {
     });
     contentWidth = $derived.by(() => this.totalBars * this.barWidth);
 
+    // --- Vertical zoom (row height) ---
+    baseRowHeight = 72;
+    private _rowZoom = $state(1); // 1x by default
+    minRowZoom = 0.5;
+    maxRowZoom = 2.5;
+    rowHeight = $derived(Math.round(this.baseRowHeight * this._rowZoom));
+
+    setRowZoom(z: number) {
+        const clamped = Math.min(this.maxRowZoom, Math.max(this.minRowZoom, z));
+        this._rowZoom = clamped;
+    }
+
+    zoomRowsIn(factor = 1.15) {
+        this.setRowZoom(this._rowZoom * factor);
+    }
+
+    zoomRowsOut(factor = 1.15) {
+        this.setRowZoom(this._rowZoom / factor);
+    }
+
     setPxPerBeat(px: number) {
         const clamped = Math.min(this.maxPxPerBeat, Math.max(this.minPxPerBeat, px));
         this.pxPerBeat = Math.round(clamped);
