@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as Resizable from '$lib/components/ui/resizable';
-    import { player } from '$lib/playback.svelte';
     import { editorState } from '$lib/editor-state.svelte';
+    import { player } from '$lib/playback.svelte';
     import { sample } from '$lib/sample-song';
     import { onMount } from 'svelte';
     import EditorHeader from './editor-controls.svelte';
@@ -11,7 +11,6 @@
         player.setSong(sample);
     });
 
-    // Use editorState's reactive values directly for geometry
     const gutterWidth = 240;
 
     // Sync scroll with ruler row
@@ -42,7 +41,7 @@
         <Resizable.Pane>
             <div class="flex h-full w-full flex-col">
                 <!-- Ruler / Controls Row -->
-                <RulerRow gutterWidth={gutterWidth} />
+                <RulerRow {gutterWidth} />
 
                 <!-- Channels area with ruler-matched background -->
                 <div class="flex min-h-0 flex-1 select-none">
@@ -57,12 +56,12 @@
                     <!-- Scrollable timeline region -->
                     <div
                         bind:this={channelScroller}
-                        class="relative flex-1 overflow-auto bg-background"
+                        class="flex-1 overflow-auto bg-background"
                         onscroll={onChannelsScroll}
                     >
                         <div
                             class="relative"
-                            style={`width:${Math.max(0, editorState.contentWidth)}px; min-height: 100%;`}
+                            style={`width:${editorState.contentWidth}px; min-height: 100%;`}
                         >
                             {#each range(editorState.totalBars) as barIdx}
                                 <div

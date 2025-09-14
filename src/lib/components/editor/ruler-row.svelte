@@ -2,7 +2,7 @@
     import Button from '$lib/components/ui/button/button.svelte';
     import { editorState } from '$lib/editor-state.svelte';
     import { cn } from '$lib/utils';
-    import { createEventDispatcher, type Snippet } from 'svelte';
+    import { createEventDispatcher } from 'svelte';
     import Plus from '~icons/lucide/plus';
     import ZoomIn from '~icons/lucide/zoom-in';
     import ZoomOut from '~icons/lucide/zoom-out';
@@ -16,8 +16,6 @@
     }
 
     let { class: className, gutterWidth = 240, showZoomControls = true }: Props = $props();
-
-    // Use editorState's reactive properties directly; no local derivations needed.
 
     // Sync scroll position through shared state for future channel rows
     let scroller: HTMLDivElement | null = null;
@@ -86,7 +84,7 @@
         class="scrollbar-thin relative h-full flex-1 overflow-x-auto overflow-y-hidden bg-background"
         onscroll={onScroll}
     >
-        <div class="relative h-full" style={`width:${Math.max(0, editorState.contentWidth)}px`}>
+        <div class="relative h-full" style={`width:${editorState.contentWidth}px`}>
             <!-- Bars -->
             {#each range(editorState.totalBars) as barIdx}
                 <div
