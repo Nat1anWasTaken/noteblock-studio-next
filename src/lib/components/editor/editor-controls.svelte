@@ -86,14 +86,6 @@
         }
     });
     const metronomeLabel = $derived(player.metronomeEnabled ? 'Metronome: On' : 'Metronome: Off');
-
-    const autoScrollButtonClass = $derived.by(() => {
-        return editorState.autoScrollEnabled
-            ? 'bg-blue-600 text-white hover:bg-blue-600/80 dark:hover:bg-blue-600/80 hover:text-white'
-            : '';
-    });
-
-    const autoScrollLabel = $derived(editorState.autoScrollEnabled ? 'Auto-scroll: On' : 'Auto-scroll: Off');
 </script>
 
 {#snippet tooltipped({
@@ -201,10 +193,10 @@
 
             <!-- Tempo -->
             <div
-                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none whitespace-nowrap"
+                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest whitespace-nowrap tabular-nums shadow-xs select-none"
             >
                 <span class="font-mono text-sm tabular-nums">{player.tempo.toFixed(1)}</span>
-                <span class="text-xs ml-1">ticks/s</span>
+                <span class="ml-1 text-xs">ticks/s</span>
             </div>
 
             <!-- Metronome / Auto-scroll badges -->
@@ -224,24 +216,6 @@
                 {@render tooltipped({
                     label: metronomeLabel,
                     children: metronomeButton,
-                    disableCloseOnTriggerClick: true
-                })}
-
-                {#snippet autoScrollButton({ props }: { props: any })}
-                    <Button
-                        {...props}
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Auto-scroll"
-                        onclick={toggleAutoScroll}
-                        class={autoScrollButtonClass}
-                    >
-                        <MousePointerClick class="size-5" />
-                    </Button>
-                {/snippet}
-                {@render tooltipped({
-                    label: autoScrollLabel,
-                    children: autoScrollButton,
                     disableCloseOnTriggerClick: true
                 })}
             </div>
