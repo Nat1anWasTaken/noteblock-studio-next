@@ -31,6 +31,7 @@ export interface NoteChannel extends BaseChannel {
     kind: 'note';
     sections: NoteSection[];
     pan: number; // -100 (left) to 100 (right)
+    instrument: Instrument;
 }
 
 export interface NoteSection {
@@ -42,7 +43,6 @@ export interface NoteSection {
 
 export interface Note {
     tick: number; // The tick at which the note is played, relative the note's section
-    instrument: Instrument;
     key: number; // From 0-87, where 0 is A0 and 87 is C8. 33-57 is within the 2-octave limit.
     velocity: number;
     pitch: number; // -1200 (lower) to 1200 (higher)

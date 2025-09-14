@@ -6,6 +6,7 @@ export const sample: Song = {
     channels: [
         {
             kind: 'note',
+            instrument: Instrument.Piano,
             name: 'Piano',
             pan: 0,
             sections: [
@@ -15,49 +16,42 @@ export const sample: Song = {
                     notes: [
                         {
                             tick: 0,
-                            instrument: Instrument.Piano,
                             key: 39,
                             velocity: 100,
                             pitch: 0
                         },
                         {
                             tick: 10,
-                            instrument: Instrument.Piano,
                             key: 39,
                             velocity: 100,
                             pitch: 0
                         },
                         {
                             tick: 20,
-                            instrument: Instrument.Piano,
                             key: 46,
                             velocity: 100,
                             pitch: 0
                         },
                         {
                             tick: 30,
-                            instrument: Instrument.Piano,
                             key: 46,
                             velocity: 100,
                             pitch: 0
                         },
                         {
                             tick: 40,
-                            instrument: Instrument.Piano,
                             key: 48,
                             velocity: 100,
                             pitch: 0
                         },
                         {
                             tick: 50,
-                            instrument: Instrument.Piano,
                             key: 48,
                             velocity: 100,
                             pitch: 0
                         },
                         {
                             tick: 60,
-                            instrument: Instrument.Piano,
                             key: 46,
                             velocity: 100,
                             pitch: 0

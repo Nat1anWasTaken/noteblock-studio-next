@@ -108,8 +108,8 @@ configureBaseAudio();
  * See `src/lib/noteblocks.ts` for the `Note` shape and value ranges
  * (e.g., `key` 0–87, `velocity` 0–100, `pitch` in cents).
  */
-export async function playNote(note: Note) {
-    return await playSound(note.instrument, note.key, note.velocity, note.pitch);
+export async function playNote(note: Note, instrument: Instrument) {
+    return await playSound(instrument, note.key, note.velocity, note.pitch);
 }
 
 /**
@@ -159,7 +159,7 @@ export class Player {
 
     private interval: ReturnType<typeof setTimeout> | null = null;
     private _nextTickAt = 0;
-    private _tickNotes: Map<number, Note[]> = new Map();
+    private _tickNotes: Map<number, Array<{ note: Note; instrument: Instrument }>> = new Map();
     private _tempoChanges: Map<number, TempoChange> = new Map();
 
     public song: Song | null = null;
@@ -325,7 +325,7 @@ export class Player {
         }
         const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
         if (notes) {
-            for (const n of notes) playNote(n);
+            for (const { note, instrument } of notes) playNote(note, instrument);
         }
         const change = Player.getTempoChangeAtTick(this._tempoChanges, this._currentTick);
         if (change) {
@@ -449,7 +449,7 @@ export class Player {
         return !!song && currentTick >= song.length;
     }
 
-    private static getNotesAtTick(map: Map<number, Note[]>, tick: number): Note[] | undefined {
+    private static getNotesAtTick(map: Map<number, Array<{ note: Note; instrument: Instrument }>>, tick: number): Array<{ note: Note; instrument: Instrument }> | undefined {
         return map.get(tick);
     }
 
@@ -461,7 +461,7 @@ export class Player {
     }
 
     private static buildIndexes(song: Song) {
-        const tickNotes = new Map<number, Note[]>();
+        const tickNotes = new Map<number, Array<{ note: Note; instrument: Instrument }>>();
         const tempoChanges = new Map<number, TempoChange>();
 
         for (const channel of song.channels) {
@@ -471,8 +471,8 @@ export class Player {
                 for (const note of section.notes) {
                     const absTick = base + note.tick;
                     const arr = tickNotes.get(absTick);
-                    if (arr) arr.push(note);
-                    else tickNotes.set(absTick, [note]);
+                    if (arr) arr.push({ note, instrument: channel.instrument });
+                    else tickNotes.set(absTick, [{ note, instrument: channel.instrument }]);
                 }
             }
         }
