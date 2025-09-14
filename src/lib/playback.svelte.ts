@@ -253,6 +253,60 @@ export class Player {
         this.resyncSchedulerOnStateChange();
     }
 
+    /** Set the playback tempo in ticks per second.
+     * If a song is loaded, update the last tempo-change event's tempo (prefer the last one
+     * at or before the current tick). Otherwise, just set the internal tempo.
+     */
+    setTempo(tempo: number) {
+        if (!(tempo > 0)) return;
+
+
+        if (this.song && this._tempoChangeList.length > 0) {
+            // Find the last tempo change at or before the current tick
+            let idx = -1;
+            for (let i = 0; i < this._tempoChangeList.length; i++) {
+                const ch = this._tempoChangeList[i];
+                if (ch.tick <= this._currentTick) idx = i;
+                else break;
+            }
+            if (idx === -1) idx = this._tempoChangeList.length - 1; // fallback to last change in song
+
+            const target = this._tempoChangeList[idx];
+            if (target) {
+                // Update the change object
+                target.tempo = tempo;
+
+                // Mirror update into the map (same object instance, but keep map consistent)
+                const existing = this._tempoChanges.get(target.tick);
+                if (existing) existing.tempo = tempo;
+                this._tempoChanges.set(target.tick, target);
+
+                // Update the underlying song channel data
+                for (const ch of this.song.channels) {
+                    if (ch.kind !== 'tempo') continue;
+                    for (const t of ch.tempoChanges) {
+                        if (t.tick === target.tick) {
+                            t.tempo = tempo;
+                        }
+                    }
+                }
+
+                // Keep Song.tempo in sync if we edited the very first change at tick 0
+                if (target.tick === 0) this.song.tempo = tempo;
+
+                // If that change is currently active, also reflect immediately in the player
+                if (target.tick <= this._currentTick) this._tempo = tempo;
+
+                this.resyncSchedulerOnStateChange();
+                return;
+            }
+        }
+
+        // Fallback: no song or no tempo changes; set internal tempo directly
+        this._tempo = tempo;
+        this.resyncSchedulerOnStateChange();
+    }
+
     /**
      * Set selection start tick (inclusive). Clamps to valid range.
      */
@@ -613,9 +667,8 @@ export class Player {
     }
 
     private getTempoAtTick(tick: number): number {
-        // Default to base tempo if no song
-        if (!this.song) return this._tempo;
-        let tempo = this.song.tempo ?? this._tempo;
+        // Follow song tempo changes; fall back to current/base tempo
+        let tempo = this._tempo;
         for (let i = 0; i < this._tempoChangeList.length; i++) {
             const ch = this._tempoChangeList[i];
             if (ch.tick <= tick) tempo = ch.tempo;
