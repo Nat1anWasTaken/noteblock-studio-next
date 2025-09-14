@@ -1,4 +1,5 @@
 // Shared editor UI state for channels/ruler (Svelte 5 runes)
+import { player } from './playback.svelte';
 
 export class EditorState {
     // Zoom represented as pixels per beat for stable feel across signatures
@@ -8,6 +9,22 @@ export class EditorState {
 
     // Horizontal scroll sync across ruler and channel rows
     scrollLeft = $state(0);
+
+    // Player-linked reactive values (single source of truth for grid geometry)
+    ticksPerBeat = $derived(player.ticksPerBeat);
+    beatsPerBar = $derived(player.beatsPerBar);
+    lengthTicks = $derived(player.song?.length ?? 0);
+
+    // Derived grid geometry based on zoom and player values
+    barWidth = $derived(this.pxPerBeat * Math.max(1, this.beatsPerBar));
+    // Fallback bars to show when no song is loaded/length is 0
+    defaultBars = 64;
+    totalBars = $derived.by(() => {
+        if (!this.lengthTicks) return this.defaultBars;
+        const ticksPerBar = Math.max(1, this.ticksPerBeat * this.beatsPerBar);
+        return Math.ceil(this.lengthTicks / ticksPerBar);
+    });
+    contentWidth = $derived.by(() => this.totalBars * this.barWidth);
 
     setPxPerBeat(px: number) {
         const clamped = Math.min(this.maxPxPerBeat, Math.max(this.minPxPerBeat, px));

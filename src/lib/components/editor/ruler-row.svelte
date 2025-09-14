@@ -1,7 +1,6 @@
 <script lang="ts">
     import Button from '$lib/components/ui/button/button.svelte';
     import { editorState } from '$lib/editor-state.svelte';
-    import { player } from '$lib/playback.svelte';
     import { cn } from '$lib/utils';
     import { createEventDispatcher, type Snippet } from 'svelte';
     import Plus from '~icons/lucide/plus';
@@ -18,20 +17,7 @@
 
     let { class: className, gutterWidth = 240, showZoomControls = true }: Props = $props();
 
-    // Derived geometry based on current song/time signature and zoom
-    const tpb = $derived(player.ticksPerBeat);
-    const bpb = $derived(player.beatsPerBar);
-    const pxPerBeat = $derived(editorState.pxPerBeat);
-    const pxPerTick = $derived(pxPerBeat / Math.max(1, tpb));
-    const barWidth = $derived(pxPerBeat * Math.max(1, bpb));
-    const lengthTicks = $derived(player.song?.length ?? 0);
-    const DEFAULT_BARS = 64;
-    const totalBars = $derived.by(() => {
-        if (!lengthTicks) return DEFAULT_BARS; // show a grid even without a song
-        const ticksPerBar = Math.max(1, tpb * bpb);
-        return Math.ceil(lengthTicks / ticksPerBar);
-    });
-    const contentWidth = $derived.by(() => totalBars * barWidth);
+    // Use editorState's reactive properties directly; no local derivations needed.
 
     // Sync scroll position through shared state for future channel rows
     let scroller: HTMLDivElement | null = null;
@@ -80,7 +66,7 @@
                     <ZoomOut class="size-4" />
                 </Button>
                 <div class="min-w-14 text-center font-mono text-xs tabular-nums">
-                    {Math.round(pxPerBeat)} px/beat
+                    {Math.round(editorState.pxPerBeat)} px/beat
                 </div>
                 <Button
                     variant="ghost"
@@ -100,12 +86,12 @@
         class="scrollbar-thin relative h-full flex-1 overflow-x-auto overflow-y-hidden bg-background"
         onscroll={onScroll}
     >
-        <div class="relative h-full" style={`width:${Math.max(0, contentWidth)}px`}>
+        <div class="relative h-full" style={`width:${Math.max(0, editorState.contentWidth)}px`}>
             <!-- Bars -->
-            {#each range(totalBars) as barIdx}
+            {#each range(editorState.totalBars) as barIdx}
                 <div
-                    class="absolute top-0 h-full border-r border-border bg-transparent"
-                    style={`left:${barIdx * barWidth}px; width:${barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.25)' : ''}`}
+                    class="absolute top-0 h-full border-r border-border"
+                    style={`left:${barIdx * editorState.barWidth}px; width:${editorState.barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.25)' : ''}`}
                 >
                     <!-- Bar label -->
                     <div
@@ -114,11 +100,11 @@
                         {barIdx + 1}
                     </div>
                     <!-- Beat ticks -->
-                    {#each range(bpb) as beatIdx}
+                    {#each range(editorState.beatsPerBar) as beatIdx}
                         {#if beatIdx > 0}
                             <div
                                 class="absolute top-0 h-full border-l border-border/80"
-                                style={`left:${beatIdx * pxPerBeat}px`}
+                                style={`left:${beatIdx * editorState.pxPerBeat}px`}
                             ></div>
                         {/if}
                     {/each}
