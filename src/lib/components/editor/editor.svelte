@@ -1,21 +1,22 @@
 <script lang="ts">
     import * as Resizable from '$lib/components/ui/resizable';
+    import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
-    import { sample } from '$lib/sample-song';
+    import { getSampleSong } from '$lib/sample-song';
     import { onMount } from 'svelte';
     import EditorHeader from './editor-controls.svelte';
+    import MouseWindowEvents from './mouse-window-events.svelte';
     import NoteChannelInfo from './note-channel-info.svelte';
     import NoteSection from './note-section.svelte';
     import PlayheadCursor from './playhead-cursor.svelte';
     import RulerRow from './ruler-row.svelte';
+    import SelectionOverlay from './selection-overlay.svelte';
     import TempoChannelInfo from './tempo-channel-info.svelte';
     import TimelineGrid from './timeline-grid.svelte';
-    import SelectionOverlay from './selection-overlay.svelte';
-    import { editorMouse } from '$lib/editor-mouse.svelte';
-    import MouseWindowEvents from './mouse-window-events.svelte';
 
-    onMount(() => {
+    onMount(async () => {
+        const sample = await getSampleSong();
         player.setSong(sample);
     });
 
@@ -106,7 +107,6 @@
                             class="relative"
                             style={`width:${editorState.contentWidth}px; min-height:${Math.max(1, channels.length) * editorState.rowHeight}px;`}
                         >
-
                             <!-- Blank interaction layer (under sections): click/drag to scrub time -->
                             <div
                                 class={`absolute inset-0 z-0 ${editorMouse.isScrubbing ? 'cursor-ew-resize' : 'cursor-default'}`}
@@ -144,9 +144,9 @@
                 </div>
                 <!-- Single playhead overlay spanning ruler and timeline -->
                 <!-- Single grid overlay spanning ruler and timeline -->
-                <TimelineGrid gutterWidth={gutterWidth} showLabels />
+                <TimelineGrid {gutterWidth} showLabels />
                 <!-- Single selection overlay spanning ruler and timeline, under cursor -->
-                <SelectionOverlay gutterWidth={gutterWidth} />
+                <SelectionOverlay {gutterWidth} />
                 <PlayheadCursor {gutterWidth} />
             </div>
         </Resizable.Pane>
