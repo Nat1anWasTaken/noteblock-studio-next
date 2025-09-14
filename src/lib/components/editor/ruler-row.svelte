@@ -29,12 +29,6 @@
         }
     });
 
-    const dispatch = createEventDispatcher<{ 'create-channel': void }>();
-    // Emit a create-channel event for parent handlers
-    const createChannel = () => {
-        dispatch('create-channel');
-    };
-
     // Render helpers
     const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 </script>
@@ -50,7 +44,7 @@
         class="flex items-center gap-2 border-r border-border px-3 py-2"
         style={`width:${gutterWidth}px`}
     >
-        <Button size="icon" onclick={createChannel} aria-label="Create channel">
+        <Button size="icon" aria-label="Create channel">
             <Plus class="size-4" />
         </Button>
         {#if showZoomControls}
