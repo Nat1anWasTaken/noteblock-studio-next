@@ -8,6 +8,7 @@
     import TempoChannelInfo from './tempo-channel-info.svelte';
     import EditorHeader from './editor-controls.svelte';
     import RulerRow from './ruler-row.svelte';
+    import NoteSection from './note-section.svelte';
 
     onMount(() => {
         player.setSong(sample);
@@ -92,6 +93,15 @@
                                     class="pointer-events-none absolute right-0 left-0 border-b border-border"
                                     style={`top:${(i + 1) * rowHeight}px; height:0`}
                                 ></div>
+                            {/each}
+
+                            <!-- Render note sections for each channel -->
+                            {#each channels as ch, chIdx}
+                                {#if ch.kind === 'note'}
+                                    {#each ch.sections as section}
+                                        <NoteSection section={section} channelIndex={chIdx} rowHeight={rowHeight} />
+                                    {/each}
+                                {/if}
                             {/each}
                         </div>
                     </div>
