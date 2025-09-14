@@ -4,6 +4,7 @@
     import { sample } from '$lib/sample-song';
     import { onMount } from 'svelte';
     import EditorHeader from './editor-controls.svelte';
+    import RulerRow from './ruler-row.svelte';
 
     onMount(() => {
         player.setSong(sample);
@@ -22,6 +23,16 @@
             <p class="text-muted-foreground">Placeholder for channel control...</p>
         </Resizable.Pane>
         <Resizable.Handle />
-        <Resizable.Pane>Channels</Resizable.Pane>
+        <Resizable.Pane>
+            <div class="flex h-full w-full flex-col">
+                <!-- Ruler / Controls Row -->
+                <RulerRow gutterWidth={240} />
+
+                <!-- Channels rows placeholder (to be implemented) -->
+                <div class="flex-1 overflow-auto bg-background/60">
+                    <div class="p-4 text-sm text-muted-foreground">Channel rows will appear here…</div>
+                </div>
+            </div>
+        </Resizable.Pane>
     </Resizable.PaneGroup>
 </div>
