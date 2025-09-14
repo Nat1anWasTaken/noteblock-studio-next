@@ -172,6 +172,7 @@ export class Player {
     private _nextTickToSchedule = 0;
     private _nextNoteTime = 0; // in audioCtx.currentTime seconds
     private _muteTickAudio = false; // suppress audio inside nextTick() when UI-updating
+    private _scheduled: Array<{ node: AudioBufferSourceNode; when: number; tick: number }> = [];
 
     // Cached sorted tempo changes for quick lookup
     private _tempoChangeList: TempoChange[] = [];
@@ -243,11 +244,13 @@ export class Player {
      */
     setLoopMode(mode: LoopMode) {
         this._loopMode = mode;
+        this.resyncSchedulerOnStateChange();
     }
 
     /** Enable or disable the metronome clicks during playback. */
     setMetronomeEnabled(on: boolean) {
         this._metronomeEnabled = !!on;
+        this.resyncSchedulerOnStateChange();
     }
 
     /**
@@ -260,6 +263,7 @@ export class Player {
         if (this._selectionEnd !== null && this._selectionEnd < clamped) {
             this._selectionEnd = clamped;
         }
+        this.resyncSchedulerOnStateChange();
     }
 
     /**
@@ -272,6 +276,7 @@ export class Player {
         if (this._selectionStart !== null && this._selectionStart > clamped) {
             this._selectionStart = clamped;
         }
+        this.resyncSchedulerOnStateChange();
     }
 
     /**
@@ -280,6 +285,7 @@ export class Player {
     setCurrentBar(bar: number) {
         const { tick } = this.findTickForBarBeat(Math.max(0, bar | 0), 0);
         this._currentTick = this.clampTick(tick);
+        this.resyncSchedulerOnSeek();
     }
 
     /**
@@ -289,6 +295,7 @@ export class Player {
         const bar = this.currentBar;
         const { tick } = this.findTickForBarBeat(bar, Math.max(0, beat | 0));
         this._currentTick = this.clampTick(tick);
+        this.resyncSchedulerOnSeek();
     }
 
     /**
@@ -297,6 +304,7 @@ export class Player {
     setBarBeat(bar: number, beat: number) {
         const { tick } = this.findTickForBarBeat(Math.max(0, bar | 0), Math.max(0, beat | 0));
         this._currentTick = this.clampTick(tick);
+        this.resyncSchedulerOnSeek();
     }
 
     /**
@@ -305,6 +313,7 @@ export class Player {
      */
     setCurrentTick(tick: number) {
         this._currentTick = Math.max(0, tick | 0);
+        this.resyncSchedulerOnSeek();
     }
 
     /**
@@ -313,6 +322,7 @@ export class Player {
     clearSelection() {
         this._selectionStart = null;
         this._selectionEnd = null;
+        this.resyncSchedulerOnStateChange();
     }
 
     /** Clamp an arbitrary tick to [0, song.length] if a song is loaded, or [0, +Inf) otherwise. */
@@ -421,6 +431,8 @@ export class Player {
             clearInterval(this._schedulerTimer);
             this._schedulerTimer = null;
         }
+        // Cancel any scheduled audio from now on
+        this.cancelScheduledFromNow();
     }
 
     /**
@@ -448,6 +460,9 @@ export class Player {
             // Keep consistent invariant start <= end
             this._selectionEnd = this._selectionStart;
         }
+
+        // If playing, ensure scheduler respects the new state
+        this.resyncSchedulerOnStateChange();
     }
 
     private scheduleUi() {
@@ -660,7 +675,7 @@ export class Player {
 
             // Schedule notes for this tick
             const notes = Player.getNotesAtTick(this._tickNotes, this._nextTickToSchedule) ?? [];
-            for (const { note, instrument } of notes) this.scheduleNote(instrument, note, this._nextNoteTime);
+            for (const { note, instrument } of notes) this.scheduleNote(instrument, note, this._nextNoteTime, this._nextTickToSchedule);
 
             // Metronome on beat boundaries
             if (this._metronomeEnabled) {
@@ -669,7 +684,7 @@ export class Player {
                 if (tpb > 0 && ticksInto >= 0 && ticksInto % tpb === 0) {
                     const beatsInto = Math.floor(ticksInto / tpb);
                     const beatInBar = beatsInto % bpb;
-                    this.scheduleMetronome(this._nextNoteTime, beatInBar === 0);
+                    this.scheduleMetronome(this._nextNoteTime, beatInBar === 0, this._nextTickToSchedule);
                 }
             }
 
@@ -681,7 +696,7 @@ export class Player {
         }
     }
 
-    private scheduleNote(instrument: Instrument, note: Note, when: number) {
+    private scheduleNote(instrument: Instrument, note: Note, when: number, tick: number) {
         if (!this._audioCtx) return;
         const ctx = this._audioCtx;
         const buf = this._buffers.get(instrument);
@@ -709,9 +724,10 @@ export class Player {
                 src.start();
             } catch {}
         }
+        this.trackScheduled(src, when, tick);
     }
 
-    private scheduleMetronome(when: number, accent: boolean) {
+    private scheduleMetronome(when: number, accent: boolean, tick: number) {
         if (!this._audioCtx || !this._metronomeBuffer) return;
         const ctx = this._audioCtx;
         const src = ctx.createBufferSource();
@@ -726,6 +742,46 @@ export class Player {
                 src.start();
             } catch {}
         }
+        this.trackScheduled(src, when, tick);
+    }
+
+    private trackScheduled(node: AudioBufferSourceNode, when: number, tick: number) {
+        this._scheduled.push({ node, when, tick });
+        node.onended = () => {
+            this._scheduled = this._scheduled.filter((e) => e.node !== node);
+        };
+    }
+
+    private cancelScheduledFromNow() {
+        if (!this._audioCtx) return;
+        const now = this._audioCtx.currentTime - 0.002;
+        for (const e of this._scheduled) {
+            if (e.when >= now) {
+                try {
+                    e.node.stop(0);
+                } catch {}
+            }
+        }
+        this._scheduled = [];
+    }
+
+    private resyncSchedulerOnSeek() {
+        this._nextTickAt = performance.now();
+        if (!this._isPlaying) return;
+        if (!this._audioCtx) return;
+        this.cancelScheduledFromNow();
+        this._nextTickToSchedule = this._currentTick;
+        this._nextNoteTime = this._audioCtx.currentTime;
+        this.schedulerLoop();
+    }
+
+    private resyncSchedulerOnStateChange() {
+        if (!this._isPlaying) return;
+        if (!this._audioCtx) return;
+        this.cancelScheduledFromNow();
+        this._nextTickToSchedule = this._currentTick;
+        this._nextNoteTime = this._audioCtx.currentTime;
+        this.schedulerLoop();
     }
 
     /**
