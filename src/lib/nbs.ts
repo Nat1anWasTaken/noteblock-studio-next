@@ -1,5 +1,11 @@
-import type { Song as NbsSong, Note as NbsNote } from '@nbsjs/core';
-import { Instrument, type Note as AppNote, type NoteChannel, type Song, type TempoChannel } from './types';
+import type { Note as NbsNote, Song as NbsSong } from '@nbsjs/core';
+import {
+    Instrument,
+    type Note as AppNote,
+    type NoteChannel,
+    type Song,
+    type TempoChannel
+} from './types';
 
 export type ChannelSeparationMode = 'per-instrument' | 'per-layer';
 
@@ -10,19 +16,14 @@ export type ChannelSeparationMode = 'per-instrument' | 'per-layer';
  *  - 'per-instrument': merge all layers, group notes by instrument into a channel
  *  - 'per-layer': keep original layers; if a layer has multiple instruments, split into multiple channels
  */
-export function convertNbsSong(
-    nbs: NbsSong,
-    mode: ChannelSeparationMode = 'per-layer'
-): Song {
+export function convertNbsSong(nbs: NbsSong, mode: ChannelSeparationMode = 'per-layer'): Song {
     const length = nbs.getLength();
     const tempo = nbs.getTempo(); // ticks per second
     const beatsPerBar = clampNumber(nbs.timeSignature ?? 4, 1, 32);
-    const ticksPerBeat = 10; // default grid density used by the editor/playback
+    const ticksPerBeat = 8; // default grid density used by the editor/playback
 
     const noteChannels: NoteChannel[] =
-        mode === 'per-instrument'
-            ? buildChannelsPerInstrument(nbs)
-            : buildChannelsPerLayer(nbs);
+        mode === 'per-instrument' ? buildChannelsPerInstrument(nbs) : buildChannelsPerLayer(nbs);
 
     // Add a single tempo channel at tick 0 using song's tempo and time signature
     const tempoChannel: TempoChannel = {
@@ -43,7 +44,7 @@ export function convertNbsSong(
         tempo,
         channels: [tempoChannel, ...noteChannels],
         name: nbs.name ?? '',
-        author: (nbs.author ?? nbs.originalAuthor) ?? '',
+        author: nbs.author ?? nbs.originalAuthor ?? '',
         description: nbs.description ?? ''
     };
 }
@@ -76,14 +77,14 @@ function buildChannelsPerInstrument(nbs: NbsSong): NoteChannel[] {
             }
         ];
 
-            channels.push({
-                kind: 'note',
-                name: getInstrumentName(inst as Instrument),
-                instrument: inst as Instrument,
-                pan: 0,
-                sections
-            });
-        }
+        channels.push({
+            kind: 'note',
+            name: getInstrumentName(inst as Instrument),
+            instrument: inst as Instrument,
+            pan: 0,
+            sections
+        });
+    }
 
     // Stable order by instrument id
     channels.sort((a, b) => (a.instrument as number) - (b.instrument as number));
