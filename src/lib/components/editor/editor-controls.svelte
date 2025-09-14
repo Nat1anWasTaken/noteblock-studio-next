@@ -112,7 +112,7 @@
     )}
 >
     <!-- Left: Back + Project name -->
-    <div class="flex min-w-0 items-center gap-2">
+    <div class="flex flex-1 items-center gap-2">
         <Button variant="ghost" size="icon" aria-label="Back" class="text-primary">
             <ChevronLeft class="size-5" />
         </Button>
@@ -123,7 +123,7 @@
     </div>
 
     <!-- Center: Transport + readouts -->
-    <div class="mx-auto flex items-center gap-2">
+    <div class="flex flex-1 items-center justify-center gap-2">
         <TooltipProvider>
             <!-- Transport group -->
             <div
@@ -224,7 +224,7 @@
     </div>
 
     <!-- Right: Placeholder actions (undo, help, more) -->
-    <div class="ml-auto flex items-center gap-1.5">
+    <div class="flex flex-1 items-center justify-end gap-1.5">
         <div class="hidden text-sm text-muted-foreground/80 sm:block">Controls</div>
         <div class="size-2 rounded-full bg-muted-foreground/30"></div>
     </div>
