@@ -7,12 +7,14 @@
         Tooltip as TooltipRoot,
         TooltipTrigger
     } from '$lib/components/ui/tooltip';
+    import { editorState } from '$lib/editor-state.svelte';
     import { LoopMode, player } from '$lib/playback.svelte';
     import { cn } from '$lib/utils';
     import type { Tooltip } from 'bits-ui';
     import type { Snippet } from 'svelte';
     import ChevronDown from '~icons/lucide/chevron-down';
     import ChevronLeft from '~icons/lucide/chevron-left';
+    import MousePointerClick from '~icons/lucide/mouse-pointer-click';
     import Pause from '~icons/lucide/pause';
     import Play from '~icons/lucide/play';
     import Repeat from '~icons/lucide/repeat';
@@ -42,6 +44,7 @@
         }
     };
     const toggleMetronome = () => player.setMetronomeEnabled(!player.metronomeEnabled);
+    const toggleAutoScroll = () => editorState.setAutoScrollEnabled(!editorState.autoScrollEnabled);
 
     const positionBar = $derived(String(player.currentBar + 1).padStart(3, '0'));
     const positionBeat = $derived(String(player.currentBeat + 1).padStart(2, '0'));
@@ -83,6 +86,14 @@
         }
     });
     const metronomeLabel = $derived(player.metronomeEnabled ? 'Metronome: On' : 'Metronome: Off');
+
+    const autoScrollButtonClass = $derived.by(() => {
+        return editorState.autoScrollEnabled
+            ? 'bg-blue-600 text-white hover:bg-blue-600/80 dark:hover:bg-blue-600/80 hover:text-white'
+            : '';
+    });
+
+    const autoScrollLabel = $derived(editorState.autoScrollEnabled ? 'Auto-scroll: On' : 'Auto-scroll: Off');
 </script>
 
 {#snippet tooltipped({
@@ -185,22 +196,18 @@
             <div
                 class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
             >
-                {positionBar}
-                {positionBeat}
-                {positionTickInBeat}
+                {positionBar}:{positionBeat}:{positionTickInBeat}
             </div>
 
             <!-- Tempo -->
             <div
-                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
+                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none whitespace-nowrap"
             >
-                <div class="rounded-sm">
-                    <span class="font-mono text-sm tabular-nums">{player.tempo.toFixed(1)}</span>
-                    <span class="text-xs">ticks / s</span>
-                </div>
+                <span class="font-mono text-sm tabular-nums">{player.tempo.toFixed(1)}</span>
+                <span class="text-xs ml-1">ticks/s</span>
             </div>
 
-            <!-- Metronome / count-in badges -->
+            <!-- Metronome / Auto-scroll badges -->
             <div class="flex items-center gap-2 rounded-md bg-background/20 shadow-xs">
                 {#snippet metronomeButton({ props }: { props: any })}
                     <Button
@@ -217,6 +224,24 @@
                 {@render tooltipped({
                     label: metronomeLabel,
                     children: metronomeButton,
+                    disableCloseOnTriggerClick: true
+                })}
+
+                {#snippet autoScrollButton({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Auto-scroll"
+                        onclick={toggleAutoScroll}
+                        class={autoScrollButtonClass}
+                    >
+                        <MousePointerClick class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({
+                    label: autoScrollLabel,
+                    children: autoScrollButton,
                     disableCloseOnTriggerClick: true
                 })}
             </div>
