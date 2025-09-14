@@ -4,7 +4,8 @@
     import { player } from '$lib/playback.svelte';
     import { sample } from '$lib/sample-song';
     import { onMount } from 'svelte';
-    import ChannelRow from './channel-row.svelte';
+    import NoteChannelInfo from './note-channel-info.svelte';
+    import TempoChannelInfo from './tempo-channel-info.svelte';
     import EditorHeader from './editor-controls.svelte';
     import RulerRow from './ruler-row.svelte';
 
@@ -15,7 +16,6 @@
     const gutterWidth = 240;
     const rowHeight = 72;
 
-    // Sync scroll with ruler row
     let channelScroller: HTMLDivElement | null = null;
     const onChannelsScroll = () => editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
     $effect(() => {
@@ -27,20 +27,13 @@
 
     const range = (n: number) => Array.from({ length: n }, (_, i) => i);
     const channels = $derived(player.song?.channels ?? []);
-    $inspect(channels);
 </script>
 
 <div class="flex h-screen flex-col">
     <EditorHeader />
 
     <Resizable.PaneGroup direction="horizontal">
-        <Resizable.Pane
-            class="flex flex-col items-center justify-center bg-accent"
-            defaultSize={32}
-        >
-            <h1>Channel Control</h1>
-            <p class="text-muted-foreground">Placeholder for channel control...</p>
-        </Resizable.Pane>
+        <Resizable.Pane class="bg-accent" defaultSize={32} />
         <Resizable.Handle />
         <Resizable.Pane>
             <div class="flex h-full w-full flex-col">
@@ -58,7 +51,11 @@
                             <div class="px-3 py-2 text-sm text-muted-foreground">No channels</div>
                         {:else}
                             {#each channels as ch, i}
-                                <ChannelRow channel={ch} index={i} height={rowHeight} />
+                                {#if ch.kind === 'note'}
+                                    <NoteChannelInfo channel={ch} index={i} height={rowHeight} />
+                                {:else}
+                                    <TempoChannelInfo channel={ch} index={i} height={rowHeight} />
+                                {/if}
                             {/each}
                         {/if}
                     </div>

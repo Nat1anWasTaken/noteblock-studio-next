@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { Instrument, type Channel } from '$lib/types';
+    import type { NoteChannel } from '$lib/types';
+    import { Instrument } from '$lib/types';
 
     interface Props {
-        channel: Channel;
+        channel: NoteChannel;
         index?: number;
         height?: number;
     }
@@ -28,34 +29,19 @@
         [Instrument.Pling]: '/instruments/pling.png'
     } as const;
 
-    function getIcon(): string | null {
-        if (channel.kind !== 'note') return null;
-        return instrumentIcon[channel.instrument] ?? null;
-    }
+    const icon = $derived(instrumentIcon[channel.instrument]);
 </script>
 
 <div class="flex w-full items-stretch border-b border-border text-sm" style={`height:${height}px`}>
-    <!-- Channel index + status column -->
     <div class="flex w-10 flex-col items-center justify-center gap-1 border-r border-border/70">
         <div class="text-muted-foreground">{index + 1}</div>
         <div class="size-1.5 rounded-full bg-muted-foreground/40"></div>
     </div>
-
-    <!-- Channel title + icon -->
     <div class="flex min-w-0 flex-1 items-center justify-between px-3 py-2">
-        <div class="min-w-0">
-            <div class="truncate text-base/5 font-medium">{channel.name}</div>
-        </div>
-        {#if channel.kind === 'note'}
-            {#if getIcon()}
-                <img src={getIcon()!} alt="instrument" class="w-aut h-10 rounded-sm" />
-            {/if}
-        {:else}
-            <div
-                class="ml-2 rounded bg-secondary px-1.5 py-0.5 text-[11px] text-secondary-foreground select-none"
-            >
-                Tempo
-            </div>
+        <div class="truncate text-base/5 font-medium">{channel.name}</div>
+        {#if icon}
+            <img src={icon} alt="instrument" class="h-10 w-auto rounded-sm" />
         {/if}
     </div>
 </div>
+
