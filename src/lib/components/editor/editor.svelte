@@ -28,7 +28,20 @@
     });
 
     const channels = $derived(player.song?.channels ?? []);
+
+    function handleKeyDown(e: KeyboardEvent) {
+        if (e.code === 'Space' && e.target === document.body) {
+            e.preventDefault();
+            if (player.isPlaying) {
+                player.pause();
+            } else {
+                player.resume();
+            }
+        }
+    }
 </script>
+
+<svelte:window onkeydown={handleKeyDown} />
 
 <div class="flex h-screen flex-col">
     <EditorHeader />
