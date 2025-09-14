@@ -32,6 +32,37 @@
         }
     });
 
+    // Auto-follow playhead: when the cursor goes out of view, center it
+    const pxPerTick = $derived(
+        editorState.ticksPerBeat > 0 ? editorState.pxPerBeat / editorState.ticksPerBeat : 0
+    );
+    const playheadContentX = $derived(player.currentTick * pxPerTick);
+    $effect(() => {
+        // Re-run when playhead moves or viewport changes
+        const scroller = channelScroller;
+        if (!scroller) return;
+        const viewportWidth = scroller.clientWidth;
+        if (viewportWidth <= 0) return;
+
+        const left = editorState.scrollLeft;
+        const right = left + viewportWidth;
+        const x = playheadContentX;
+
+        // Only auto-scroll while playing and enabled to avoid fighting manual seeks
+        if (!player.isPlaying || !editorState.autoScrollEnabled) return;
+
+        const isOutOfView = x < left + 4 || x > right - 4; // small margin
+        if (!isOutOfView) return;
+
+        // Center playhead in viewport, clamped to content bounds
+        const desired = Math.round(x - viewportWidth / 2);
+        const maxScroll = Math.max(0, editorState.contentWidth - viewportWidth);
+        const clamped = Math.min(maxScroll, Math.max(0, desired));
+        if (Math.abs(clamped - left) > 1) {
+            editorState.setScrollLeft(clamped);
+        }
+    });
+
     const channels = $derived(player.song?.channels ?? []);
 
     function handleKeyDown(e: KeyboardEvent) {

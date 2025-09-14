@@ -9,6 +9,8 @@ export class EditorState {
 
     // Horizontal scroll sync across ruler and channel rows
     scrollLeft = $state(0);
+    // Auto-follow playhead toggle
+    autoScrollEnabled = $state(true);
 
     // Player-linked reactive values (single source of truth for grid geometry)
     ticksPerBeat = $derived(player.ticksPerBeat);
@@ -61,6 +63,10 @@ export class EditorState {
 
     setScrollLeft(px: number) {
         this.scrollLeft = Math.max(0, px | 0);
+    }
+
+    setAutoScrollEnabled(on: boolean) {
+        this.autoScrollEnabled = !!on;
     }
 }
 

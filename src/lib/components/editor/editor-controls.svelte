@@ -86,6 +86,14 @@
         }
     });
     const metronomeLabel = $derived(player.metronomeEnabled ? 'Metronome: On' : 'Metronome: Off');
+    const autoScrollButtonClass = $derived(
+        editorState.autoScrollEnabled
+            ? 'bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/90 hover:text-primary-foreground'
+            : ''
+    );
+    const autoScrollLabel = $derived(
+        editorState.autoScrollEnabled ? 'Follow Playhead: On' : 'Follow Playhead: Off'
+    );
 </script>
 
 {#snippet tooltipped({
@@ -216,6 +224,24 @@
                 {@render tooltipped({
                     label: metronomeLabel,
                     children: metronomeButton,
+                    disableCloseOnTriggerClick: true
+                })}
+
+                {#snippet autoScrollButton({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Follow Playhead"
+                        onclick={toggleAutoScroll}
+                        class={autoScrollButtonClass}
+                    >
+                        <MousePointerClick class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({
+                    label: autoScrollLabel,
+                    children: autoScrollButton,
                     disableCloseOnTriggerClick: true
                 })}
             </div>
