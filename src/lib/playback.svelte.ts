@@ -284,6 +284,14 @@ export class Player {
     }
 
     /**
+     * Directly set the current tick without clamping to song length.
+     * Keeps a lower bound of 0 for sanity, but allows "free" cursor beyond the song.
+     */
+    setCurrentTick(tick: number) {
+        this._currentTick = Math.max(0, tick | 0);
+    }
+
+    /**
      * Clear any active selection.
      */
     clearSelection() {

@@ -5,6 +5,8 @@
     import Plus from '~icons/lucide/plus';
     import ZoomIn from '~icons/lucide/zoom-in';
     import ZoomOut from '~icons/lucide/zoom-out';
+    // Mouse interactions (grid is rendered globally in the editor)
+    import { editorMouse } from '$lib/editor-mouse.svelte';
 
     interface Props {
         class?: string;
@@ -27,12 +29,6 @@
             scroller.scrollLeft = editorState.scrollLeft;
         }
     });
-
-    // Render helpers
-    const range = (n: number) => Array.from({ length: n }, (_, i) => i);
-
-    // Unified timeline grid + playhead
-    import TimelineGrid from './timeline-grid.svelte';
 </script>
 
 <div
@@ -80,9 +76,12 @@
         class="scrollbar-thin relative h-full flex-1 overflow-x-auto overflow-y-hidden bg-background"
         onscroll={onScroll}
     >
-        <div class="relative h-full" style={`width:${editorState.contentWidth}px`}>
-            <TimelineGrid showLabels />
-        </div>
+        <div
+            class="relative h-full cursor-crosshair"
+            style={`width:${editorState.contentWidth}px`}
+            onpointerdown={(e) =>
+                editorMouse.handleRulerPointerDown(e.currentTarget as HTMLElement, e)}
+        ></div>
     </div>
 </div>
 
