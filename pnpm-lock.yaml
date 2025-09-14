@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@nbsjs/core':
+        specifier: ^6.0.0
+        version: 6.0.0
       mode-watcher:
         specifier: ^1.1.0
         version: 1.1.0(svelte@5.38.10)
@@ -294,6 +297,10 @@ packages:
     resolution: {integrity: sha512-CEAyqcZmNBfYzVgaRmK2RFJP5tnbXxekRyDk0XX/eZQRfsJmkDvmQwXNX8C869BgNeryzmrRyjHhUL6g9ZOHNA==}
     peerDependencies:
       svelte: ^5
+
+  '@nbsjs/core@6.0.0':
+    resolution: {integrity: sha512-YKJxmTQ9wQqvvx1pDvj8bEZWj8xpotpRT3cOEa5tYvfujZ3hQ+mNXvpfYbQUgMDswAWSNyHNUJqO5xbdKL8TAg==}
+    engines: {node: '>=18'}
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -1242,6 +1249,8 @@ snapshots:
   '@lucide/svelte@0.515.0(svelte@5.38.10)':
     dependencies:
       svelte: 5.38.10
+
+  '@nbsjs/core@6.0.0': {}
 
   '@polka/url@1.0.0-next.29': {}
 
