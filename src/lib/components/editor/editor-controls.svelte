@@ -210,7 +210,7 @@
                     min="1"
                     value={player.tempo}
                     oninput={(e) => player.setTempo(parseFloat(e.currentTarget.value))}
-                    class="h-auto w-12  border-0 p-0 text-sm tabular-nums shadow-none focus-visible:ring-0"
+                    class="h-auto w-12  border-0 bg-background/20 p-0 text-sm tabular-nums shadow-none focus-visible:ring-0 dark:bg-background/20"
                 />
                 <span class="ml-1 text-xs">ticks/s</span>
             </div>
