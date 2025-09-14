@@ -145,6 +145,7 @@ export async function playSound(
 }
 
 export class Player {
+    // TODO: Refactor this class into several classes that have their own responsibilities.
     private _isPlaying = $state(false);
     private _currentTick = $state(0);
     private _tempo = $state(20);
@@ -259,7 +260,6 @@ export class Player {
      */
     setTempo(tempo: number) {
         if (!(tempo > 0)) return;
-
 
         if (this.song && this._tempoChangeList.length > 0) {
             // Find the last tempo change at or before the current tick
@@ -572,7 +572,10 @@ export class Player {
         return !!song && currentTick >= song.length;
     }
 
-    private static getNotesAtTick(map: Map<number, Array<{ note: Note; instrument: Instrument }>>, tick: number): Array<{ note: Note; instrument: Instrument }> | undefined {
+    private static getNotesAtTick(
+        map: Map<number, Array<{ note: Note; instrument: Instrument }>>,
+        tick: number
+    ): Array<{ note: Note; instrument: Instrument }> | undefined {
         return map.get(tick);
     }
 
@@ -633,7 +636,9 @@ export class Player {
                 if (ch.kind === 'note') instruments.add(ch.instrument);
             }
             await Promise.all(
-                Array.from(instruments).map((inst) => this.loadInstrumentBuffer(inst).catch(() => {}))
+                Array.from(instruments).map((inst) =>
+                    this.loadInstrumentBuffer(inst).catch(() => {})
+                )
             );
         }
         // Preload metronome buffer
@@ -728,7 +733,8 @@ export class Player {
 
             // Schedule notes for this tick
             const notes = Player.getNotesAtTick(this._tickNotes, this._nextTickToSchedule) ?? [];
-            for (const { note, instrument } of notes) this.scheduleNote(instrument, note, this._nextNoteTime, this._nextTickToSchedule);
+            for (const { note, instrument } of notes)
+                this.scheduleNote(instrument, note, this._nextNoteTime, this._nextTickToSchedule);
 
             // Metronome on beat boundaries
             if (this._metronomeEnabled) {
@@ -737,7 +743,11 @@ export class Player {
                 if (tpb > 0 && ticksInto >= 0 && ticksInto % tpb === 0) {
                     const beatsInto = Math.floor(ticksInto / tpb);
                     const beatInBar = beatsInto % bpb;
-                    this.scheduleMetronome(this._nextNoteTime, beatInBar === 0, this._nextTickToSchedule);
+                    this.scheduleMetronome(
+                        this._nextNoteTime,
+                        beatInBar === 0,
+                        this._nextTickToSchedule
+                    );
                 }
             }
 
