@@ -4,6 +4,7 @@
     import { player } from '$lib/playback.svelte';
     import { sample } from '$lib/sample-song';
     import { onMount } from 'svelte';
+    import ChannelRow from './channel-row.svelte';
     import EditorHeader from './editor-controls.svelte';
     import RulerRow from './ruler-row.svelte';
 
@@ -12,6 +13,7 @@
     });
 
     const gutterWidth = 240;
+    const rowHeight = 72;
 
     // Sync scroll with ruler row
     let channelScroller: HTMLDivElement | null = null;
@@ -24,6 +26,8 @@
     });
 
     const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+    const channels = $derived(player.song?.channels ?? []);
+    $inspect(channels);
 </script>
 
 <div class="flex h-screen flex-col">
@@ -45,12 +49,18 @@
 
                 <!-- Channels area with ruler-matched background -->
                 <div class="flex min-h-0 flex-1 select-none">
-                    <!-- Left gutter for channels (placeholder content) -->
+                    <!-- Left gutter: channel infos -->
                     <div
                         class="flex shrink-0 flex-col border-r border-border bg-secondary/40"
                         style={`width:${gutterWidth}px`}
                     >
-                        <div class="px-3 py-2 text-sm text-muted-foreground">Channels</div>
+                        {#if channels.length === 0}
+                            <div class="px-3 py-2 text-sm text-muted-foreground">No channels</div>
+                        {:else}
+                            {#each channels as ch, i}
+                                <ChannelRow channel={ch} index={i} height={rowHeight} />
+                            {/each}
+                        {/if}
                     </div>
 
                     <!-- Scrollable timeline region -->
@@ -61,7 +71,7 @@
                     >
                         <div
                             class="relative"
-                            style={`width:${editorState.contentWidth}px; min-height: 100%;`}
+                            style={`width:${editorState.contentWidth}px; min-height:${Math.max(1, channels.length) * rowHeight}px;`}
                         >
                             {#each range(editorState.totalBars) as barIdx}
                                 <div
@@ -79,7 +89,13 @@
                                 </div>
                             {/each}
 
-                            <!-- Future: channel rows content -->
+                            <!-- Channel row separators -->
+                            {#each channels as _, i}
+                                <div
+                                    class="pointer-events-none absolute right-0 left-0 border-b border-border"
+                                    style={`top:${(i + 1) * rowHeight}px; height:0`}
+                                ></div>
+                            {/each}
                         </div>
                     </div>
                 </div>

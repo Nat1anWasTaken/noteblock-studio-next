@@ -162,7 +162,11 @@ export class Player {
     private _tickNotes: Map<number, Array<{ note: Note; instrument: Instrument }>> = new Map();
     private _tempoChanges: Map<number, TempoChange> = new Map();
 
-    public song: Song | null = null;
+    private _song = $state<Song | null>(null);
+
+    get song(): Song | null {
+        return this._song;
+    }
 
     get isPlaying() {
         return this._isPlaying;
@@ -387,7 +391,7 @@ export class Player {
      * @param song The song to load into the player.
      */
     setSong(song: Song) {
-        this.song = song;
+        this._song = song;
         this._currentTick = 0;
         this._tempo = song.tempo ?? this._tempo;
         const { tickNotes, tempoChanges } = Player.buildIndexes(song);
