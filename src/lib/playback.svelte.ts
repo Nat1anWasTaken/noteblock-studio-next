@@ -157,8 +157,24 @@ export class Player {
     private _selectionStart = $state<number | null>(null);
     private _selectionEnd = $state<number | null>(null);
 
+    // UI tick updater (no audio emission)
     private interval: ReturnType<typeof setTimeout> | null = null;
     private _nextTickAt = 0;
+
+    // Web Audio lookahead scheduler
+    private _audioCtx: AudioContext | null = null;
+    private _buffers: Map<Instrument, AudioBuffer> = new Map();
+    private _metronomeBuffer: AudioBuffer | null = null;
+    private _masterGain: GainNode | null = null;
+    private _schedulerTimer: ReturnType<typeof setInterval> | null = null;
+    private _scheduleAheadSec = 0.15; // seconds to schedule ahead
+    private _schedulerIntervalMs = 25; // how often to run scheduler
+    private _nextTickToSchedule = 0;
+    private _nextNoteTime = 0; // in audioCtx.currentTime seconds
+    private _muteTickAudio = false; // suppress audio inside nextTick() when UI-updating
+
+    // Cached sorted tempo changes for quick lookup
+    private _tempoChangeList: TempoChange[] = [];
     private _tickNotes: Map<number, Array<{ note: Note; instrument: Instrument }>> = new Map();
     private _tempoChanges: Map<number, TempoChange> = new Map();
 
@@ -335,9 +351,11 @@ export class Player {
         } else {
             if (Player.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
         }
-        const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
-        if (notes) {
-            for (const { note, instrument } of notes) playNote(note, instrument);
+        if (!this._muteTickAudio) {
+            const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
+            if (notes) {
+                for (const { note, instrument } of notes) playNote(note, instrument);
+            }
         }
         const change = Player.getTempoChangeAtTick(this._tempoChanges, this._currentTick);
         if (change) {
@@ -346,7 +364,7 @@ export class Player {
             this._beatsPerBar = change.beatsPerBar;
         }
         // Metronome: click on each beat boundary (accent first beat of bar)
-        if (this._metronomeEnabled) {
+        if (this._metronomeEnabled && !this._muteTickAudio) {
             const seg = this.getSegmentAtTick(this._currentTick);
             if (seg) {
                 const ticksInto = this._currentTick - seg.start;
@@ -375,8 +393,14 @@ export class Player {
             if (Player.atSongEnd(this._currentTick, this.song)) this._currentTick = 0;
         }
 
+        // Start UI updater (tick counter only, no audio emission)
+        this._muteTickAudio = true;
         if (!this.interval) this._nextTickAt = performance.now();
-        this.schedule();
+        this.scheduleUi();
+
+        // Prepare audio context and schedule engine
+        await this.ensureAudioReady();
+        this.startAudioScheduler();
     }
 
     /**
@@ -386,12 +410,17 @@ export class Player {
     async pause() {
         this._isPlaying = false;
 
-        if (!this.interval) {
-            throw new Error('Player is not running');
+        // Stop UI updater
+        if (this.interval) {
+            clearTimeout(this.interval);
+            this.interval = null;
         }
 
-        clearTimeout(this.interval);
-        this.interval = null;
+        // Stop audio scheduler (already scheduled notes may still play)
+        if (this._schedulerTimer) {
+            clearInterval(this._schedulerTimer);
+            this._schedulerTimer = null;
+        }
     }
 
     /**
@@ -405,6 +434,7 @@ export class Player {
         const { tickNotes, tempoChanges } = Player.buildIndexes(song);
         this._tickNotes = tickNotes;
         this._tempoChanges = tempoChanges;
+        this._tempoChangeList = Array.from(tempoChanges.values()).sort((a, b) => a.tick - b.tick);
 
         // Normalize selection to the bounds of the new song
         if (this._selectionStart !== null)
@@ -420,14 +450,14 @@ export class Player {
         }
     }
 
-    private schedule() {
+    private scheduleUi() {
         if (!this._isPlaying) return;
         const delay = Math.max(0, this._nextTickAt - performance.now());
         this.interval = setTimeout(() => {
-            this.nextTick();
+            this.nextTick(); // UI-only advance (audio suppressed)
             if (!this._isPlaying) return;
             this._nextTickAt += 1000 / this._tempo;
-            this.schedule();
+            this.scheduleUi();
         }, delay);
     }
 
@@ -449,6 +479,18 @@ export class Player {
      */
     private playMetronome(accent: boolean) {
         if (!browser) return;
+        // If using Web Audio, schedule into the audio graph for tighter timing
+        if (this._audioCtx && this._metronomeBuffer) {
+            const ctx = this._audioCtx;
+            const src = ctx.createBufferSource();
+            src.buffer = this._metronomeBuffer;
+            const gain = ctx.createGain();
+            gain.gain.value = accent ? 0.8 : 0.5;
+            src.connect(gain).connect(this._masterGain ?? ctx.destination);
+            // Start immediately; for lookahead scheduling we call scheduleMetronome()
+            src.start();
+            return;
+        }
         const base = accent ? metronomeSounds.high : metronomeSounds.low;
         try {
             base.currentTime = 0;
@@ -497,6 +539,193 @@ export class Player {
         }
 
         return { tickNotes, tempoChanges };
+    }
+
+    // --- Web Audio scheduler helpers ---
+    private async ensureAudioReady() {
+        if (!browser) return;
+        if (!this._audioCtx) {
+            this._audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+                latencyHint: 'interactive'
+            }) as AudioContext;
+            this._masterGain = this._audioCtx.createGain();
+            this._masterGain.gain.value = 1.0;
+            this._masterGain.connect(this._audioCtx.destination);
+        }
+        if (this._audioCtx.state === 'suspended') {
+            try {
+                await this._audioCtx.resume();
+            } catch {}
+        }
+        // Preload buffers for instruments present in the song in the background
+        if (this.song) {
+            const instruments = new Set<Instrument>();
+            for (const ch of this.song.channels) {
+                if (ch.kind === 'note') instruments.add(ch.instrument);
+            }
+            await Promise.all(
+                Array.from(instruments).map((inst) => this.loadInstrumentBuffer(inst).catch(() => {}))
+            );
+        }
+        // Preload metronome buffer
+        if (!this._metronomeBuffer) {
+            try {
+                this._metronomeBuffer = await this.fetchDecode('/metronome.wav');
+            } catch {}
+        }
+    }
+
+    private async fetchDecode(url: string): Promise<AudioBuffer> {
+        if (!this._audioCtx) throw new Error('AudioContext not ready');
+        const res = await fetch(url);
+        const arr = await res.arrayBuffer();
+        return await this._audioCtx.decodeAudioData(arr);
+    }
+
+    private async loadInstrumentBuffer(inst: Instrument): Promise<AudioBuffer | null> {
+        if (!browser) return null;
+        const existing = this._buffers.get(inst);
+        if (existing) return existing;
+        const base = soundMap[inst];
+        if (!base) return null;
+        try {
+            const buf = await this.fetchDecode(base.src);
+            this._buffers.set(inst, buf);
+            return buf;
+        } catch {
+            return null;
+        }
+    }
+
+    private getTempoAtTick(tick: number): number {
+        // Default to base tempo if no song
+        if (!this.song) return this._tempo;
+        let tempo = this.song.tempo ?? this._tempo;
+        for (let i = 0; i < this._tempoChangeList.length; i++) {
+            const ch = this._tempoChangeList[i];
+            if (ch.tick <= tick) tempo = ch.tempo;
+            else break;
+        }
+        return tempo;
+    }
+
+    private getSignatureAtTick(tick: number): { tpb: number; bpb: number; segStart: number } {
+        // Use existing segment computation for tpb/bpb and start
+        const seg = this.getSegmentAtTick(tick);
+        if (seg) return { tpb: seg.tpb, bpb: seg.bpb, segStart: seg.start };
+        return { tpb: this._ticksPerBeat, bpb: this._beatsPerBar, segStart: 0 };
+    }
+
+    private startAudioScheduler() {
+        if (!this._audioCtx) return;
+        if (!this._isPlaying) return;
+
+        // Initialize scheduling cursor if starting fresh
+        this._nextTickToSchedule = this._currentTick;
+        this._nextNoteTime = this._audioCtx.currentTime;
+
+        if (this._schedulerTimer) clearInterval(this._schedulerTimer);
+        this._schedulerTimer = setInterval(() => this.schedulerLoop(), this._schedulerIntervalMs);
+        // Run one immediate pass to reduce initial latency
+        this.schedulerLoop();
+    }
+
+    private schedulerLoop() {
+        if (!this._audioCtx || !this._isPlaying || !this.song) return;
+        const ctx = this._audioCtx;
+        const aheadUntil = ctx.currentTime + this._scheduleAheadSec;
+
+        while (this._nextNoteTime < aheadUntil) {
+            // Loop/stop handling
+            if (Player.atSongEnd(this._nextTickToSchedule, this.song)) {
+                if (this._loopMode === LoopMode.Song) {
+                    this._nextTickToSchedule = 0;
+                } else if (this._loopMode === LoopMode.Selection && this.hasValidSelection()) {
+                    const start = this._selectionStart as number;
+                    const end = Math.min(this._selectionEnd as number, this.song.length);
+                    if (this._nextTickToSchedule >= end) this._nextTickToSchedule = start;
+                } else {
+                    // Stop playback when reaching the end in non-loop mode
+                    this.stopInternal();
+                    return;
+                }
+            }
+
+            // Selection loop wrap (mid-song)
+            if (this._loopMode === LoopMode.Selection && this.hasValidSelection()) {
+                const start = this._selectionStart as number;
+                const end = Math.min(this._selectionEnd as number, this.song.length);
+                if (this._nextTickToSchedule >= end) this._nextTickToSchedule = start;
+            }
+
+            // Schedule notes for this tick
+            const notes = Player.getNotesAtTick(this._tickNotes, this._nextTickToSchedule) ?? [];
+            for (const { note, instrument } of notes) this.scheduleNote(instrument, note, this._nextNoteTime);
+
+            // Metronome on beat boundaries
+            if (this._metronomeEnabled) {
+                const { tpb, bpb, segStart } = this.getSignatureAtTick(this._nextTickToSchedule);
+                const ticksInto = this._nextTickToSchedule - segStart;
+                if (tpb > 0 && ticksInto >= 0 && ticksInto % tpb === 0) {
+                    const beatsInto = Math.floor(ticksInto / tpb);
+                    const beatInBar = beatsInto % bpb;
+                    this.scheduleMetronome(this._nextNoteTime, beatInBar === 0);
+                }
+            }
+
+            // Advance time by current tempo
+            const tempo = this.getTempoAtTick(this._nextTickToSchedule);
+            const secPerTick = tempo > 0 ? 1 / tempo : 0.05; // fallback
+            this._nextNoteTime += secPerTick;
+            this._nextTickToSchedule += 1;
+        }
+    }
+
+    private scheduleNote(instrument: Instrument, note: Note, when: number) {
+        if (!this._audioCtx) return;
+        const ctx = this._audioCtx;
+        const buf = this._buffers.get(instrument);
+        if (!buf) {
+            // Fallback to HTMLAudio if buffer not ready yet
+            void playSound(instrument, note.key, note.velocity, note.pitch);
+            return;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        // Compute playback rate
+        const baseSampleKey = 33;
+        const keyOffset = note.key - baseSampleKey;
+        const pitchOffset = note.pitch / 1200;
+        src.playbackRate.value = Math.pow(2, (keyOffset + pitchOffset) / 12);
+
+        const gain = ctx.createGain();
+        gain.gain.value = (note.velocity / 100) * 0.5;
+
+        src.connect(gain).connect(this._masterGain ?? ctx.destination);
+        try {
+            src.start(when);
+        } catch {
+            try {
+                src.start();
+            } catch {}
+        }
+    }
+
+    private scheduleMetronome(when: number, accent: boolean) {
+        if (!this._audioCtx || !this._metronomeBuffer) return;
+        const ctx = this._audioCtx;
+        const src = ctx.createBufferSource();
+        src.buffer = this._metronomeBuffer;
+        const gain = ctx.createGain();
+        gain.gain.value = accent ? 0.8 : 0.5;
+        src.connect(gain).connect(this._masterGain ?? ctx.destination);
+        try {
+            src.start(when);
+        } catch {
+            try {
+                src.start();
+            } catch {}
+        }
     }
 
     /**
@@ -603,6 +832,11 @@ export class Player {
             clearTimeout(this.interval);
             this.interval = null;
         }
+        if (this._schedulerTimer) {
+            clearInterval(this._schedulerTimer);
+            this._schedulerTimer = null;
+        }
+        this._muteTickAudio = false;
     }
 }
 
