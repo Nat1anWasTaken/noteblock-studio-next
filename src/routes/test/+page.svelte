@@ -1,7 +1,6 @@
 <script>
     import Button from '$lib/components/ui/button/button.svelte';
     import { player } from '$lib/playback.svelte';
-    import { sample } from '$lib/sample-song';
     import { onMount } from 'svelte';
 
     onMount(() => {

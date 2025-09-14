@@ -1,6 +1,7 @@
 <script lang="ts">
     import { disableScrollHandling } from '$app/navigation';
     import Button from '$lib/components/ui/button/button.svelte';
+    import { Input } from '$lib/components/ui/input';
     import {
         TooltipContent,
         TooltipProvider,
@@ -201,9 +202,16 @@
 
             <!-- Tempo -->
             <div
-                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest whitespace-nowrap tabular-nums shadow-xs select-none"
+                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest whitespace-nowrap tabular-nums shadow-xs"
             >
-                <span class="font-mono text-sm tabular-nums">{player.tempo.toFixed(1)}</span>
+                <Input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    value={player.tempo}
+                    oninput={(e) => player.setTempo(parseFloat(e.currentTarget.value))}
+                    class="h-auto w-12  border-0 p-0 text-sm tabular-nums shadow-none focus-visible:ring-0"
+                />
                 <span class="ml-1 text-xs">ticks/s</span>
             </div>
 
