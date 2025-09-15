@@ -1,6 +1,9 @@
 <script lang="ts">
+    import Button from '$lib/components/ui/button/button.svelte';
+    import { player } from '$lib/playback.svelte';
     import type { NoteChannel } from '$lib/types';
     import { Instrument } from '$lib/types';
+    import { cn } from '$lib/utils';
 
     interface Props {
         channel: NoteChannel;
@@ -9,6 +12,21 @@
     }
 
     let { channel, index = 0, height = 72 }: Props = $props();
+
+    const isAnyMuted = $derived(
+        player.song?.channels.some((ch) => ch.kind === 'note' && ch.isMuted) ?? false
+    );
+
+    // Make the component reactive to changes in channel.isMuted
+    const isChannelMuted = $derived(channel.isMuted);
+
+    function toggleMute() {
+        player.setMute(index);
+    }
+
+    function toggleSolo() {
+        player.setSolo(index);
+    }
 
     const instrumentIcon: Record<Instrument, string> = {
         [Instrument.Piano]: '/instruments/harp.png',
@@ -39,9 +57,41 @@
     </div>
     <div class="flex min-w-0 flex-1 items-center justify-between px-3 py-2">
         <div class="truncate text-base/5 font-medium">{channel.name}</div>
-        {#if icon}
-            <img src={icon} alt="instrument" class="h-10 w-auto rounded-sm" />
-        {/if}
+        <div class="flex flex-row gap-2">
+            <div class="flex flex-col">
+                <Button
+                    size="sm"
+                    onclick={toggleMute}
+                    variant="outline"
+                    class={cn(
+                        'h-8 w-8 p-0 text-xs font-bold',
+                        isChannelMuted
+                            ? 'bg-red-600 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white hover:dark:bg-red-600'
+                            : ''
+                    )}
+                >
+                    M
+                </Button>
+                <Button
+                    size="sm"
+                    onclick={toggleSolo}
+                    variant="outline"
+                    class={cn(
+                        'h-8 w-8 p-0 text-xs font-bold',
+                        isAnyMuted && !isChannelMuted
+                            ? 'bg-yellow-600 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white hover:dark:bg-yellow-600'
+                            : ''
+                    )}
+                >
+                    S
+                </Button>
+            </div>
+
+            <div class="flex items-center gap-1">
+                {#if icon}
+                    <img src={icon} alt="instrument" class="h-10 w-auto rounded-sm" />
+                {/if}
+            </div>
+        </div>
     </div>
 </div>
-
