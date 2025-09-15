@@ -23,7 +23,7 @@
     import Repeat from '~icons/lucide/repeat';
     import Scissors from '~icons/lucide/scissors';
     import SkipBack from '~icons/lucide/skip-back';
-    import Volume2 from '~icons/lucide/volume-2';
+    import Metronome from '~icons/tabler/metronome';
 
     interface Props {
         class?: string;
@@ -235,7 +235,7 @@
                         onclick={toggleMetronome}
                         class={metronomeButtonClass}
                     >
-                        <Volume2 class="size-5" />
+                        <Metronome class="size-5" />
                     </Button>
                 {/snippet}
                 {@render tooltipped({
