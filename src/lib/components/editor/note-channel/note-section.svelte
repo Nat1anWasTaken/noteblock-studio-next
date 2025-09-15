@@ -1,16 +1,18 @@
 <script lang="ts">
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
-    import type { NoteSection } from '$lib/types';
+    import type { Instrument, NoteSection } from '$lib/types';
+    import { onMount } from 'svelte';
 
     interface Props {
         section: NoteSection;
         channelIndex: number; // 0-based
         sectionIndex: number; // 0-based within channel
         rowHeight?: number; // px
+        instrument: Instrument;
     }
 
-    let { section, channelIndex, sectionIndex, rowHeight = 72 }: Props = $props();
+    let { section, channelIndex, sectionIndex, rowHeight = 72, instrument }: Props = $props();
 
     const left = $derived(
         section.startingTick *
@@ -94,6 +96,8 @@
             : null
     );
 
+    let root: HTMLDivElement | null = null;
+
     function onPointerDown(ev: PointerEvent) {
         // Dispatch based on current pointer mode
         if (editorState.pointerMode === PointerMode.Shears) {
@@ -105,10 +109,64 @@
             editorMouse.handleSectionPointerDown(channelIndex, sectionIndex, section, null, ev);
         }
     }
+
+    // DOM-based highlight handling (no Svelte stores)
+    // Behavior:
+    //  - On "noteplayed": apply an immediate class that shows the active color instantly.
+    //  - On "noteended": remove the immediate class, then add a fade class which
+    //    transitions the color back to the normal state. Remove the fade class after
+    //    the transition finishes to keep DOM clean.
+    function handleNotePlayed(e: CustomEvent) {
+        const id = e.detail?.id;
+        if (!id || !root) return;
+        const nodes = root.querySelectorAll<HTMLElement>(`[data-note-id="${id}"]`);
+        nodes.forEach((n) => {
+            // Ensure any pending fade is cleared
+            n.classList.remove('note-playing-fade');
+            // Apply immediate visual (no transition)
+            n.classList.add('note-playing-immediate');
+        });
+    }
+
+    function handleNoteEnded(e: CustomEvent) {
+        const id = e.detail?.id;
+        if (!id || !root) return;
+        const nodes = root.querySelectorAll<HTMLElement>(`[data-note-id="${id}"]`);
+        nodes.forEach((n) => {
+            // Remove immediate state first so the element currently shows the "played" color.
+            n.classList.remove('note-playing-immediate');
+            // Force a reflow so the browser registers the style change before we add the fade class
+            // which will transition from the current (played) color to the default.
+            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+            n.offsetHeight;
+            // Add fade class which transitions properties back to normal
+            n.classList.add('note-playing-fade');
+            // Cleanup: remove the fade class after transition duration (match CSS below)
+            const CLEANUP_MS = 260;
+            const idKey = (n as any).__fadeCleanupId;
+            if (idKey) clearTimeout(idKey);
+            (n as any).__fadeCleanupId = setTimeout(() => {
+                n.classList.remove('note-playing-fade');
+                try {
+                    delete (n as any).__fadeCleanupId;
+                } catch {}
+            }, CLEANUP_MS);
+        });
+    }
+    onMount(() => {
+        if (typeof document === 'undefined') return;
+        document.addEventListener('noteplayed', handleNotePlayed as EventListener);
+        document.addEventListener('noteended', handleNoteEnded as EventListener);
+        return () => {
+            document.removeEventListener('noteplayed', handleNotePlayed as EventListener);
+            document.removeEventListener('noteended', handleNoteEnded as EventListener);
+        };
+    });
 </script>
 
 <!-- Simple visual block for a note section; color tokens are placeholders -->
 <div
+    bind:this={root}
     class="absolute z-10 overflow-hidden rounded-md border {borderClass} bg-emerald-600/90 text-xs shadow-sm select-none"
     style={`left:${left}px; top:${top}px; width:${width}px; height:${height}px;`}
     onpointerdown={onPointerDown}
@@ -141,10 +199,53 @@
                 {@const noteLeft = Math.max(0, n.tick * _ppt)}
                 {@const noteWidth = Math.max(3, Math.round(_ppt * 2))}
                 <div
-                    class="absolute rounded-sm bg-white/90"
+                    data-note-id={`${section.startingTick + n.tick}:${n.key}:${instrument}`}
+                    class="note-rect absolute rounded-sm bg-white/90"
                     style={`left:${noteLeft}px; top:${noteTop}px; width:${noteWidth}px; height:4px;`}
                 ></div>
             {/each}
         {/if}
     </div>
 </div>
+
+<style>
+    /* Fade-on-end highlight behavior:
+     - `.note-playing-immediate`: applied immediately when note starts (no transition, strong color).
+     - `.note-playing-fade`: applied after note ends; transitions back to normal smoothly.
+     - Base `.note-rect` contains the normal appearance. */
+
+    .note-rect {
+        transition:
+            background-color 240ms ease,
+            box-shadow 240ms ease,
+            transform 160ms ease,
+            opacity 240ms ease;
+        will-change: background-color, box-shadow, transform, opacity;
+        opacity: 1;
+        background-color: rgba(255, 255, 255, 0.9);
+        box-shadow: none;
+        transform: none;
+    }
+
+    /* Immediate visual when note starts. No transition so it changes instantly. */
+    .note-rect.note-playing-immediate {
+        transition: none !important;
+        background-color: rgba(0, 160, 255, 0.95);
+        box-shadow: 0 10px 28px rgba(0, 160, 255, 0.28);
+        transform: scaleY(1.2);
+        z-index: 40;
+        opacity: 1;
+    }
+
+    /* Fade class: when applied, element will transition from the current (played) look
+     back to the base appearance defined on .note-rect because .note-playing-fade sets
+     the target (normal) values and .note-rect defines the transition. */
+    .note-rect.note-playing-fade {
+        /* Target values (normal) so the transitions animate towards these */
+        background-color: rgba(255, 255, 255, 0.9);
+        box-shadow: none;
+        transform: none;
+        z-index: 20;
+        opacity: 1;
+    }
+</style>

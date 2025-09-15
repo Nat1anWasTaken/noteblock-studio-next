@@ -101,6 +101,19 @@ function getPooledAudio(instrument: Instrument): HTMLAudioElement {
 
 configureBaseAudio();
 
+// Emit DOM events when notes play so the UI can highlight
+export function emitNotePlayed(noteId: string, durationMs = 120) {
+    if (!browser) return;
+    try {
+        document.dispatchEvent(new CustomEvent('noteplayed', { detail: { id: noteId } }));
+    } catch {}
+    setTimeout(() => {
+        try {
+            document.dispatchEvent(new CustomEvent('noteended', { detail: { id: noteId } }));
+        } catch {}
+    }, durationMs);
+}
+
 /**
  * Play a single Note using the mapped instrument sample.
  *
@@ -434,7 +447,13 @@ export class Player {
         if (!this._muteTickAudio) {
             const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
             if (notes) {
-                for (const { note, instrument } of notes) playNote(note, instrument);
+                for (const { note, instrument } of notes) {
+                    try {
+                        playNote(note, instrument);
+                    } catch {}
+                    const id = `${this._currentTick}:${note.key}:${instrument}`;
+                    emitNotePlayed(id, 120);
+                }
             }
         }
         const change = Player.getTempoChangeAtTick(this._tempoChanges, this._currentTick);
@@ -781,6 +800,8 @@ export class Player {
         const buf = this._buffers.get(instrument);
         if (!buf) {
             // Fallback to HTMLAudio if buffer not ready yet
+            const id = `${tick}:${note.key}:${instrument}`;
+            emitNotePlayed(id, 120);
             void playSound(instrument, note.key, note.velocity, note.pitch);
             return;
         }
@@ -801,6 +822,19 @@ export class Player {
         } catch {
             try {
                 src.start();
+            } catch {}
+        }
+        // Schedule a UI highlight at the same moment the audio is scheduled to play.
+        // Convert audio-time offset to ms and schedule an event.
+        const id = `${tick}:${note.key}:${instrument}`;
+        try {
+            const now = ctx.currentTime;
+            const delayMs = Math.max(0, (when - now) * 1000);
+            setTimeout(() => emitNotePlayed(id, 120), delayMs);
+        } catch {
+            // best-effort: if something goes wrong, emit immediately
+            try {
+                emitNotePlayed(id, 120);
             } catch {}
         }
         this.trackScheduled(src, when, tick);
