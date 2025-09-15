@@ -11,6 +11,9 @@ export class EditorMouseController {
     isSelectingSections = $state(false); // 2D section selection (normal mode drag)
     isDraggingSection = $state(false); // dragging a single section to move it
 
+    // Shears-mode hover state: { channelIndex, sectionIndex, tick } when hovering a section
+    shearsHover = $state<{ channelIndex: number; sectionIndex: number; tick: number } | null>(null);
+
     // Context captured on pointerdown
     private _contentEl: HTMLElement | null = null;
     private _startTick = 0;
@@ -165,6 +168,116 @@ export class EditorMouseController {
             primaryOriginalSectionIndex: sectionIndex
         };
     };
+
+    // --- Shears mode: pointer move over a section to update hover tick ---
+    handleSectionPointerMove = (
+        channelIndex: number,
+        sectionIndex: number,
+        section: any,
+        contentEl: HTMLElement | null,
+        ev: PointerEvent
+    ) => {
+        if (editorState.pointerMode !== PointerMode.Shears) return;
+        const content =
+            contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
+        if (!content) {
+            this.shearsHover = null;
+            return;
+        }
+        const absTick = this.tickFromClientX(content, ev.clientX);
+        // Only show hover when inside the section bounds
+        const secStart = section.startingTick ?? 0;
+        const secEnd = secStart + (section.length ?? 0);
+        if (absTick < secStart || absTick > secEnd) {
+            this.shearsHover = null;
+            return;
+        }
+        this.shearsHover = { channelIndex, sectionIndex, tick: absTick };
+    };
+
+    // --- Shears mode: pointer leave clears hover ---
+    handleSectionPointerLeave = (channelIndex: number, sectionIndex: number) => {
+        const h = this.shearsHover;
+        if (!h) return;
+        if (h.channelIndex === channelIndex && h.sectionIndex === sectionIndex)
+            this.shearsHover = null;
+    };
+
+    // --- Shears mode: pointer down on a section splits it at the clicked tick ---
+    handleSectionShearsPointerDown = (
+        channelIndex: number,
+        sectionIndex: number,
+        section: any,
+        contentEl: HTMLElement | null,
+        ev: PointerEvent
+    ) => {
+        if (ev.button !== 0) return;
+        if (editorState.pointerMode !== PointerMode.Shears) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        const content =
+            contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
+        if (!content) return;
+
+        const absTick = this.tickFromClientX(content, ev.clientX);
+        this.splitSectionAt(channelIndex, sectionIndex, section, absTick);
+        // Clear hover after splitting
+        this.shearsHover = null;
+    };
+
+    // Split a section at an absolute tick (mutates player.song in-place)
+    private splitSectionAt(
+        channelIndex: number,
+        sectionIndex: number,
+        section: any,
+        absTick: number
+    ) {
+        const song = player.song;
+        if (!song) return;
+        const ch = song.channels[channelIndex] as any;
+        if (!ch || ch.kind !== 'note') return;
+
+        const sec = ch.sections[sectionIndex];
+        if (!sec) return;
+
+        const start = sec.startingTick ?? 0;
+        const length = sec.length ?? 0;
+        const localSplit = Math.round(absTick - start);
+
+        // Ignore invalid splits on boundaries
+        if (localSplit <= 0 || localSplit >= length) return;
+
+        // Partition notes
+        const leftNotes: any[] = [];
+        const rightNotes: any[] = [];
+        for (const n of sec.notes ?? []) {
+            if ((n.tick ?? 0) < localSplit) leftNotes.push(n);
+            else rightNotes.push({ ...n, tick: (n.tick ?? 0) - localSplit });
+        }
+
+        // Mutate original section to be the left part
+        sec.length = localSplit;
+        sec.notes = leftNotes;
+
+        // New right section
+        const newSection: any = {
+            startingTick: start + localSplit,
+            length: length - localSplit,
+            notes: rightNotes,
+            name: sec.name ? `${sec.name} (part)` : 'Part'
+        };
+
+        // Insert the new section immediately after original
+        ch.sections.splice(sectionIndex + 1, 0, newSection);
+
+        // Refresh indexes and select both new sections
+        player.refreshIndexes();
+        editorState.setSelectedSections([
+            { channelIndex, sectionIndex },
+            { channelIndex, sectionIndex: sectionIndex + 1 }
+        ]);
+    }
 
     // Window-scoped handlers (wired via <svelte:window> in a component)
     handleWindowPointerMove = (e: PointerEvent) => {

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { editorMouse } from '$lib/editor-mouse.svelte';
-    import { editorState } from '$lib/editor-state.svelte';
+    import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import type { NoteSection } from '$lib/types';
 
     interface Props {
@@ -49,9 +49,40 @@
 
     const borderClass = $derived(selected ? 'border-foreground border-3' : 'border-emerald-700/60');
 
+    // Shears hover tick for this section (absolute tick -> local px)
+    const shearsHoverTick = $derived(
+        editorMouse.shearsHover &&
+            editorState.pointerMode === PointerMode.Shears &&
+            editorMouse.shearsHover.channelIndex === channelIndex &&
+            editorMouse.shearsHover.sectionIndex === sectionIndex
+            ? editorMouse.shearsHover.tick
+            : null
+    );
+
+    const _ppt = $derived(
+        editorState.ticksPerBeat > 0 ? editorState.pxPerBeat / editorState.ticksPerBeat : 0
+    );
+
+    const shearsHoverLeft = $derived(
+        shearsHoverTick !== null
+            ? Math.round((shearsHoverTick - (section.startingTick ?? 0)) * _ppt)
+            : null
+    );
+
     function onPointerDown(ev: PointerEvent) {
-        // Let the centralized controller handle pointer lifecycle
-        editorMouse.handleSectionPointerDown(channelIndex, sectionIndex, section, null, ev);
+        // Dispatch based on current pointer mode
+        if (editorState.pointerMode === PointerMode.Shears) {
+            editorMouse.handleSectionShearsPointerDown(
+                channelIndex,
+                sectionIndex,
+                section,
+                null,
+                ev
+            );
+        } else {
+            // Default behavior (normal mode) handled by centralized controller
+            editorMouse.handleSectionPointerDown(channelIndex, sectionIndex, section, null, ev);
+        }
     }
 </script>
 
@@ -60,11 +91,21 @@
     class="absolute z-10 overflow-hidden rounded-md border {borderClass} bg-emerald-600/90 text-xs shadow-sm select-none"
     style={`left:${left}px; top:${top}px; width:${width}px; height:${height}px;`}
     onpointerdown={onPointerDown}
+    onpointermove={(ev) =>
+        editorMouse.handleSectionPointerMove(channelIndex, sectionIndex, section, null, ev)}
+    onpointerleave={() => editorMouse.handleSectionPointerLeave(channelIndex, sectionIndex)}
 >
     <!-- Header strip with section name -->
     <div class="w-full truncate bg-emerald-200/80 px-2 py-1 font-medium text-emerald-900">
         {section.name}
     </div>
+
+    {#if shearsHoverLeft !== null}
+        <div
+            class="pointer-events-none absolute top-0 h-full w-px bg-white/90"
+            style={`left:${shearsHoverLeft}px;`}
+        ></div>
+    {/if}
 
     <!-- Notes area -->
     <div class="relative h-[calc(100%-1.5rem)] w-full">
