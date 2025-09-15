@@ -39,6 +39,8 @@
     function handleTempoSave(updatedChange: Partial<TempoChange>) {
         if (!player.song) return;
 
+        let tempoChangeTick = -1;
+
         // Find the tempo channel and update the specific tempo change
         for (const channel of player.song.channels) {
             if (channel.kind === 'tempo') {
@@ -48,10 +50,13 @@
                         ...channel.tempoChanges[changeIndex],
                         ...updatedChange
                     };
+                    tempoChangeTick = channel.tempoChanges[changeIndex].tick;
                     break;
                 }
             }
         }
+
+        player.setCurrentTick(tempoChangeTick);
 
         // Rebuild indexes and refresh scheduler
         player.refreshIndexes();
