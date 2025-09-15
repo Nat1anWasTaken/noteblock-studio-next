@@ -48,6 +48,16 @@
     });
 </script>
 
+<svelte:window
+    onkeydown={(e) => {
+        if (e.key === 'Escape' && open) {
+            handleCancel();
+        } else if ((e.key === 'Enter' || e.key === 'NumpadEnter') && open) {
+            handleSave();
+        }
+    }}
+/>
+
 <Dialog.Root bind:open>
     <Dialog.Content class="sm:max-w-md">
         <Dialog.Header>
