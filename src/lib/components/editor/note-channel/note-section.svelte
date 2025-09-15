@@ -153,6 +153,7 @@
             }, CLEANUP_MS);
         });
     }
+
     onMount(() => {
         if (typeof document === 'undefined') return;
         document.addEventListener('noteplayed', handleNotePlayed as EventListener);
