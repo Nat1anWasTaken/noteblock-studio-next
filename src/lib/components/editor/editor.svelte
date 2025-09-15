@@ -153,7 +153,15 @@
                         >
                             <!-- Blank interaction layer (under sections): click/drag to scrub time -->
                             <div
-                                class={`absolute inset-0 z-0 ${editorMouse.isScrubbing ? 'cursor-ew-resize' : 'cursor-default'}`}
+                                class={`absolute inset-0 z-0 ${
+                                    editorMouse.isScrubbing
+                                        ? 'cursor-ew-resize'
+                                        : editorState.pointerMode === PointerMode.Shears
+                                          ? 'cursor-crosshair'
+                                          : editorState.pointerMode === PointerMode.Merge
+                                            ? 'cursor-ew-resize'
+                                            : 'cursor-default'
+                                }`}
                                 onpointerdown={(e) => {
                                     const contentEl = timelineContentEl as HTMLElement;
                                     if (!contentEl) return;

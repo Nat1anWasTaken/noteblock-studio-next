@@ -13,6 +13,8 @@ export class EditorMouseController {
 
     // Shears-mode hover state: { channelIndex, sectionIndex, tick } when hovering a section
     shearsHover = $state<{ channelIndex: number; sectionIndex: number; tick: number } | null>(null);
+    // Merge-mode hover state: { channelIndex, sectionIndex } when hovering a section (to merge with its next)
+    mergeHover = $state<{ channelIndex: number; sectionIndex: number } | null>(null);
 
     // Context captured on pointerdown
     private _contentEl: HTMLElement | null = null;
@@ -177,37 +179,79 @@ export class EditorMouseController {
         contentEl: HTMLElement | null,
         ev: PointerEvent
     ) => {
-        if (editorState.pointerMode !== PointerMode.Shears) return;
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
         if (!content) {
             this.shearsHover = null;
+            this.mergeHover = null;
             return;
         }
-        const absTick = this.tickFromClientX(content, ev.clientX);
-        // Only show hover when inside the section bounds
-        const secStart = section.startingTick ?? 0;
-        const secEnd = secStart + (section.length ?? 0);
-        if (absTick < secStart || absTick > secEnd) {
+
+        // --- Shears hover: show a tick within the hovered section ---
+        if (editorState.pointerMode === PointerMode.Shears) {
+            const absTick = this.tickFromClientX(content, ev.clientX);
+            // Only show hover when inside the section bounds
+            const secStart = section.startingTick ?? 0;
+            const secEnd = secStart + (section.length ?? 0);
+            if (absTick < secStart || absTick > secEnd) {
+                this.shearsHover = null;
+                return;
+            }
+            this.shearsHover = { channelIndex, sectionIndex, tick: absTick };
+            // clear merge hover when in shears mode
+            this.mergeHover = null;
+            return;
+        }
+
+        // --- Merge hover: highlight this section and the next section (if present) ---
+        if (editorState.pointerMode === PointerMode.Merge) {
+            const ch = player.song?.channels?.[channelIndex] as any;
+            if (!ch || ch.kind !== 'note') {
+                this.mergeHover = null;
+                return;
+            }
+            const next = ch.sections?.[sectionIndex + 1];
+            if (!next) {
+                this.mergeHover = null;
+                return;
+            }
+
+            const absTick = this.tickFromClientX(content, ev.clientX);
+            const secStart = section.startingTick ?? 0;
+            const secEnd = secStart + (section.length ?? 0);
+            // Only show when hovering within the primary section bounds
+            if (absTick < secStart || absTick > secEnd) {
+                this.mergeHover = null;
+                return;
+            }
+
+            this.mergeHover = { channelIndex, sectionIndex };
+            // clear shears hover when in merge mode
             this.shearsHover = null;
             return;
         }
-        this.shearsHover = { channelIndex, sectionIndex, tick: absTick };
+
+        // Clear any section-mode hovers if not in a specialized mode
+        this.shearsHover = null;
+        this.mergeHover = null;
     };
 
     // --- Shears mode: pointer leave clears hover ---
     handleSectionPointerLeave = (channelIndex: number, sectionIndex: number) => {
-        const h = this.shearsHover;
-        if (!h) return;
-        if (h.channelIndex === channelIndex && h.sectionIndex === sectionIndex)
+        const sh = this.shearsHover;
+        if (sh && sh.channelIndex === channelIndex && sh.sectionIndex === sectionIndex) {
             this.shearsHover = null;
+        }
+        const mh = this.mergeHover;
+        if (mh && mh.channelIndex === channelIndex && mh.sectionIndex === sectionIndex) {
+            this.mergeHover = null;
+        }
     };
 
     // --- Shears mode: pointer down on a section splits it at the clicked tick ---
     handleSectionShearsPointerDown = (
         channelIndex: number,
         sectionIndex: number,
-        section: any,
         contentEl: HTMLElement | null,
         ev: PointerEvent
     ) => {
@@ -221,18 +265,69 @@ export class EditorMouseController {
         if (!content) return;
 
         const absTick = this.tickFromClientX(content, ev.clientX);
-        this.splitSectionAt(channelIndex, sectionIndex, section, absTick);
+        this.splitSectionAt(channelIndex, sectionIndex, absTick);
         // Clear hover after splitting
         this.shearsHover = null;
     };
 
-    // Split a section at an absolute tick (mutates player.song in-place)
-    private splitSectionAt(
+    // --- Merge mode: pointer down on a section merges it with the next section ---
+    handleSectionMergePointerDown = (
         channelIndex: number,
         sectionIndex: number,
-        section: any,
-        absTick: number
-    ) {
+        contentEl: HTMLElement | null,
+        ev: PointerEvent
+    ) => {
+        if (ev.button !== 0) return;
+        if (editorState.pointerMode !== PointerMode.Merge) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        const content =
+            contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
+        if (!content) return;
+
+        const song = player.song;
+        if (!song) return;
+        const ch = song.channels[channelIndex] as any;
+        if (!ch || ch.kind !== 'note') return;
+
+        const sec = ch.sections[sectionIndex];
+        const nextSec = ch.sections[sectionIndex + 1];
+        if (!sec || !nextSec) return;
+
+        const secStart = sec.startingTick ?? 0;
+        const nextStart = nextSec.startingTick ?? 0;
+
+        // Build merged notes: left notes unchanged (relative to secStart), right notes adjusted to secStart
+        const mergedNotes: any[] = [];
+        for (const n of sec.notes ?? []) {
+            mergedNotes.push({ ...n });
+        }
+        for (const n of nextSec.notes ?? []) {
+            const absTick = nextStart + (n.tick ?? 0);
+            const relTick = Math.max(0, Math.round(absTick - secStart));
+            mergedNotes.push({ ...n, tick: relTick });
+        }
+
+        // New length covers the furthest end of both sections
+        const mergedEnd = Math.max(secStart + (sec.length ?? 0), nextStart + (nextSec.length ?? 0));
+        sec.length = Math.max(0, mergedEnd - secStart);
+        sec.notes = mergedNotes;
+        sec.name = sec.name || nextSec.name || 'Merged';
+
+        // Remove the next section from the channel
+        ch.sections.splice(sectionIndex + 1, 1);
+
+        // Refresh indexes and select the merged section
+        player.refreshIndexes();
+        editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+
+        // Clear merge hover
+        this.mergeHover = null;
+    };
+
+    // Split a section at an absolute tick (mutates player.song in-place)
+    private splitSectionAt(channelIndex: number, sectionIndex: number, absTick: number) {
         const song = player.song;
         if (!song) return;
         const ch = song.channels[channelIndex] as any;

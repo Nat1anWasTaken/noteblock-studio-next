@@ -47,7 +47,32 @@
         )
     );
 
-    const borderClass = $derived(selected ? 'border-foreground border-3' : 'border-emerald-700/60');
+    // Merge hover detection: this component may be the primary (hover target)
+    // or the secondary (the next section to be merged).
+    const mergeHoverPrimary = $derived(
+        editorMouse.mergeHover &&
+            editorState.pointerMode === PointerMode.Merge &&
+            editorMouse.mergeHover.channelIndex === channelIndex &&
+            editorMouse.mergeHover.sectionIndex === sectionIndex
+            ? true
+            : false
+    );
+    const mergeHoverSecondary = $derived(
+        editorMouse.mergeHover &&
+            editorState.pointerMode === PointerMode.Merge &&
+            editorMouse.mergeHover.channelIndex === channelIndex &&
+            editorMouse.mergeHover.sectionIndex === sectionIndex - 1
+            ? true
+            : false
+    );
+
+    const borderClass = $derived(
+        selected
+            ? 'border-foreground border-3'
+            : mergeHoverPrimary || mergeHoverSecondary
+              ? 'border-amber-500 border-3'
+              : 'border-emerald-700/60'
+    );
 
     // Shears hover tick for this section (absolute tick -> local px)
     const shearsHoverTick = $derived(
@@ -72,13 +97,9 @@
     function onPointerDown(ev: PointerEvent) {
         // Dispatch based on current pointer mode
         if (editorState.pointerMode === PointerMode.Shears) {
-            editorMouse.handleSectionShearsPointerDown(
-                channelIndex,
-                sectionIndex,
-                section,
-                null,
-                ev
-            );
+            editorMouse.handleSectionShearsPointerDown(channelIndex, sectionIndex, null, ev);
+        } else if (editorState.pointerMode === PointerMode.Merge) {
+            editorMouse.handleSectionMergePointerDown(channelIndex, sectionIndex, null, ev);
         } else {
             // Default behavior (normal mode) handled by centralized controller
             editorMouse.handleSectionPointerDown(channelIndex, sectionIndex, section, null, ev);
