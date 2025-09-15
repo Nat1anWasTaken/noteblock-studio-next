@@ -1,9 +1,11 @@
 <script>
     import Button from '$lib/components/ui/button/button.svelte';
     import { player } from '$lib/playback.svelte';
+    import { getSampleSong } from '$lib/sample-song';
     import { onMount } from 'svelte';
 
-    onMount(() => {
+    onMount(async () => {
+        const sample = await getSampleSong();
         player.setSong(sample);
     });
 </script>
@@ -20,5 +22,5 @@
     />
     Metronome
 </label>
-<p>Current Tick{player.currentTick}</p>
+<p>Current Tick {player.currentTick}</p>
 <p>{player.currentBar} : {player.currentBeat}</p>
