@@ -13,6 +13,8 @@ export type Channel = NoteChannel | TempoChannel;
 export interface BaseChannel {
     kind: 'note' | 'tempo';
     name: string;
+    // Optional stable identifier for referencing channels across edits
+    id?: string;
 }
 
 export interface TempoChannel extends BaseChannel {

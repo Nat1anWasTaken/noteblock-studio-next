@@ -192,9 +192,11 @@ export class Player {
     private _tempoChangeList: TempoChange[] = [];
     private _tickNotes: Map<
         number,
-        Array<{ note: Note; instrument: Instrument; channel: NoteChannel }>
+        Array<{ note: Note; instrument: Instrument; channelId: string }>
     > = new Map();
     private _tempoChanges: Map<number, TempoChange> = new Map();
+    // Map for resolving current channel objects by id (keeps up-to-date when channels replaced)
+    private _channelsById: Map<string, NoteChannel> = new Map();
 
     private _song = $state<Song | null>(null);
 
@@ -269,10 +271,11 @@ export class Player {
      * Useful after in-place edits to the song data.
      */
     refreshIndexes() {
-        const { tickNotes, tempoChanges } = Player.buildIndexes(this._song as any);
+        const { tickNotes, tempoChanges, channelsById } = Player.buildIndexes(this._song as any);
         this._tickNotes = tickNotes;
         this._tempoChanges = tempoChanges;
         this._tempoChangeList = Array.from(tempoChanges.values()).sort((a, b) => a.tick - b.tick);
+        this._channelsById = channelsById;
         // Keep selection bounds within new song length if applicable
         if (this._selectionStart !== null)
             this._selectionStart = this.clampTick(this._selectionStart);
@@ -450,8 +453,13 @@ export class Player {
         if (!this._muteTickAudio) {
             const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
             if (notes) {
-                for (const { note, instrument, channel } of notes) {
-                    if (channel.isMuted) continue;
+                for (const { note, instrument, channelId } of notes) {
+                    // resolve channel object from current channels map
+                    const channel =
+                        this._channelsById.get(channelId) ??
+                        this.song?.channels.find((c) => (c as any).id === channelId);
+                    if (!channel || channel.kind !== 'note') continue;
+                    if ((channel as NoteChannel).isMuted) continue;
                     try {
                         playNote(note, instrument);
                     } catch {}
@@ -536,10 +544,11 @@ export class Player {
         this._song = song;
         this._currentTick = 0;
         this._tempo = song.tempo ?? this._tempo;
-        const { tickNotes, tempoChanges } = Player.buildIndexes(song);
+        const { tickNotes, tempoChanges, channelsById } = Player.buildIndexes(song);
         this._tickNotes = tickNotes;
         this._tempoChanges = tempoChanges;
         this._tempoChangeList = Array.from(tempoChanges.values()).sort((a, b) => a.tick - b.tick);
+        this._channelsById = channelsById;
 
         // Normalize selection to the bounds of the new song
         if (this._selectionStart !== null)
@@ -553,8 +562,58 @@ export class Player {
             // Keep consistent invariant start <= end
             this._selectionEnd = this._selectionStart;
         }
-
         // If playing, ensure scheduler respects the new state
+        this.resyncSchedulerOnStateChange();
+    }
+
+    /**
+     * Toggle mute for a note channel by index.
+     * Updates the underlying Song data and resyncs the scheduler so any
+     * already-scheduled audio is cancelled if necessary.
+     */
+    setMute(index: number) {
+        if (!this.song) return;
+        const ch = this.song.channels[index];
+        if (!ch || ch.kind !== 'note') return;
+        ch.isMuted = !ch.isMuted;
+        // If we have a channelsById map, keep it in sync (the object is the same instance)
+        if ((ch as any).id) {
+            this._channelsById.set((ch as any).id as string, ch as NoteChannel);
+        }
+        // Resync scheduler so scheduled notes respect the new mute state.
+        this.resyncSchedulerOnStateChange();
+    }
+
+    /**
+     * Solo a channel: mute all other note channels and unmute the target.
+     * If the target is already the only unmuted note channel, clear the solo
+     * (unmute all note channels).
+     */
+    setSolo(index: number) {
+        if (!this.song) return;
+        const target = this.song.channels[index];
+        if (!target || target.kind !== 'note') return;
+
+        // Collect note channels with their indexes
+        const noteChannels: Array<{ ch: NoteChannel; idx: number }> = [];
+        for (let i = 0; i < this.song.channels.length; i++) {
+            const c = this.song.channels[i];
+            if (c.kind === 'note') noteChannels.push({ ch: c as NoteChannel, idx: i });
+        }
+
+        const unmuted = noteChannels.filter((n) => !n.ch.isMuted);
+        const isAlreadySoloed = unmuted.length === 1 && unmuted[0].idx === index;
+
+        if (isAlreadySoloed) {
+            // Clear solo: unmute all note channels
+            for (const n of noteChannels) n.ch.isMuted = false;
+        } else {
+            // Solo target: mute others, ensure target is unmuted
+            for (const n of noteChannels) {
+                n.ch.isMuted = n.idx !== index;
+            }
+        }
+
         this.resyncSchedulerOnStateChange();
     }
 
@@ -612,9 +671,9 @@ export class Player {
     }
 
     private static getNotesAtTick(
-        map: Map<number, Array<{ note: Note; instrument: Instrument; channel: NoteChannel }>>,
+        map: Map<number, Array<{ note: Note; instrument: Instrument; channelId: string }>>,
         tick: number
-    ): Array<{ note: Note; instrument: Instrument; channel: NoteChannel }> | undefined {
+    ): Array<{ note: Note; instrument: Instrument; channelId: string }> | undefined {
         return map.get(tick);
     }
 
@@ -628,20 +687,39 @@ export class Player {
     private static buildIndexes(song: Song) {
         const tickNotes = new Map<
             number,
-            Array<{ note: Note; instrument: Instrument; channel: NoteChannel }>
+            Array<{ note: Note; instrument: Instrument; channelId: string }>
         >();
         const tempoChanges = new Map<number, TempoChange>();
+        const channelsById = new Map<string, NoteChannel>();
+
+        let idCounter = 0;
+        const makeId = () => {
+            try {
+                // Prefer crypto.randomUUID when available
+                if (
+                    typeof crypto !== 'undefined' &&
+                    typeof (crypto as any).randomUUID === 'function'
+                )
+                    return (crypto as any).randomUUID();
+            } catch {}
+            return `ch_${Date.now()}_${++idCounter}`;
+        };
 
         for (const channel of song.channels) {
             if (channel.kind !== 'note') continue;
+            // ensure channel has a stable id
+            if (!(channel as any).id) (channel as any).id = makeId();
+            const cid = (channel as any).id as string;
+            channelsById.set(cid, channel as NoteChannel);
+
             for (const section of channel.sections) {
                 const base = section.startingTick;
                 for (const note of section.notes) {
                     const absTick = base + note.tick;
                     const arr = tickNotes.get(absTick);
-                    if (arr) arr.push({ note, instrument: channel.instrument, channel });
-                    else
-                        tickNotes.set(absTick, [{ note, instrument: channel.instrument, channel }]);
+                    const item = { note, instrument: channel.instrument, channelId: cid };
+                    if (arr) arr.push(item);
+                    else tickNotes.set(absTick, [item]);
                 }
             }
         }
@@ -653,7 +731,7 @@ export class Player {
             }
         }
 
-        return { tickNotes, tempoChanges };
+        return { tickNotes, tempoChanges, channelsById };
     }
 
     // --- Web Audio scheduler helpers ---
@@ -776,8 +854,15 @@ export class Player {
 
             // Schedule notes for this tick
             const notes = Player.getNotesAtTick(this._tickNotes, this._nextTickToSchedule) ?? [];
-            for (const { note, instrument, channel } of notes) {
-                if (channel.isMuted) continue;
+            for (const { note, instrument, channelId } of notes) {
+                const channel =
+                    this._channelsById.get(channelId) ??
+                    this.song?.channels.find((c) => (c as any).id === channelId);
+                if (!channel || channel.kind !== 'note') continue;
+
+                if ((channel as NoteChannel).isMuted) {
+                    continue;
+                }
                 this.scheduleNote(instrument, note, this._nextNoteTime, this._nextTickToSchedule);
             }
 
