@@ -8,14 +8,13 @@
     interface Props {
         open: boolean;
         change: TempoChange;
-        onSave?: (updatedChange: TempoChange) => void;
+        onSave?: (updatedChange: Partial<TempoChange>) => void;
         onCancel?: () => void;
     }
 
     let { open = $bindable(), change, onSave, onCancel }: Props = $props();
 
-    let editedChange = $state<TempoChange>({
-        tick: change.tick,
+    let editedChange = $state<Partial<TempoChange>>({
         tempo: change.tempo,
         ticksPerBeat: change.ticksPerBeat,
         beatsPerBar: change.beatsPerBar
@@ -59,11 +58,6 @@
         </Dialog.Header>
 
         <div class="grid gap-4 py-4">
-            <div class="grid grid-cols-4 items-center gap-4">
-                <Label for="tick" class="text-right">Tick</Label>
-                <Input id="tick" type="number" bind:value={editedChange.tick} class="col-span-3" />
-            </div>
-
             <div class="grid grid-cols-4 items-center gap-4">
                 <Label for="tempo" class="text-right">Tempo</Label>
                 <Input

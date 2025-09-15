@@ -1,6 +1,5 @@
 <script lang="ts">
     import { Badge } from '$lib/components/ui/badge';
-    import Input from '$lib/components/ui/input/input.svelte';
     import { editorState } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
     import type { TempoChange } from '$lib/types';
@@ -24,11 +23,7 @@
     let dialogOpen = $state(false);
 
     function formatTempo(change: TempoChange): string {
-        const bpm =
-            change.ticksPerBeat > 0
-                ? Math.round((change.tempo * 60) / change.ticksPerBeat)
-                : change.tempo;
-        return `${bpm} BPM • tpb=${change.ticksPerBeat} • bpb=${change.beatsPerBar}`;
+        return `${change.tempo} t/s • ${change.ticksPerBeat} t/b • ${change.beatsPerBar} b/b`;
     }
 
     function handleDoubleClick() {
@@ -41,7 +36,7 @@
         dialogOpen = true;
     }
 
-    function handleTempoSave(updatedChange: TempoChange) {
+    function handleTempoSave(updatedChange: Partial<TempoChange>) {
         if (!player.song) return;
 
         // Find the tempo channel and update the specific tempo change
@@ -49,7 +44,10 @@
             if (channel.kind === 'tempo') {
                 const changeIndex = channel.tempoChanges.findIndex((tc) => tc.tick === change.tick);
                 if (changeIndex !== -1) {
-                    channel.tempoChanges[changeIndex] = { ...updatedChange };
+                    channel.tempoChanges[changeIndex] = {
+                        ...channel.tempoChanges[changeIndex],
+                        ...updatedChange
+                    };
                     break;
                 }
             }
@@ -71,7 +69,7 @@
     <!-- Label to the right of the marker, aligned to the top of the row -->
     <Badge
         variant="secondary"
-        class="absolute top-1 left-2 px-1.5 py-0.5 text-[11px] leading-none whitespace-nowrap shadow"
+        class="absolute top-1 left-2 cursor-pointer px-1.5 py-0.5 text-[11px] leading-none whitespace-nowrap shadow"
     >
         {formatTempo(change)}
     </Badge>
