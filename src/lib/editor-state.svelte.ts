@@ -21,6 +21,34 @@ export class EditorState {
     // Pointer/edit mode for section editing
     pointerMode = $state<PointerMode>(PointerMode.Normal);
 
+    // Section selection (2D selection of sections by channel + tick range).
+    // Stored as an array of { channelIndex, sectionIndex } for simplicity.
+    selectedSections = $state<Array<{ channelIndex: number; sectionIndex: number }>>([]);
+
+    // Select a set of sections (overwrites current)
+    setSelectedSections(selections: Array<{ channelIndex: number; sectionIndex: number }>) {
+        this.selectedSections = selections;
+    }
+
+    // Clear section selection
+    clearSelectedSections() {
+        this.selectedSections = [];
+    }
+
+    // Toggle a single section
+    toggleSectionSelected(channelIndex: number, sectionIndex: number) {
+        const found = this.selectedSections.find(
+            (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
+        );
+        if (found) {
+            this.selectedSections = this.selectedSections.filter(
+                (s) => !(s.channelIndex === channelIndex && s.sectionIndex === sectionIndex)
+            );
+        } else {
+            this.selectedSections = [...this.selectedSections, { channelIndex, sectionIndex }];
+        }
+    }
+
     // Player-linked reactive values (single source of truth for grid geometry)
     ticksPerBeat = $derived(player.ticksPerBeat);
     beatsPerBar = $derived(player.beatsPerBar);

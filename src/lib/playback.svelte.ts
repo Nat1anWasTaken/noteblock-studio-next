@@ -248,6 +248,22 @@ export class Player {
         this.resyncSchedulerOnStateChange();
     }
 
+    /**
+     * Rebuild internal indexes from the current song without resetting playback cursor.
+     * Useful after in-place edits to the song data.
+     */
+    refreshIndexes() {
+        const { tickNotes, tempoChanges } = Player.buildIndexes(this._song as any);
+        this._tickNotes = tickNotes;
+        this._tempoChanges = tempoChanges;
+        this._tempoChangeList = Array.from(tempoChanges.values()).sort((a, b) => a.tick - b.tick);
+        // Keep selection bounds within new song length if applicable
+        if (this._selectionStart !== null)
+            this._selectionStart = this.clampTick(this._selectionStart);
+        if (this._selectionEnd !== null) this._selectionEnd = this.clampTick(this._selectionEnd);
+        this.resyncSchedulerOnStateChange();
+    }
+
     /** Enable or disable the metronome clicks during playback. */
     setMetronomeEnabled(on: boolean) {
         this._metronomeEnabled = !!on;

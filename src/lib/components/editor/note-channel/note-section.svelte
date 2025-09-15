@@ -1,15 +1,16 @@
 <script lang="ts">
+    import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState } from '$lib/editor-state.svelte';
     import type { NoteSection } from '$lib/types';
 
     interface Props {
         section: NoteSection;
         channelIndex: number; // 0-based
+        sectionIndex: number; // 0-based within channel
         rowHeight?: number; // px
-        selected?: boolean; // highlight style (not implemented)
     }
 
-    let { section, channelIndex, rowHeight = 72, selected = false }: Props = $props();
+    let { section, channelIndex, sectionIndex, rowHeight = 72 }: Props = $props();
 
     const left = $derived(
         section.startingTick *
@@ -38,13 +39,27 @@
     );
     const keySpan = $derived(Math.max(1, Number(maxKey) - Number(minKey)));
 
+    const selected = $derived(
+        Boolean(
+            editorState.selectedSections.find(
+                (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
+            )
+        )
+    );
+
     const borderClass = $derived(selected ? 'border-foreground border-3' : 'border-emerald-700/60');
+
+    function onPointerDown(ev: PointerEvent) {
+        // Let the centralized controller handle pointer lifecycle
+        editorMouse.handleSectionPointerDown(channelIndex, sectionIndex, section, null, ev);
+    }
 </script>
 
 <!-- Simple visual block for a note section; color tokens are placeholders -->
 <div
     class="absolute z-10 overflow-hidden rounded-md border {borderClass} bg-emerald-600/90 text-xs shadow-sm select-none"
     style={`left:${left}px; top:${top}px; width:${width}px; height:${height}px;`}
+    onpointerdown={onPointerDown}
 >
     <!-- Header strip with section name -->
     <div class="w-full truncate bg-emerald-200/80 px-2 py-1 font-medium text-emerald-900">

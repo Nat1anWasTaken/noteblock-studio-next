@@ -12,6 +12,6 @@
 </script>
 
 <!-- Renders all sections belonging to a single note channel on its row -->
-{#each channel.sections as section}
-    <NoteSection {section} channelIndex={index} {rowHeight} />
+{#each channel.sections as section, sIdx}
+    <NoteSection {section} channelIndex={index} sectionIndex={sIdx} {rowHeight} />
 {/each}

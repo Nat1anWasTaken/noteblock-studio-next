@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as Resizable from '$lib/components/ui/resizable';
     import { editorMouse } from '$lib/editor-mouse.svelte';
-    import { editorState } from '$lib/editor-state.svelte';
+    import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
     import { getSampleSong } from '$lib/sample-song';
     import { onMount } from 'svelte';
@@ -147,17 +147,22 @@
                     >
                         <div
                             bind:this={timelineContentEl}
+                            data-editor-content
                             class="relative"
                             style={`width:${editorState.contentWidth}px; min-height:${Math.max(1, channels.length) * editorState.rowHeight}px;`}
                         >
                             <!-- Blank interaction layer (under sections): click/drag to scrub time -->
                             <div
                                 class={`absolute inset-0 z-0 ${editorMouse.isScrubbing ? 'cursor-ew-resize' : 'cursor-default'}`}
-                                onpointerdown={(e) =>
-                                    editorMouse.handleTimelineBlankPointerDown(
-                                        e.currentTarget as HTMLElement,
-                                        e
-                                    )}
+                                onpointerdown={(e) => {
+                                    const contentEl = timelineContentEl as HTMLElement;
+                                    if (!contentEl) return;
+                                    if (editorState.pointerMode === PointerMode.Normal) {
+                                        editorMouse.handleContentPointerDown(contentEl, e);
+                                    } else {
+                                        editorMouse.handleTimelineBlankPointerDown(contentEl, e);
+                                    }
+                                }}
                             ></div>
 
                             <!-- Channel row separators -->
