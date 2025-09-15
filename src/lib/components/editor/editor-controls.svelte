@@ -8,17 +8,20 @@
         Tooltip as TooltipRoot,
         TooltipTrigger
     } from '$lib/components/ui/tooltip';
-    import { editorState } from '$lib/editor-state.svelte';
+    import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { LoopMode, player } from '$lib/playback.svelte';
     import { cn } from '$lib/utils';
     import type { Tooltip } from 'bits-ui';
     import type { Snippet } from 'svelte';
     import ChevronDown from '~icons/lucide/chevron-down';
     import ChevronLeft from '~icons/lucide/chevron-left';
+    import GitMerge from '~icons/lucide/git-merge';
+    import MousePointer from '~icons/lucide/mouse-pointer';
     import MousePointerClick from '~icons/lucide/mouse-pointer-click';
     import Pause from '~icons/lucide/pause';
     import Play from '~icons/lucide/play';
     import Repeat from '~icons/lucide/repeat';
+    import Scissors from '~icons/lucide/scissors';
     import SkipBack from '~icons/lucide/skip-back';
     import Volume2 from '~icons/lucide/volume-2';
 
@@ -95,6 +98,12 @@
     const autoScrollLabel = $derived(
         editorState.autoScrollEnabled ? 'Follow Playhead: On' : 'Follow Playhead: Off'
     );
+
+    // Use a unified selected color for all three pointer mode buttons
+    const pointerButtonClass = (mode: PointerMode) =>
+        editorState.pointerMode === mode
+            ? 'bg-indigo-600 text-white hover:bg-indigo-600/80 dark:hover:bg-indigo-600/80 hover:text-white'
+            : '';
 </script>
 
 {#snippet tooltipped({
@@ -250,6 +259,65 @@
                 {@render tooltipped({
                     label: autoScrollLabel,
                     children: autoScrollButton,
+                    disableCloseOnTriggerClick: true
+                })}
+            </div>
+
+            <!-- Pointer mode selector -->
+            <div
+                class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
+            >
+                {#snippet normalModeButton({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Normal Mode"
+                        class={pointerButtonClass(PointerMode.Normal)}
+                        onclick={() => editorState.setPointerMode(PointerMode.Normal)}
+                    >
+                        <MousePointer class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({
+                    label: 'Normal Mode',
+                    children: normalModeButton,
+                    disableCloseOnTriggerClick: true
+                })}
+
+                {#snippet shearsModeButton({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Shears Mode"
+                        class={pointerButtonClass(PointerMode.Shears)}
+                        onclick={() => editorState.setPointerMode(PointerMode.Shears)}
+                    >
+                        <Scissors class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({
+                    label: 'Shears Mode',
+                    children: shearsModeButton,
+                    disableCloseOnTriggerClick: true
+                })}
+
+                {#snippet mergeModeButton({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Merge Mode"
+                        class={pointerButtonClass(PointerMode.Merge)}
+                        onclick={() => editorState.setPointerMode(PointerMode.Merge)}
+                    >
+                        <GitMerge class="size-5" />
+                    </Button>
+                {/snippet}
+                {@render tooltipped({
+                    label: 'Merge Mode',
+                    children: mergeModeButton,
                     disableCloseOnTriggerClick: true
                 })}
             </div>

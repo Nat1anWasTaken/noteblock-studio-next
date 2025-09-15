@@ -1,6 +1,12 @@
 // Shared editor UI state for channels/ruler (Svelte 5 runes)
 import { player } from './playback.svelte';
 
+export enum PointerMode {
+    Normal = 'normal',
+    Shears = 'shears',
+    Merge = 'merge'
+}
+
 export class EditorState {
     // Zoom represented as pixels per beat for stable feel across signatures
     pxPerBeat = $state(96); // default ~96px per beat
@@ -11,6 +17,9 @@ export class EditorState {
     scrollLeft = $state(0);
     // Auto-follow playhead toggle
     autoScrollEnabled = $state(true);
+
+    // Pointer/edit mode for section editing
+    pointerMode = $state<PointerMode>(PointerMode.Normal);
 
     // Player-linked reactive values (single source of truth for grid geometry)
     ticksPerBeat = $derived(player.ticksPerBeat);
@@ -67,6 +76,10 @@ export class EditorState {
 
     setAutoScrollEnabled(on: boolean) {
         this.autoScrollEnabled = !!on;
+    }
+
+    setPointerMode(mode: PointerMode) {
+        this.pointerMode = mode;
     }
 }
 
