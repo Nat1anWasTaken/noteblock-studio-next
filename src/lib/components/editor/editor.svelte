@@ -3,8 +3,7 @@
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
-    import { getSampleSong } from '$lib/sample-song';
-    import { onMount } from 'svelte';
+    import { onDestroy } from 'svelte';
     import EditorHeader from './editor-controls.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
     import NoteChannelInfo from './note-channel/note-channel-info.svelte';
@@ -15,11 +14,6 @@
     import TempoChannelInfo from './tempo-channel/tempo-channel-info.svelte';
     import TempoChannel from './tempo-channel/tempo-channel.svelte';
     import TimelineGrid from './timeline-grid.svelte';
-
-    onMount(async () => {
-        const sample = await getSampleSong();
-        player.setSong(sample);
-    });
 
     const gutterWidth = 240;
 

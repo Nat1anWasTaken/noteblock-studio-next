@@ -133,7 +133,13 @@
 >
     <!-- Left: Back + Project name -->
     <div class="flex flex-1 items-center gap-2">
-        <Button variant="ghost" size="icon" aria-label="Back" class="text-primary">
+        <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Back"
+            class="text-primary"
+            onclick={() => history.back()}
+        >
             <ChevronLeft class="size-5" />
         </Button>
         <div class="flex min-w-0 items-center gap-1">

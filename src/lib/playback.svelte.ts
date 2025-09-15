@@ -1111,6 +1111,53 @@ export class Player {
         }
         this._muteTickAudio = false;
     }
+
+    /**
+     * Reset all player state to initial values.
+     * Stops playback if currently playing and resets position, selection, and other state.
+     */
+    reset() {
+        // Stop playback if currently playing
+        if (this._isPlaying) {
+            this.pause();
+        }
+
+        // Reset playback state
+        this._currentTick = 0;
+        this._tempo = 20;
+        this._ticksPerBeat = 10;
+        this._beatsPerBar = 4;
+        this._metronomeEnabled = false;
+
+        // Reset loop and selection state
+        this._loopMode = LoopMode.Off;
+        this._selectionStart = null;
+        this._selectionEnd = null;
+
+        // Reset UI timing
+        this._nextTickAt = 0;
+
+        // Reset Web Audio scheduler state
+        this._nextTickToSchedule = 0;
+        this._nextNoteTime = 0;
+        this._muteTickAudio = false;
+
+        // Cancel any scheduled audio
+        this.cancelScheduledFromNow();
+
+        // Clear cached data
+        this._tickNotes.clear();
+        this._tempoChanges.clear();
+        this._tempoChangeList = [];
+        this._channelsById.clear();
+
+        // Clear song reference
+        this._song = null;
+
+        // Reset audio buffers and context (keep them for reuse)
+        // Note: We don't dispose of the AudioContext or buffers as they can be reused
+        this._scheduled = [];
+    }
 }
 
 export const player = new Player();
