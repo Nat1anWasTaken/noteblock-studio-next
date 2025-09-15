@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { disableScrollHandling } from '$app/navigation';
     import Button from '$lib/components/ui/button/button.svelte';
     import { Input } from '$lib/components/ui/input';
     import {
@@ -11,7 +10,7 @@
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { LoopMode, player } from '$lib/playback.svelte';
     import { cn } from '$lib/utils';
-    import type { Tooltip } from 'bits-ui';
+
     import type { Snippet } from 'svelte';
     import ChevronDown from '~icons/lucide/chevron-down';
     import ChevronLeft from '~icons/lucide/chevron-left';

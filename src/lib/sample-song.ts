@@ -1,6 +1,6 @@
 import { fromArrayBuffer } from '@nbsjs/core';
 import { convertNbsSong } from './nbs';
-import { Instrument, type Song } from './types';
+import type { Song } from './types';
 import { downloadAsArrayBuffer } from './utils';
 
 // export const sample: Song = {

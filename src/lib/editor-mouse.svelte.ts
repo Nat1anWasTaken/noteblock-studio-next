@@ -185,8 +185,6 @@ export class EditorMouseController {
         } else if (this.isSelectingSections) {
             // 2D selection over sections (tick range + channel index range)
             const curTick = this.tickFromClientX(this._contentEl, e.clientX);
-            const rectTop = Math.min(this._startY, e.clientY);
-            const rectBottom = Math.max(this._startY, e.clientY);
 
             const contentRect = this._contentEl.getBoundingClientRect();
             const startChannel = Math.floor(
@@ -225,7 +223,6 @@ export class EditorMouseController {
 
             // Vertical move: determine row delta relative to pointerdown start.
             // Use a row-threshold (round) to avoid immediate channel jumps from small pointer jitter.
-            const contentRect = this._contentEl.getBoundingClientRect();
             const channels = player.song?.channels ?? [];
             const deltaRows = Math.round((e.clientY - this._startY) / editorState.rowHeight);
 
