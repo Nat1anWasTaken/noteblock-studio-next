@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { Instrument, type Note, type Song, type TempoChange } from './types';
+import { Instrument, type Note, type NoteChannel, type Song, type TempoChange } from './types';
 
 /**
  * Loop behavior for playback.
@@ -190,7 +190,10 @@ export class Player {
 
     // Cached sorted tempo changes for quick lookup
     private _tempoChangeList: TempoChange[] = [];
-    private _tickNotes: Map<number, Array<{ note: Note; instrument: Instrument }>> = new Map();
+    private _tickNotes: Map<
+        number,
+        Array<{ note: Note; instrument: Instrument; channel: NoteChannel }>
+    > = new Map();
     private _tempoChanges: Map<number, TempoChange> = new Map();
 
     private _song = $state<Song | null>(null);
@@ -447,7 +450,8 @@ export class Player {
         if (!this._muteTickAudio) {
             const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
             if (notes) {
-                for (const { note, instrument } of notes) {
+                for (const { note, instrument, channel } of notes) {
+                    if (channel.isMuted) continue;
                     try {
                         playNote(note, instrument);
                     } catch {}
@@ -608,9 +612,9 @@ export class Player {
     }
 
     private static getNotesAtTick(
-        map: Map<number, Array<{ note: Note; instrument: Instrument }>>,
+        map: Map<number, Array<{ note: Note; instrument: Instrument; channel: NoteChannel }>>,
         tick: number
-    ): Array<{ note: Note; instrument: Instrument }> | undefined {
+    ): Array<{ note: Note; instrument: Instrument; channel: NoteChannel }> | undefined {
         return map.get(tick);
     }
 
@@ -622,7 +626,10 @@ export class Player {
     }
 
     private static buildIndexes(song: Song) {
-        const tickNotes = new Map<number, Array<{ note: Note; instrument: Instrument }>>();
+        const tickNotes = new Map<
+            number,
+            Array<{ note: Note; instrument: Instrument; channel: NoteChannel }>
+        >();
         const tempoChanges = new Map<number, TempoChange>();
 
         for (const channel of song.channels) {
@@ -632,8 +639,9 @@ export class Player {
                 for (const note of section.notes) {
                     const absTick = base + note.tick;
                     const arr = tickNotes.get(absTick);
-                    if (arr) arr.push({ note, instrument: channel.instrument });
-                    else tickNotes.set(absTick, [{ note, instrument: channel.instrument }]);
+                    if (arr) arr.push({ note, instrument: channel.instrument, channel });
+                    else
+                        tickNotes.set(absTick, [{ note, instrument: channel.instrument, channel }]);
                 }
             }
         }
@@ -768,8 +776,10 @@ export class Player {
 
             // Schedule notes for this tick
             const notes = Player.getNotesAtTick(this._tickNotes, this._nextTickToSchedule) ?? [];
-            for (const { note, instrument } of notes)
+            for (const { note, instrument, channel } of notes) {
+                if (channel.isMuted) continue;
                 this.scheduleNote(instrument, note, this._nextNoteTime, this._nextTickToSchedule);
+            }
 
             // Metronome on beat boundaries
             if (this._metronomeEnabled) {

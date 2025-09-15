@@ -32,6 +32,7 @@ export interface NoteChannel extends BaseChannel {
     sections: NoteSection[];
     pan: number; // -100 (left) to 100 (right)
     instrument: Instrument;
+    isMuted: boolean;
 }
 
 export interface NoteSection {

@@ -82,6 +82,7 @@ function buildChannelsPerInstrument(nbs: NbsSong): NoteChannel[] {
             name: getInstrumentName(inst as Instrument),
             instrument: inst as Instrument,
             pan: 0,
+            isMuted: false,
             sections
         });
     }
@@ -126,6 +127,7 @@ function buildChannelsPerLayer(nbs: NbsSong): NoteChannel[] {
                 name: multi ? `${layerName} (${getInstrumentName(inst as Instrument)})` : layerName,
                 instrument: inst as Instrument,
                 pan: clampNumber(layer.stereo ?? 0, -100, 100),
+                isMuted: false,
                 sections
             });
 
