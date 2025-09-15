@@ -67,10 +67,10 @@
     );
 
     const borderClass = $derived(
-        selected
-            ? 'border-foreground border-3'
-            : mergeHoverPrimary || mergeHoverSecondary
-              ? 'border-amber-500 border-3'
+        mergeHoverPrimary || mergeHoverSecondary
+            ? 'border-amber-500 border-3'
+            : selected
+              ? 'border-foreground border-3'
               : 'border-emerald-700/60'
     );
 
