@@ -80,6 +80,14 @@
             }
         }
     }
+
+    function computeCursorClass(): string {
+        if (editorMouse.isScrubbing) return 'cursor-ew-resize';
+        if (editorState.pointerMode === PointerMode.Shears) return 'cursor-crosshair';
+        if (editorState.pointerMode === PointerMode.Merge) return 'cursor-ew-resize';
+        return 'cursor-default';
+    }
+    const cursorClass = $derived(computeCursorClass());
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
@@ -153,15 +161,7 @@
                         >
                             <!-- Blank interaction layer (under sections): click/drag to scrub time -->
                             <div
-                                class={`absolute inset-0 z-0 ${
-                                    editorMouse.isScrubbing
-                                        ? 'cursor-ew-resize'
-                                        : editorState.pointerMode === PointerMode.Shears
-                                          ? 'cursor-crosshair'
-                                          : editorState.pointerMode === PointerMode.Merge
-                                            ? 'cursor-ew-resize'
-                                            : 'cursor-default'
-                                }`}
+                                class={`absolute inset-0 z-0 ${cursorClass}`}
                                 onpointerdown={(e) => {
                                     const contentEl = timelineContentEl as HTMLElement;
                                     if (!contentEl) return;
