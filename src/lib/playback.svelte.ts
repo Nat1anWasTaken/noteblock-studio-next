@@ -468,9 +468,15 @@ export class Player {
                 }
             }
         }
+        // Update tempo from the latest active tempo change (not just changes at this exact tick)
+        const latestTempo = this.getTempoAtTick(this._currentTick);
+        if (latestTempo !== this._tempo) {
+            this._tempo = latestTempo;
+        }
+        
+        // Also check for time signature changes at this exact tick
         const change = Player.getTempoChangeAtTick(this._tempoChanges, this._currentTick);
         if (change) {
-            this._tempo = change.tempo;
             this._ticksPerBeat = change.ticksPerBeat;
             this._beatsPerBar = change.beatsPerBar;
         }
