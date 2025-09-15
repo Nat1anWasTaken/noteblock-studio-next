@@ -605,16 +605,19 @@ export class Player {
         const isAlreadySoloed = unmuted.length === 1 && unmuted[0].idx === index;
 
         if (isAlreadySoloed) {
-            // Clear solo: unmute all note channels
-            for (const n of noteChannels) n.ch.isMuted = false;
-        } else {
-            // Solo target: mute others, ensure target is unmuted
             for (const n of noteChannels) {
-                n.ch.isMuted = n.idx !== index;
+                if (n.ch.isMuted) {
+                    this.setMute(n.idx);
+                }
+            }
+        } else {
+            for (const n of noteChannels) {
+                const shouldBeMuted = n.idx !== index;
+                if (n.ch.isMuted !== shouldBeMuted) {
+                    this.setMute(n.idx);
+                }
             }
         }
-
-        this.resyncSchedulerOnStateChange();
     }
 
     private scheduleUi() {
