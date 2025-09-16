@@ -1,8 +1,9 @@
 <script lang="ts">
     import Button from '$lib/components/ui/button/button.svelte';
+    import InstrumentSelector from '$lib/components/editor/note-channel/instrument-selector.svelte';
     import { player } from '$lib/playback.svelte';
     import type { NoteChannel } from '$lib/types';
-    import { Instrument } from '$lib/types';
+    import { Instrument, INSTRUMENT_ICONS } from '$lib/types';
     import { cn } from '$lib/utils';
 
     interface Props {
@@ -28,26 +29,12 @@
         player.setSolo(index);
     }
 
-    const instrumentIcon: Record<Instrument, string> = {
-        [Instrument.Piano]: '/instruments/harp.png',
-        [Instrument.DoubleBass]: '/instruments/bass.png',
-        [Instrument.BassDrum]: '/instruments/bassdrum.png',
-        [Instrument.SnareDrum]: '/instruments/snare.png',
-        [Instrument.Click]: '/instruments/hat.png',
-        [Instrument.Guitar]: '/instruments/guitar.png',
-        [Instrument.Flute]: '/instruments/flute.png',
-        [Instrument.Bell]: '/instruments/bell.png',
-        [Instrument.Chime]: '/instruments/icechime.png',
-        [Instrument.Xylophone]: '/instruments/xylobone.png',
-        [Instrument.IronXylophone]: '/instruments/iron_xylophone.png',
-        [Instrument.CowBell]: '/instruments/cow_bell.png',
-        [Instrument.Didgeridoo]: '/instruments/didgeridoo.png',
-        [Instrument.Bit]: '/instruments/bit.png',
-        [Instrument.Banjo]: '/instruments/banjo.png',
-        [Instrument.Pling]: '/instruments/pling.png'
-    } as const;
+    function selectInstrument(instrument: Instrument) {
+        player.updateNoteChannel(index, { instrument });
+    }
 
-    const icon = $derived(instrumentIcon[channel.instrument]);
+    let instrumentSelectorOpen = $state(false);
+    const icon = $derived(INSTRUMENT_ICONS[channel.instrument]);
 </script>
 
 <div
@@ -90,11 +77,20 @@
                 </Button>
             </div>
 
-            <div class="flex w-12 items-center justify-center">
+            <InstrumentSelector
+                selectedInstrument={channel.instrument}
+                onSelect={selectInstrument}
+                bind:open={instrumentSelectorOpen}
+                triggerClass="w-12"
+            >
                 {#if icon}
-                    <img src={icon} alt="instrument" class="h-10 w-10 rounded-sm object-contain" />
+                    <img
+                        src={icon}
+                        alt="instrument"
+                        class="h-10 w-10 rounded-sm object-contain"
+                    />
                 {/if}
-            </div>
+            </InstrumentSelector>
         </div>
     </div>
 </div>

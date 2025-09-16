@@ -626,6 +626,27 @@ export class Player {
         }
     }
 
+    /**
+     * Update a note channel with partial data.
+     * Updates the channel in place and refreshes indexes to keep player in sync.
+     */
+    updateNoteChannel(index: number, updates: Partial<NoteChannel>) {
+        if (!this.song) return;
+        const channel = this.song.channels[index];
+        if (!channel || channel.kind !== 'note') return;
+
+        // Apply updates to the channel
+        Object.assign(channel, updates);
+
+        // Keep channelsById map in sync if the channel has an id
+        if ((channel as any).id) {
+            this._channelsById.set((channel as any).id as string, channel as NoteChannel);
+        }
+
+        // Refresh indexes to ensure player state is synchronized
+        this.refreshIndexes();
+    }
+
     private scheduleUi() {
         if (!this._isPlaying) return;
         const delay = Math.max(0, this._nextTickAt - performance.now());

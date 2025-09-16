@@ -69,3 +69,46 @@ export enum Instrument {
     Banjo = 14, // Hay
     Pling = 15 // Glowstone
 }
+
+// Human-readable names for instruments
+export const INSTRUMENT_NAMES: Record<Instrument, string> = {
+    [Instrument.Piano]: 'Piano',
+    [Instrument.DoubleBass]: 'Double Bass',
+    [Instrument.BassDrum]: 'Bass Drum',
+    [Instrument.SnareDrum]: 'Snare Drum',
+    [Instrument.Click]: 'Click',
+    [Instrument.Guitar]: 'Guitar',
+    [Instrument.Flute]: 'Flute',
+    [Instrument.Bell]: 'Bell',
+    [Instrument.Chime]: 'Chime',
+    [Instrument.Xylophone]: 'Xylophone',
+    [Instrument.IronXylophone]: 'Iron Xylophone',
+    [Instrument.CowBell]: 'Cow Bell',
+    [Instrument.Didgeridoo]: 'Didgeridoo',
+    [Instrument.Bit]: 'Bit',
+    [Instrument.Banjo]: 'Banjo',
+    [Instrument.Pling]: 'Pling'
+} as const;
+
+// Icon paths for instruments
+export const INSTRUMENT_ICONS: Record<Instrument, string> = {
+    [Instrument.Piano]: '/instruments/harp.png',
+    [Instrument.DoubleBass]: '/instruments/bass.png',
+    [Instrument.BassDrum]: '/instruments/bassdrum.png',
+    [Instrument.SnareDrum]: '/instruments/snare.png',
+    [Instrument.Click]: '/instruments/hat.png',
+    [Instrument.Guitar]: '/instruments/guitar.png',
+    [Instrument.Flute]: '/instruments/flute.png',
+    [Instrument.Bell]: '/instruments/bell.png',
+    [Instrument.Chime]: '/instruments/icechime.png',
+    [Instrument.Xylophone]: '/instruments/xylobone.png',
+    [Instrument.IronXylophone]: '/instruments/iron_xylophone.png',
+    [Instrument.CowBell]: '/instruments/cow_bell.png',
+    [Instrument.Didgeridoo]: '/instruments/didgeridoo.png',
+    [Instrument.Bit]: '/instruments/bit.png',
+    [Instrument.Banjo]: '/instruments/banjo.png',
+    [Instrument.Pling]: '/instruments/pling.png'
+} as const;
+
+// Helper to get all available instruments as an array
+export const ALL_INSTRUMENTS = Object.values(Instrument).filter(value => typeof value === 'number') as Instrument[];
