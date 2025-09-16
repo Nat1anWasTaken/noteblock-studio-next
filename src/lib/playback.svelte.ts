@@ -664,6 +664,28 @@ export class Player {
         this.refreshIndexes();
     }
 
+    /**
+     * Remove a channel by index.
+     * Updates the song in place and refreshes indexes to keep player in sync.
+     */
+    removeChannel(index: number) {
+        if (!this.song) return;
+        if (index < 0 || index >= this.song.channels.length) return;
+
+        const channel = this.song.channels[index];
+
+        // Remove the channel from the song
+        this.song.channels.splice(index, 1);
+
+        // If removing a note channel, clean up the channelsById map
+        if (channel.kind === 'note' && (channel as any).id) {
+            this._channelsById.delete((channel as any).id as string);
+        }
+
+        // Refresh indexes to ensure player state is synchronized
+        this.refreshIndexes();
+    }
+
     private scheduleUi() {
         if (!this._isPlaying) return;
         const delay = Math.max(0, this._nextTickAt - performance.now());
