@@ -111,4 +111,6 @@ export const INSTRUMENT_ICONS: Record<Instrument, string> = {
 } as const;
 
 // Helper to get all available instruments as an array
-export const ALL_INSTRUMENTS = Object.values(Instrument).filter(value => typeof value === 'number') as Instrument[];
+export const ALL_INSTRUMENTS = Object.values(Instrument).filter(
+    (value) => typeof value === 'number'
+) as Instrument[];

@@ -3,6 +3,7 @@
 Before making any changes to this Svelte project, please read the comprehensive Svelte documentation for LLMs at: https://svelte.dev/llms-full.txt
 
 This documentation contains important information about:
+
 - Svelte syntax and conventions
 - Best practices for component development
 - State management patterns

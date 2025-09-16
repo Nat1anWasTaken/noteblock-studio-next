@@ -35,7 +35,7 @@
 <Popover.Root bind:open>
     <Popover.Trigger
         class={cn(
-            "flex items-center justify-center rounded-sm p-1 transition-colors hover:bg-muted/50",
+            'flex items-center justify-center rounded-sm p-1 transition-colors hover:bg-muted/50',
             triggerClass
         )}
         aria-label="Select instrument"
@@ -50,11 +50,7 @@
             />
         {/if}
     </Popover.Trigger>
-    <Popover.Content
-        class={cn("w-80 p-4", contentClass)}
-        {align}
-        {side}
-    >
+    <Popover.Content class={cn('w-80 p-4', contentClass)} {align} {side}>
         <h4 class="mb-2 text-sm font-semibold">Select Instrument</h4>
         <div class="grid max-h-60 grid-cols-4 gap-1 overflow-y-auto">
             {#each ALL_INSTRUMENTS as instrument}
