@@ -9,7 +9,7 @@ export enum PointerMode {
 
 export class EditorState {
     // Zoom represented as pixels per beat for stable feel across signatures
-    pxPerBeat = $state(96); // default ~96px per beat
+    pxPerBeat = $state(50); // default ~64px per beat
     minPxPerBeat = 2;
     maxPxPerBeat = 480;
 

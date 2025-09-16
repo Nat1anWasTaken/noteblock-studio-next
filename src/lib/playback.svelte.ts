@@ -441,14 +441,14 @@ export class Player {
                 this._currentTick = start;
             } else if (this._currentTick < start) {
                 // Before selection: do not force-jump; stop at song end if reached
-                if (Player.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
+                if (this.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
             }
         } else if (this._loopMode === LoopMode.Song) {
-            if (Player.atSongEnd(this._currentTick, this.song)) {
+            if (this.atSongEnd(this._currentTick, this.song)) {
                 this._currentTick = 0;
             }
         } else {
-            if (Player.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
+            if (this.atSongEnd(this._currentTick, this.song)) return this.stopInternal();
         }
         if (!this._muteTickAudio) {
             const notes = Player.getNotesAtTick(this._tickNotes, this._currentTick);
@@ -507,7 +507,7 @@ export class Player {
 
         // Do not force cursor into selection on resume; only ensure song loop wraps
         if (this._loopMode === LoopMode.Song) {
-            if (Player.atSongEnd(this._currentTick, this.song)) this._currentTick = 0;
+            if (this.atSongEnd(this._currentTick, this.song)) this._currentTick = 0;
         }
 
         // Start UI updater (tick counter only, no audio emission)
@@ -675,8 +675,14 @@ export class Player {
         void base.play();
     }
 
-    private static atSongEnd(currentTick: number, song: Song | null): boolean {
-        return !!song && currentTick >= song.length;
+    private atSongEnd(currentTick: number, song: Song | null): boolean {
+        if (!song) return false;
+        // Add 2 bars worth of trailing beats after the last note to allow notes to finish playing
+        // and provide some musical breathing room
+        const trailingBars = 2;
+        const { tpb, bpb } = this.getSignatureAtTick(song.length) ?? { tpb: this._ticksPerBeat, bpb: this._beatsPerBar };
+        const trailingTicks = trailingBars * bpb * tpb;
+        return currentTick >= song.length + trailingTicks;
     }
 
     private static getNotesAtTick(
@@ -840,7 +846,7 @@ export class Player {
 
         while (this._nextNoteTime < aheadUntil) {
             // Loop/stop handling
-            if (Player.atSongEnd(this._nextTickToSchedule, this.song)) {
+            if (this.atSongEnd(this._nextTickToSchedule, this.song)) {
                 if (this._loopMode === LoopMode.Song) {
                     this._nextTickToSchedule = 0;
                 } else if (this._loopMode === LoopMode.Selection && this.hasValidSelection()) {
