@@ -17,8 +17,35 @@
     const gutterWidth = 240;
 
     let channelScroller: HTMLDivElement | null = null;
+    let channelInfosContainer: HTMLDivElement | null = null;
     let timelineContentEl: HTMLDivElement | null = null;
-    const onChannelsScroll = () => editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
+
+    let isUpdatingScroll = false;
+
+    const onChannelsScroll = () => {
+        // TODO: find a better approach of syncing the scrolls
+        if (isUpdatingScroll) return;
+
+        editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
+
+        // Sync vertical scroll with channel infos
+        if (channelInfosContainer && channelScroller) {
+            isUpdatingScroll = true;
+            channelInfosContainer.scrollTop = channelScroller.scrollTop;
+            isUpdatingScroll = false;
+        }
+    };
+
+    const onChannelInfosScroll = () => {
+        if (isUpdatingScroll) return;
+
+        // Sync vertical scroll with channel content
+        if (channelInfosContainer && channelScroller) {
+            isUpdatingScroll = true;
+            channelScroller.scrollTop = channelInfosContainer.scrollTop;
+            isUpdatingScroll = false;
+        }
+    };
     $effect(() => {
         if (!channelScroller) return;
         if (Math.abs(channelScroller.scrollLeft - editorState.scrollLeft) > 1) {
@@ -100,8 +127,10 @@
                 <div class="flex min-h-0 flex-1 select-none">
                     <!-- Left gutter: channel infos -->
                     <div
-                        class="flex shrink-0 flex-col border-r border-border bg-secondary/40"
+                        bind:this={channelInfosContainer}
+                        class="scrollbar-hidden flex shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-border bg-secondary/40"
                         style={`width:${gutterWidth}px`}
+                        onscroll={onChannelInfosScroll}
                     >
                         {#if channels.length === 0}
                             <div class="px-3 py-2 text-sm text-muted-foreground">No channels</div>
@@ -196,3 +225,15 @@
         </Resizable.Pane>
     </Resizable.PaneGroup>
 </div>
+
+<style>
+    .scrollbar-hidden::-webkit-scrollbar {
+        width: 0px;
+    }
+    .scrollbar-hidden::-webkit-scrollbar-thumb {
+        background: transparent;
+    }
+    .scrollbar-hidden::-webkit-scrollbar-track {
+        background: transparent;
+    }
+</style>
