@@ -90,9 +90,9 @@
                 </Button>
             </div>
 
-            <div class="flex items-center gap-1">
+            <div class="flex w-12 items-center justify-center">
                 {#if icon}
-                    <img src={icon} alt="instrument" class="h-10 w-auto rounded-sm" />
+                    <img src={icon} alt="instrument" class="h-10 w-10 rounded-sm object-contain" />
                 {/if}
             </div>
         </div>
