@@ -7,6 +7,7 @@ import {
     type TempoChange,
     type TempoChannel
 } from './types';
+import { generateChannelId } from './utils';
 
 /**
  * Loop behavior for playback.
@@ -693,6 +694,37 @@ export class Player {
         this.refreshIndexes();
     }
 
+    /**
+     * Create a new note channel and add it to the song.
+     * @param channelData The data for creating the new channel
+     * @returns The index of the created channel, or -1 if creation failed
+     */
+    createNoteChannel(channelData: { name: string; instrument: Instrument }): number {
+        if (!this.song) return -1;
+
+        const newChannel: NoteChannel = {
+            kind: 'note',
+            name: channelData.name,
+            id: generateChannelId(),
+            sections: [],
+            pan: 0,
+            instrument: channelData.instrument,
+            isMuted: false
+        };
+
+        // Add the channel to the song
+        this.song.channels.push(newChannel);
+        const newIndex = this.song.channels.length - 1;
+
+        // Update the channelsById map
+        this._channelsById.set(newChannel.id!, newChannel);
+
+        // Refresh indexes to ensure player state is synchronized
+        this.refreshIndexes();
+
+        return newIndex;
+    }
+
     private scheduleUi() {
         if (!this._isPlaying) return;
         const delay = Math.max(0, this._nextTickAt - performance.now());
@@ -777,23 +809,10 @@ export class Player {
         const tempoChanges = new Map<number, TempoChange>();
         const channelsById = new Map<string, NoteChannel>();
 
-        let idCounter = 0;
-        const makeId = () => {
-            try {
-                // Prefer crypto.randomUUID when available
-                if (
-                    typeof crypto !== 'undefined' &&
-                    typeof (crypto as any).randomUUID === 'function'
-                )
-                    return (crypto as any).randomUUID();
-            } catch {}
-            return `ch_${Date.now()}_${++idCounter}`;
-        };
-
         for (const channel of song.channels) {
             if (channel.kind !== 'note') continue;
             // ensure channel has a stable id
-            if (!(channel as any).id) (channel as any).id = makeId();
+            if (!(channel as any).id) (channel as any).id = generateChannelId();
             const cid = (channel as any).id as string;
             channelsById.set(cid, channel as NoteChannel);
 

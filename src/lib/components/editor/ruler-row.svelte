@@ -7,6 +7,9 @@
     import ZoomOut from '~icons/lucide/zoom-out';
     // Mouse interactions (grid is rendered globally in the editor)
     import { editorMouse } from '$lib/editor-mouse.svelte';
+    import ChannelCreationDialog from '$lib/components/editor/channel-creation-dialog.svelte';
+    import { player } from '$lib/playback.svelte';
+    import type { Instrument } from '$lib/types';
 
     interface Props {
         class?: string;
@@ -21,6 +24,15 @@
     // Sync scroll position through shared state for future channel rows
     let scroller: HTMLDivElement | null = null;
     const onScroll = () => editorState.setScrollLeft(scroller?.scrollLeft ?? 0);
+
+    // Channel creation dialog
+    let showChannelDialog = $state(false);
+
+    function handleCreateChannels(channels: Array<{ name: string; instrument: Instrument }>) {
+        for (const channelData of channels) {
+            player.createNoteChannel(channelData);
+        }
+    }
 
     // Keep this scroller in sync if external changes modify scrollLeft
     $effect(() => {
@@ -42,7 +54,7 @@
         class="flex items-center gap-2 border-r border-border px-3 py-2"
         style={`width:${gutterWidth}px`}
     >
-        <Button size="icon" aria-label="Create channel">
+        <Button size="icon" aria-label="Create channel" onclick={() => (showChannelDialog = true)}>
             <Plus class="size-4" />
         </Button>
         {#if showZoomControls}
@@ -84,6 +96,8 @@
         ></div>
     </div>
 </div>
+
+<ChannelCreationDialog bind:open={showChannelDialog} onCreate={handleCreateChannels} />
 
 <style>
     .scrollbar-thin::-webkit-scrollbar {
