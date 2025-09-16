@@ -20,36 +20,29 @@
     let channelInfosContainer: HTMLDivElement | null = null;
     let timelineContentEl: HTMLDivElement | null = null;
 
-    let isUpdatingScroll = false;
-
     const onChannelsScroll = () => {
-        // TODO: find a better approach of syncing the scrolls
-        if (isUpdatingScroll) return;
-
         editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
-
-        // Sync vertical scroll with channel infos
-        if (channelInfosContainer && channelScroller) {
-            isUpdatingScroll = true;
-            channelInfosContainer.scrollTop = channelScroller.scrollTop;
-            isUpdatingScroll = false;
-        }
+        editorState.setScrollTop(channelScroller?.scrollTop ?? 0);
     };
 
     const onChannelInfosScroll = () => {
-        if (isUpdatingScroll) return;
-
-        // Sync vertical scroll with channel content
-        if (channelInfosContainer && channelScroller) {
-            isUpdatingScroll = true;
-            channelScroller.scrollTop = channelInfosContainer.scrollTop;
-            isUpdatingScroll = false;
-        }
+        editorState.setScrollTop(channelInfosContainer?.scrollTop ?? 0);
     };
+
     $effect(() => {
         if (!channelScroller) return;
         if (Math.abs(channelScroller.scrollLeft - editorState.scrollLeft) > 1) {
             channelScroller.scrollLeft = editorState.scrollLeft;
+        }
+        if (Math.abs(channelScroller.scrollTop - editorState.scrollTop) > 1) {
+            channelScroller.scrollTop = editorState.scrollTop;
+        }
+    });
+
+    $effect(() => {
+        if (!channelInfosContainer) return;
+        if (Math.abs(channelInfosContainer.scrollTop - editorState.scrollTop) > 1) {
+            channelInfosContainer.scrollTop = editorState.scrollTop;
         }
     });
 
