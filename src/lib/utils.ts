@@ -17,3 +17,17 @@ export async function downloadAsArrayBuffer(url: string): Promise<ArrayBuffer> {
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     return await res.arrayBuffer(); // <— 直接拿到 ArrayBuffer
 }
+
+/**
+ * Generate a unique channel ID.
+ * Prefers crypto.randomUUID when available, falls back to timestamp + counter.
+ */
+let idCounter = 0;
+export function generateChannelId(): string {
+    try {
+        // Prefer crypto.randomUUID when available
+        if (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function')
+            return (crypto as any).randomUUID();
+    } catch {}
+    return `ch_${Date.now()}_${++idCounter}`;
+}
