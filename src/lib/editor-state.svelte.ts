@@ -15,6 +15,8 @@ export class EditorState {
 
     // Horizontal scroll sync across ruler and channel rows
     scrollLeft = $state(0);
+    // Vertical scroll sync across channel infos and channel content
+    scrollTop = $state(0);
     // Auto-follow playhead toggle
     autoScrollEnabled = $state(true);
 
@@ -100,6 +102,10 @@ export class EditorState {
 
     setScrollLeft(px: number) {
         this.scrollLeft = Math.max(0, px | 0);
+    }
+
+    setScrollTop(px: number) {
+        this.scrollTop = Math.max(0, px | 0);
     }
 
     setAutoScrollEnabled(on: boolean) {
