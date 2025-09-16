@@ -473,7 +473,7 @@ export class Player {
         if (latestTempo !== this._tempo) {
             this._tempo = latestTempo;
         }
-        
+
         // Also check for time signature changes at this exact tick
         const change = Player.getTempoChangeAtTick(this._tempoChanges, this._currentTick);
         if (change) {
@@ -631,6 +631,7 @@ export class Player {
      * Updates the channel in place and refreshes indexes to keep player in sync.
      */
     updateNoteChannel(index: number, updates: Partial<NoteChannel>) {
+        // TODO: fix the instrument latency when updating instrument in place
         if (!this.song) return;
         const channel = this.song.channels[index];
         if (!channel || channel.kind !== 'note') return;
@@ -701,7 +702,10 @@ export class Player {
         // Add 2 bars worth of trailing beats after the last note to allow notes to finish playing
         // and provide some musical breathing room
         const trailingBars = 2;
-        const { tpb, bpb } = this.getSignatureAtTick(song.length) ?? { tpb: this._ticksPerBeat, bpb: this._beatsPerBar };
+        const { tpb, bpb } = this.getSignatureAtTick(song.length) ?? {
+            tpb: this._ticksPerBeat,
+            bpb: this._beatsPerBar
+        };
         const trailingTicks = trailingBars * bpb * tpb;
         return currentTick >= song.length + trailingTicks;
     }
