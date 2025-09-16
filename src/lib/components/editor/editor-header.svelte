@@ -10,9 +10,9 @@
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { LoopMode, player } from '$lib/playback.svelte';
     import { cn } from '$lib/utils';
+    import EditorTitle from './editor-title.svelte';
 
     import type { Snippet } from 'svelte';
-    import ChevronDown from '~icons/lucide/chevron-down';
     import ChevronLeft from '~icons/lucide/chevron-left';
     import GitMerge from '~icons/lucide/git-merge';
     import MousePointer from '~icons/lucide/mouse-pointer';
@@ -142,10 +142,7 @@
         >
             <ChevronLeft class="size-5" />
         </Button>
-        <div class="flex min-w-0 items-center gap-1">
-            <span class="truncate font-medium">{player.song?.name || 'Untitled'}</span>
-            <ChevronDown class="size-4 text-muted-foreground" />
-        </div>
+        <EditorTitle />
     </div>
 
     <!-- Center: Transport + readouts -->
