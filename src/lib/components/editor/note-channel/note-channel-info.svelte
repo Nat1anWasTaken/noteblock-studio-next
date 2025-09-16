@@ -111,7 +111,7 @@
                 />
             {:else}
                 <div
-                    class="w-full cursor-text truncate text-base/5 font-medium"
+                    class="w-full cursor-text truncate border-1 border-transparent text-base/5 font-medium hover:border-current/20"
                     ondblclick={startEditing}
                     role="button"
                     tabindex="0"

@@ -55,7 +55,7 @@
         />
     {:else}
         <span
-            class="truncate font-medium cursor-text"
+            class="cursor-text truncate border-1 border-transparent font-medium hover:border-current/20"
             ondblclick={startEditing}
             role="button"
             tabindex="0"
