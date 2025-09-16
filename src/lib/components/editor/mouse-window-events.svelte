@@ -6,4 +6,3 @@
     onpointermove={editorMouse.handleWindowPointerMove}
     onpointerup={editorMouse.handleWindowPointerUp}
 />
-

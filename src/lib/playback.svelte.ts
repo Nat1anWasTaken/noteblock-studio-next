@@ -1,5 +1,12 @@
 import { browser } from '$app/environment';
-import { Instrument, type Note, type NoteChannel, type Song, type TempoChange, type TempoChannel } from './types';
+import {
+    Instrument,
+    type Note,
+    type NoteChannel,
+    type Song,
+    type TempoChange,
+    type TempoChannel
+} from './types';
 
 /**
  * Loop behavior for playback.
