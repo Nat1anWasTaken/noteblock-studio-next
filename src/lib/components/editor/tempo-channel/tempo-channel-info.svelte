@@ -1,5 +1,8 @@
 <script lang="ts">
+    import Input from '$lib/components/ui/input/input.svelte';
+    import { player } from '$lib/playback.svelte';
     import type { TempoChannel } from '$lib/types';
+    import { tick } from 'svelte';
 
     interface Props {
         channel: TempoChannel;
@@ -8,6 +11,37 @@
     }
 
     let { channel, index = 0, height = 72 }: Props = $props();
+
+    let editingName = $state(false);
+    let inputElement = $state<HTMLInputElement | null>(null);
+
+    async function startEditing() {
+        editingName = true;
+        await tick();
+        inputElement?.focus();
+        inputElement?.select();
+    }
+
+    function saveNameChange(event: Event) {
+        const target = event.target as HTMLInputElement;
+        const newName = target.value.trim();
+        if (newName && newName !== channel.name) {
+            player.updateTempoChannel(index, { name: newName });
+        }
+        editingName = false;
+    }
+
+    function cancelNameChange() {
+        editingName = false;
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+        if (event.key === 'Enter') {
+            saveNameChange(event);
+        } else if (event.key === 'Escape') {
+            cancelNameChange();
+        }
+    }
 </script>
 
 <div
@@ -19,6 +53,24 @@
         <div class="size-1.5 rounded-full bg-muted-foreground/40"></div>
     </div>
     <div class="flex min-w-0 flex-1 items-center justify-between px-3 py-2">
-        <div class="truncate text-base/5 font-medium">{channel.name}</div>
+        {#if editingName}
+            <Input
+                bind:ref={inputElement}
+                value={channel.name}
+                class="h-auto border-none bg-transparent p-0 text-base/5 font-medium shadow-none focus-visible:ring-0"
+                onkeydown={handleKeydown}
+                onblur={cancelNameChange}
+            />
+        {:else}
+            <div
+                class="w-full cursor-text truncate text-base/5 font-medium"
+                ondblclick={startEditing}
+                role="button"
+                tabindex="0"
+                onkeydown={(e) => e.key === 'Enter' && startEditing()}
+            >
+                {channel.name}
+            </div>
+        {/if}
     </div>
 </div>

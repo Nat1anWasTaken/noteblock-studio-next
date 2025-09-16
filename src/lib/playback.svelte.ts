@@ -1,5 +1,5 @@
 import { browser } from '$app/environment';
-import { Instrument, type Note, type NoteChannel, type Song, type TempoChange } from './types';
+import { Instrument, type Note, type NoteChannel, type Song, type TempoChange, type TempoChannel } from './types';
 
 /**
  * Loop behavior for playback.
@@ -643,6 +643,22 @@ export class Player {
         if ((channel as any).id) {
             this._channelsById.set((channel as any).id as string, channel as NoteChannel);
         }
+
+        // Refresh indexes to ensure player state is synchronized
+        this.refreshIndexes();
+    }
+
+    /**
+     * Update a tempo channel with partial data.
+     * Updates the channel in place and refreshes indexes to keep player in sync.
+     */
+    updateTempoChannel(index: number, updates: Partial<TempoChannel>) {
+        if (!this.song) return;
+        const channel = this.song.channels[index];
+        if (!channel || channel.kind !== 'tempo') return;
+
+        // Apply updates to the channel
+        Object.assign(channel, updates);
 
         // Refresh indexes to ensure player state is synchronized
         this.refreshIndexes();
