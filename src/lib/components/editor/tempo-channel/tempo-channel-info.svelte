@@ -17,8 +17,15 @@
     </div>
     <div class="flex min-w-0 flex-1 items-center justify-between px-3 py-2">
         <div class="truncate text-base/5 font-medium">{channel.name}</div>
-        <div class="ml-2 select-none rounded bg-secondary px-1.5 py-0.5 text-[11px] text-secondary-foreground">
-            Tempo
+        <div class="flex flex-row gap-2">
+            <div class="flex flex-col">
+                <div class="h-8 flex items-center justify-center rounded border border-border px-2 text-xs font-medium">
+                    Tempo
+                </div>
+                <div class="h-8 flex items-center justify-center rounded border border-border bg-muted/20 px-2 text-xs text-muted-foreground">
+                    BPM
+                </div>
+            </div>
         </div>
     </div>
 </div>
