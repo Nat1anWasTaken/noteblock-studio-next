@@ -3,7 +3,6 @@
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
-    import { onDestroy } from 'svelte';
     import EditorHeader from './editor-controls.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
     import NoteChannelInfo from './note-channel/note-channel-info.svelte';
