@@ -150,6 +150,39 @@ export async function playSound(
     pitch: number
 ) {
     if (!browser) return;
+
+    // Try to use Web Audio reverb if available through the global player
+    if (player.audioCtx && player.reverbNode && player.reverbGain && player.dryGain) {
+        try {
+            // Use Web Audio API for playback with reverb
+            const buf = player.buffers.get(instrument);
+            if (buf) {
+                const ctx = player.audioCtx;
+                const src = ctx.createBufferSource();
+                src.buffer = buf;
+
+                // Compute playback rate
+                const baseSampleKey = 33;
+                const keyOffset = key - baseSampleKey;
+                const pitchOffset = pitch / 1200;
+                src.playbackRate.value = Math.pow(2, (keyOffset + pitchOffset) / 12);
+
+                const gain = ctx.createGain();
+                gain.gain.value = (velocity / 100) * 0.5;
+
+                // Route through reverb chain
+                src.connect(gain);
+                gain.connect(player.dryGain); // Dry signal
+                gain.connect(player.reverbNode); // Wet signal through reverb
+
+                return src.start();
+            }
+        } catch {
+            // Fall through to HTML Audio fallback
+        }
+    }
+
+    // Fallback to HTML Audio (original implementation)
     const audio = getPooledAudio(instrument);
 
     // Set volume based on velocity
@@ -188,6 +221,9 @@ export class Player {
     private _buffers: Map<Instrument, AudioBuffer> = new Map();
     private _metronomeBuffer: AudioBuffer | null = null;
     private _masterGain: GainNode | null = null;
+    private _reverbNode: ConvolverNode | null = null;
+    private _reverbGain: GainNode | null = null;
+    private _dryGain: GainNode | null = null;
     private _schedulerTimer: ReturnType<typeof setInterval> | null = null;
     private _scheduleAheadSec = 0.15; // seconds to schedule ahead
     private _schedulerIntervalMs = 25; // how often to run scheduler
@@ -234,6 +270,27 @@ export class Player {
 
     get metronomeEnabled() {
         return this._metronomeEnabled;
+    }
+
+    // Reverb system getters for external access
+    get audioCtx() {
+        return this._audioCtx;
+    }
+
+    get reverbNode() {
+        return this._reverbNode;
+    }
+
+    get reverbGain() {
+        return this._reverbGain;
+    }
+
+    get dryGain() {
+        return this._dryGain;
+    }
+
+    get buffers() {
+        return this._buffers;
     }
 
     // --- Bar/Beat helpers (considering tempo/time-signature changes) ---
@@ -848,6 +905,23 @@ export class Player {
             this._masterGain = this._audioCtx.createGain();
             this._masterGain.gain.value = 1.0;
             this._masterGain.connect(this._audioCtx.destination);
+
+            // Setup reverb audio chain
+            this._reverbNode = this._audioCtx.createConvolver();
+            this._reverbNode.buffer = this.createReverbImpulse();
+
+            this._reverbGain = this._audioCtx.createGain();
+            this._reverbGain.gain.value = 0.3; // 30% wet signal
+
+            this._dryGain = this._audioCtx.createGain();
+            this._dryGain.gain.value = 0.8; // 80% dry signal
+
+            // Connect reverb chain: reverb -> reverbGain -> masterGain
+            this._reverbNode.connect(this._reverbGain);
+            this._reverbGain.connect(this._masterGain);
+
+            // Connect dry chain: dryGain -> masterGain
+            this._dryGain.connect(this._masterGain);
         }
         if (this._audioCtx.state === 'suspended') {
             try {
@@ -879,6 +953,27 @@ export class Player {
         const res = await fetch(url);
         const arr = await res.arrayBuffer();
         return await this._audioCtx.decodeAudioData(arr);
+    }
+
+    private createReverbImpulse(duration: number = 1.5, decay: number = 2): AudioBuffer {
+        if (!this._audioCtx) throw new Error('AudioContext not ready');
+
+        const sampleRate = this._audioCtx.sampleRate;
+        const length = sampleRate * duration;
+        const impulse = this._audioCtx.createBuffer(2, length, sampleRate);
+
+        for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+                const n = length - i;
+                // Create exponential decay with some noise for natural reverb
+                const envelope = Math.pow(n / length, decay);
+                const noise = (Math.random() * 2 - 1) * envelope;
+                channelData[i] = noise;
+            }
+        }
+
+        return impulse;
     }
 
     private async loadInstrumentBuffer(inst: Instrument): Promise<AudioBuffer | null> {
@@ -1015,7 +1110,15 @@ export class Player {
         const gain = ctx.createGain();
         gain.gain.value = (note.velocity / 100) * 0.5;
 
-        src.connect(gain).connect(this._masterGain ?? ctx.destination);
+        // Route through reverb chain if available, otherwise direct to master
+        if (this._reverbNode && this._reverbGain && this._dryGain) {
+            src.connect(gain);
+            // Split signal: dry path and wet path
+            gain.connect(this._dryGain); // Dry signal
+            gain.connect(this._reverbNode); // Wet signal through reverb
+        } else {
+            src.connect(gain).connect(this._masterGain ?? ctx.destination);
+        }
         try {
             src.start(when);
         } catch {
@@ -1046,7 +1149,16 @@ export class Player {
         src.buffer = this._metronomeBuffer;
         const gain = ctx.createGain();
         gain.gain.value = accent ? 0.8 : 0.5;
-        src.connect(gain).connect(this._masterGain ?? ctx.destination);
+
+        // Route through reverb chain if available, otherwise direct to master
+        if (this._reverbNode && this._reverbGain && this._dryGain) {
+            src.connect(gain);
+            // Split signal: dry path and wet path
+            gain.connect(this._dryGain); // Dry signal
+            gain.connect(this._reverbNode); // Wet signal through reverb
+        } else {
+            src.connect(gain).connect(this._masterGain ?? ctx.destination);
+        }
         try {
             src.start(when);
         } catch {
