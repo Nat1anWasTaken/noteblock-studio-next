@@ -1,10 +1,26 @@
 <script lang="ts">
+    import Button from '$lib/components/ui/button/button.svelte';
     import * as Sheet from '$lib/components/ui/sheet';
-    import { editorState } from '$lib/editor-state.svelte';
-    import { player } from '$lib/playback.svelte';
+    import {
+        TooltipContent,
+        TooltipProvider,
+        Tooltip as TooltipRoot,
+        TooltipTrigger
+    } from '$lib/components/ui/tooltip';
+    import { editorState, PointerMode } from '$lib/editor-state.svelte';
+    import { LoopMode, player } from '$lib/playback.svelte';
     import { INSTRUMENT_NAMES, type Note, type NoteChannel, type NoteSection } from '$lib/types';
     import PlayheadCursor from '../playhead-cursor.svelte';
     import TimelineGrid from '../timeline-grid.svelte';
+    import type { Snippet } from 'svelte';
+    import GitMerge from '~icons/lucide/git-merge';
+    import MousePointer from '~icons/lucide/mouse-pointer';
+    import MousePointerClick from '~icons/lucide/mouse-pointer-click';
+    import Pause from '~icons/lucide/pause';
+    import Play from '~icons/lucide/play';
+    import Repeat from '~icons/lucide/repeat';
+    import Scissors from '~icons/lucide/scissors';
+    import SkipBack from '~icons/lucide/skip-back';
 
     type PianoRollContext = {
         channel: NoteChannel;
