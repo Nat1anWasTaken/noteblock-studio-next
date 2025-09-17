@@ -187,7 +187,78 @@
     $effect(() => {
         gridScrollLeft = gridScroller?.scrollLeft ?? 0;
     });
+
+    const rewind = () => player.setBarBeat(0, 0);
+    const togglePlay = () => (player.isPlaying ? player.pause() : player.resume());
+    const cycleLoop = () => {
+        switch (player.loopMode) {
+            case LoopMode.Off:
+                player.setLoopMode(LoopMode.Song);
+                break;
+            case LoopMode.Song:
+                player.setLoopMode(LoopMode.Selection);
+                break;
+            case LoopMode.Selection:
+            default:
+                player.setLoopMode(LoopMode.Off);
+                break;
+        }
+    };
+
+    const positionBar = $derived(String(player.currentBar + 1).padStart(3, '0'));
+    const positionBeat = $derived(String(player.currentBeat + 1).padStart(2, '0'));
+    const positionTickInBeat = $derived(
+        String((player.currentTick % player.ticksPerBeat) + 1).padStart(2, '0')
+    );
+
+    const loopModeButtonClass = $derived.by(() => {
+        switch (player.loopMode) {
+            case LoopMode.Selection:
+                return 'bg-purple-600 text-white hover:bg-purple-600/80 dark:hover:bg-purple-600/80 hover:text-white';
+            case LoopMode.Song:
+                return 'bg-amber-500 text-white hover:bg-amber-500/80 dark:hover:bg-amber-500/80 hover:text-white';
+            case LoopMode.Off:
+            default:
+                return '';
+        }
+    });
+
+    const loopModeLabel = $derived.by(() => {
+        switch (player.loopMode) {
+            case LoopMode.Selection:
+                return 'Loop: Selection';
+            case LoopMode.Song:
+                return 'Loop: Song';
+            case LoopMode.Off:
+            default:
+                return 'Loop: Off';
+        }
+    });
+
+    const pointerButtonClass = (mode: PointerMode) =>
+        editorState.pointerMode === mode
+            ? 'bg-indigo-600 text-white hover:bg-indigo-600/80 dark:hover:bg-indigo-600/80 hover:text-white'
+            : '';
 </script>
+
+{#snippet tooltipped({
+    label,
+    children,
+    disableCloseOnTriggerClick = false
+}: {
+    label: string;
+    children: Snippet<[{ props: any }]>;
+    disableCloseOnTriggerClick?: boolean;
+})}
+    <TooltipRoot {disableCloseOnTriggerClick}>
+        <TooltipTrigger>
+            {#snippet child({ props })}
+                {@render children?.({ props })}
+            {/snippet}
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{label}</TooltipContent>
+    </TooltipRoot>
+{/snippet}
 
 <Sheet.Root bind:open={sheetOpen}>
     <Sheet.Content
@@ -203,6 +274,155 @@
                         {sectionBeatLength} beats
                     </Sheet.Description>
                 </Sheet.Header>
+
+                <div
+                    class="flex h-12 items-center gap-3 border-b border-border bg-secondary/80 px-4 text-secondary-foreground"
+                >
+                    <TooltipProvider>
+                        <div class="flex flex-1 items-center gap-2">
+                            <div
+                                class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
+                            >
+                                {#snippet rewindButton({ props }: { props: any })}
+                                    <Button
+                                        {...props}
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Rewind to start"
+                                        onclick={rewind}
+                                    >
+                                        <SkipBack class="size-5" />
+                                    </Button>
+                                {/snippet}
+                                {@render tooltipped({ label: 'Rewind to start', children: rewindButton })}
+
+                                {#snippet playPauseButton({ props }: { props: any })}
+                                    <Button
+                                        {...props}
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Play/Pause"
+                                        onclick={togglePlay}
+                                    >
+                                        {#if player.isPlaying}
+                                            <Pause class="size-5" />
+                                        {:else}
+                                            <Play class="size-5" />
+                                        {/if}
+                                    </Button>
+                                {/snippet}
+                                {@render tooltipped({
+                                    label: player.isPlaying ? 'Pause' : 'Play',
+                                    children: playPauseButton
+                                })}
+
+                                {#snippet loopButton({ props }: { props: any })}
+                                    <Button
+                                        {...props}
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Loop"
+                                        class={loopModeButtonClass}
+                                        onclick={cycleLoop}
+                                    >
+                                        <Repeat class="size-5" />
+                                    </Button>
+                                {/snippet}
+                                {@render tooltipped({
+                                    label: loopModeLabel,
+                                    children: loopButton,
+                                    disableCloseOnTriggerClick: true
+                                })}
+                            </div>
+
+                            <div
+                                class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
+                            >
+                                {positionBar}:{positionBeat}:{positionTickInBeat}
+                            </div>
+                        </div>
+
+                        <div
+                            class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
+                        >
+                            {#snippet normalModeButton({ props }: { props: any })}
+                                <Button
+                                    {...props}
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Normal Mode"
+                                    class={pointerButtonClass(PointerMode.Normal)}
+                                    onclick={() => editorState.setPointerMode(PointerMode.Normal)}
+                                >
+                                    <MousePointer class="size-5" />
+                                </Button>
+                            {/snippet}
+                            {@render tooltipped({
+                                label: 'Normal Mode',
+                                children: normalModeButton,
+                                disableCloseOnTriggerClick: true
+                            })}
+
+                            {#snippet shearsModeButton({ props }: { props: any })}
+                                <Button
+                                    {...props}
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Shears Mode"
+                                    class={pointerButtonClass(PointerMode.Shears)}
+                                    onclick={() => editorState.setPointerMode(PointerMode.Shears)}
+                                >
+                                    <Scissors class="size-5" />
+                                </Button>
+                            {/snippet}
+                            {@render tooltipped({
+                                label: 'Shears Mode',
+                                children: shearsModeButton,
+                                disableCloseOnTriggerClick: true
+                            })}
+
+                            {#snippet mergeModeButton({ props }: { props: any })}
+                                <Button
+                                    {...props}
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Merge Mode"
+                                    class={pointerButtonClass(PointerMode.Merge)}
+                                    onclick={() => editorState.setPointerMode(PointerMode.Merge)}
+                                >
+                                    <GitMerge class="size-5" />
+                                </Button>
+                            {/snippet}
+                            {@render tooltipped({
+                                label: 'Merge Mode',
+                                children: mergeModeButton,
+                                disableCloseOnTriggerClick: true
+                            })}
+
+                            {#snippet autoScrollButton({ props }: { props: any })}
+                                <Button
+                                    {...props}
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Follow Playhead"
+                                    onclick={() => editorState.setAutoScrollEnabled(!editorState.autoScrollEnabled)}
+                                    class={editorState.autoScrollEnabled
+                                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/90 hover:text-primary-foreground'
+                                        : ''}
+                                >
+                                    <MousePointerClick class="size-5" />
+                                </Button>
+                            {/snippet}
+                            {@render tooltipped({
+                                label: editorState.autoScrollEnabled
+                                    ? 'Follow Playhead: On'
+                                    : 'Follow Playhead: Off',
+                                children: autoScrollButton,
+                                disableCloseOnTriggerClick: true
+                            })}
+                        </div>
+                    </TooltipProvider>
+                </div>
 
                 <div class="flex flex-1 overflow-hidden">
                     <div class="flex w-24 flex-col border-r border-border/50 bg-muted/40">
