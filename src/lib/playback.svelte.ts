@@ -109,6 +109,46 @@ function getPooledAudio(instrument: Instrument): HTMLAudioElement {
 
 configureBaseAudio();
 
+function connectWithReverbGlobal(
+    source: AudioBufferSourceNode,
+    gainValue: number,
+    ctx: AudioContext,
+    reverbNode: ConvolverNode | null,
+    reverbGain: GainNode | null,
+    dryGain: GainNode | null,
+    masterGain: GainNode | null
+): void {
+    const gain = ctx.createGain();
+    gain.gain.value = gainValue;
+
+    // Route through reverb chain if available, otherwise direct to master
+    if (reverbNode && reverbGain && dryGain) {
+        source.connect(gain);
+        // Split signal: dry path and wet path
+        gain.connect(dryGain); // Dry signal
+        gain.connect(reverbNode); // Wet signal through reverb
+    } else {
+        source.connect(gain).connect(masterGain ?? ctx.destination);
+    }
+}
+
+async function playWithHtmlAudio(
+    instrument: Instrument,
+    key: number,
+    velocity: number,
+    pitch: number
+) {
+    const audio = getPooledAudio(instrument);
+    audio.volume = (velocity / 100) * 0.5;
+
+    const baseSampleKey = 33;
+    const keyOffset = key - baseSampleKey;
+    const pitchOffset = pitch / 1200;
+    audio.playbackRate = Math.pow(2, (keyOffset + pitchOffset) / 12);
+
+    return await audio.play();
+}
+
 // Emit DOM events when notes play so the UI can highlight
 export function emitNotePlayed(noteId: string, durationMs = 120) {
     if (!browser) return;
@@ -151,51 +191,43 @@ export async function playSound(
 ) {
     if (!browser) return;
 
-    // Try to use Web Audio reverb if available through the global player
-    if (player.audioCtx && player.reverbNode && player.reverbGain && player.dryGain) {
-        try {
-            // Use Web Audio API for playback with reverb
-            const buf = player.buffers.get(instrument);
-            if (buf) {
-                const ctx = player.audioCtx;
-                const src = ctx.createBufferSource();
-                src.buffer = buf;
-
-                // Compute playback rate
-                const baseSampleKey = 33;
-                const keyOffset = key - baseSampleKey;
-                const pitchOffset = pitch / 1200;
-                src.playbackRate.value = Math.pow(2, (keyOffset + pitchOffset) / 12);
-
-                const gain = ctx.createGain();
-                gain.gain.value = (velocity / 100) * 0.5;
-
-                // Route through reverb chain
-                src.connect(gain);
-                gain.connect(player.dryGain); // Dry signal
-                gain.connect(player.reverbNode); // Wet signal through reverb
-
-                return src.start();
-            }
-        } catch {
-            // Fall through to HTML Audio fallback
-        }
+    // Early return to HTML Audio if Web Audio reverb not available
+    if (!player.audioCtx || !player.reverbNode || !player.reverbGain || !player.dryGain) {
+        return await playWithHtmlAudio(instrument, key, velocity, pitch);
     }
 
-    // Fallback to HTML Audio (original implementation)
-    const audio = getPooledAudio(instrument);
+    try {
+        // Use Web Audio API for playback with reverb
+        const buf = player.buffers.get(instrument);
+        if (!buf) {
+            return await playWithHtmlAudio(instrument, key, velocity, pitch);
+        }
 
-    // Set volume based on velocity
-    audio.volume = (velocity / 100) * 0.5;
+        const ctx = player.audioCtx;
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
 
-    const baseSampleKey = 33;
-    const keyOffset = key - baseSampleKey;
-    const pitchOffset = pitch / 1200; // Convert cents to semitones
+        // Compute playback rate
+        const baseSampleKey = 33;
+        const keyOffset = key - baseSampleKey;
+        const pitchOffset = pitch / 1200;
+        src.playbackRate.value = Math.pow(2, (keyOffset + pitchOffset) / 12);
 
-    // Combine key and pitch offsets: 2^(semitones/12)
-    audio.playbackRate = Math.pow(2, (keyOffset + pitchOffset) / 12);
+        connectWithReverbGlobal(
+            src,
+            (velocity / 100) * 0.5,
+            ctx,
+            player.reverbNode,
+            player.reverbGain,
+            player.dryGain,
+            player.masterGain
+        );
 
-    return await audio.play();
+        return src.start();
+    } catch {
+        // Fall through to HTML Audio fallback
+        return await playWithHtmlAudio(instrument, key, velocity, pitch);
+    }
 }
 
 export class Player {
@@ -291,6 +323,10 @@ export class Player {
 
     get buffers() {
         return this._buffers;
+    }
+
+    get masterGain() {
+        return this._masterGain;
     }
 
     // --- Bar/Beat helpers (considering tempo/time-signature changes) ---
@@ -911,7 +947,7 @@ export class Player {
             this._reverbNode.buffer = this.createReverbImpulse();
 
             this._reverbGain = this._audioCtx.createGain();
-            this._reverbGain.gain.value = 0.3; // 30% wet signal
+            this._reverbGain.gain.value = 0.2; // 20% wet signal
 
             this._dryGain = this._audioCtx.createGain();
             this._dryGain.gain.value = 0.8; // 80% dry signal
@@ -974,6 +1010,23 @@ export class Player {
         }
 
         return impulse;
+    }
+
+    private connectWithReverb(source: AudioBufferSourceNode, gainValue: number): void {
+        if (!this._audioCtx) return;
+
+        const gain = this._audioCtx.createGain();
+        gain.gain.value = gainValue;
+
+        // Route through reverb chain if available, otherwise direct to master
+        if (this._reverbNode && this._reverbGain && this._dryGain) {
+            source.connect(gain);
+            // Split signal: dry path and wet path
+            gain.connect(this._dryGain); // Dry signal
+            gain.connect(this._reverbNode); // Wet signal through reverb
+        } else {
+            source.connect(gain).connect(this._masterGain ?? this._audioCtx.destination);
+        }
     }
 
     private async loadInstrumentBuffer(inst: Instrument): Promise<AudioBuffer | null> {
@@ -1107,18 +1160,7 @@ export class Player {
         const pitchOffset = note.pitch / 1200;
         src.playbackRate.value = Math.pow(2, (keyOffset + pitchOffset) / 12);
 
-        const gain = ctx.createGain();
-        gain.gain.value = (note.velocity / 100) * 0.5;
-
-        // Route through reverb chain if available, otherwise direct to master
-        if (this._reverbNode && this._reverbGain && this._dryGain) {
-            src.connect(gain);
-            // Split signal: dry path and wet path
-            gain.connect(this._dryGain); // Dry signal
-            gain.connect(this._reverbNode); // Wet signal through reverb
-        } else {
-            src.connect(gain).connect(this._masterGain ?? ctx.destination);
-        }
+        this.connectWithReverb(src, (note.velocity / 100) * 0.5);
         try {
             src.start(when);
         } catch {
@@ -1147,18 +1189,7 @@ export class Player {
         const ctx = this._audioCtx;
         const src = ctx.createBufferSource();
         src.buffer = this._metronomeBuffer;
-        const gain = ctx.createGain();
-        gain.gain.value = accent ? 0.8 : 0.5;
-
-        // Route through reverb chain if available, otherwise direct to master
-        if (this._reverbNode && this._reverbGain && this._dryGain) {
-            src.connect(gain);
-            // Split signal: dry path and wet path
-            gain.connect(this._dryGain); // Dry signal
-            gain.connect(this._reverbNode); // Wet signal through reverb
-        } else {
-            src.connect(gain).connect(this._masterGain ?? ctx.destination);
-        }
+        this.connectWithReverb(src, accent ? 0.8 : 0.5);
         try {
             src.start(when);
         } catch {
