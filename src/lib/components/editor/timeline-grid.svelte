@@ -5,9 +5,32 @@
         showLabels?: boolean;
         class?: string;
         gutterWidth?: number;
+        contentWidth?: number;
+        scrollLeft?: number;
+        barWidth?: number;
+        totalBars?: number;
+        beatsPerBar?: number;
+        pxPerBeat?: number;
     }
 
-    let { showLabels = false, class: className = '', gutterWidth = 0 }: Props = $props();
+    let {
+        showLabels = false,
+        class: className = '',
+        gutterWidth = 0,
+        contentWidth: contentWidthProp,
+        scrollLeft: scrollLeftProp,
+        barWidth: barWidthProp,
+        totalBars: totalBarsProp,
+        beatsPerBar: beatsPerBarProp,
+        pxPerBeat: pxPerBeatProp
+    }: Props = $props();
+
+    const contentWidth = $derived(contentWidthProp ?? editorState.contentWidth);
+    const scrollLeft = $derived(scrollLeftProp ?? editorState.scrollLeft);
+    const barWidth = $derived(Math.max(1, barWidthProp ?? editorState.barWidth));
+    const totalBars = $derived(Math.max(1, Math.round(totalBarsProp ?? editorState.totalBars)));
+    const beatsPerBar = $derived(Math.max(1, beatsPerBarProp ?? editorState.beatsPerBar));
+    const pxPerBeat = $derived(Math.max(1, pxPerBeatProp ?? editorState.pxPerBeat));
 
     const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 </script>
@@ -19,12 +42,12 @@
 >
     <div
         class="relative h-full"
-        style={`width:${editorState.contentWidth}px; transform:translateX(${-editorState.scrollLeft}px);`}
+        style={`width:${contentWidth}px; transform:translateX(${-scrollLeft}px);`}
     >
-        {#each range(editorState.totalBars) as barIdx}
+        {#each range(totalBars) as barIdx}
             <div
                 class="absolute inset-y-0 border-r border-border"
-                style={`left:${barIdx * editorState.barWidth}px; width:${editorState.barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.25)' : ''}`}
+                style={`left:${barIdx * barWidth}px; width:${barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.25)' : ''}`}
             >
                 {#if showLabels}
                     <div
@@ -33,11 +56,11 @@
                         {barIdx + 1}
                     </div>
                 {/if}
-                {#each range(editorState.beatsPerBar) as beatIdx}
+                {#each range(beatsPerBar) as beatIdx}
                     {#if beatIdx > 0}
                         <div
                             class="absolute inset-y-0 border-l border-border/80"
-                            style={`left:${beatIdx * editorState.pxPerBeat}px`}
+                            style={`left:${beatIdx * pxPerBeat}px`}
                         ></div>
                     {/if}
                 {/each}

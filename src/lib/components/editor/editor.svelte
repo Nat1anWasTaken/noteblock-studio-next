@@ -7,6 +7,7 @@
     import MouseWindowEvents from './mouse-window-events.svelte';
     import NoteChannelInfo from './note-channel/note-channel-info.svelte';
     import NoteChannel from './note-channel/note-channel.svelte';
+    import NotePianoRoll from './note-channel/note-piano-roll.svelte';
     import PlayheadCursor from './playhead-cursor.svelte';
     import RulerRow from './ruler-row.svelte';
     import SelectionOverlay from './selection-overlay.svelte';
@@ -218,6 +219,8 @@
         </Resizable.Pane>
     </Resizable.PaneGroup>
 </div>
+
+<NotePianoRoll />
 
 <style>
     .scrollbar-hidden::-webkit-scrollbar {
