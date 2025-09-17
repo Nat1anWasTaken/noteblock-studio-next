@@ -4,8 +4,6 @@
     import { player } from '$lib/playback.svelte';
     import { tick } from 'svelte';
     import ChevronDown from '~icons/lucide/chevron-down';
-    import PenLine from '~icons/lucide/pen-line';
-    import Plus from '~icons/lucide/plus';
 
     interface Props {
         class?: string;
