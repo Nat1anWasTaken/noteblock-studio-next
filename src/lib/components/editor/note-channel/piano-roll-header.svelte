@@ -9,7 +9,9 @@
     } from '$lib/components/ui/tooltip';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { pianoRollState } from '$lib/piano-roll-state.svelte';
+    import { player } from '$lib/playback.svelte';
     import { INSTRUMENT_NAMES, type Instrument } from '$lib/types';
+    import { cn } from '$lib/utils';
     import type { Snippet } from 'svelte';
     import MousePointer from '~icons/lucide/mouse-pointer';
     import MousePointerClick from '~icons/lucide/mouse-pointer-click';
@@ -35,6 +37,23 @@
     }
 
     let { sectionData, sectionBeatLength }: Props = $props();
+
+    // Reactive state for solo/mute buttons
+    const isChannelMuted = $derived(() => {
+        const channel = player.song?.channels?.[sectionData.channelIndex];
+        return channel?.kind === 'note' ? channel.isMuted : false;
+    });
+    const isAnyMuted = $derived(
+        player.song?.channels.some((ch) => ch.kind === 'note' && ch.isMuted) ?? false
+    );
+
+    function toggleMute() {
+        player.setMute(sectionData.channelIndex);
+    }
+
+    function toggleSolo() {
+        player.setSolo(sectionData.channelIndex);
+    }
 </script>
 
 {#snippet tooltipped({
@@ -218,6 +237,56 @@
                     ? 'Follow Playhead: On'
                     : 'Follow Playhead: Off',
                 children: autoScrollButton,
+                disableCloseOnTriggerClick: true
+            })}
+        </div>
+
+        <div
+            class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
+        >
+            {#snippet muteButton({ props }: { props: any })}
+                <Button
+                    {...props}
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Mute"
+                    onclick={toggleMute}
+                    class={cn(
+                        'h-8 w-8 p-0 text-xs font-bold',
+                        isChannelMuted()
+                            ? 'bg-red-600 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white hover:dark:bg-red-600'
+                            : ''
+                    )}
+                >
+                    M
+                </Button>
+            {/snippet}
+            {@render tooltipped({
+                label: isChannelMuted() ? 'Unmute' : 'Mute',
+                children: muteButton,
+                disableCloseOnTriggerClick: true
+            })}
+
+            {#snippet soloButton({ props }: { props: any })}
+                <Button
+                    {...props}
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Solo"
+                    onclick={toggleSolo}
+                    class={cn(
+                        'h-8 w-8 p-0 text-xs font-bold',
+                        isAnyMuted && !isChannelMuted
+                            ? 'bg-yellow-600 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white hover:dark:bg-yellow-600'
+                            : ''
+                    )}
+                >
+                    S
+                </Button>
+            {/snippet}
+            {@render tooltipped({
+                label: isAnyMuted && !isChannelMuted ? 'Unsolo' : 'Solo',
+                children: soloButton,
                 disableCloseOnTriggerClick: true
             })}
         </div>
