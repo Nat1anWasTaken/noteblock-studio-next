@@ -4,8 +4,7 @@
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
-    import { onMount, type Snippet } from 'svelte';
-    import Play from '~icons/lucide/play';
+    import { onMount } from 'svelte';
     import CommandPalette from './command-palette.svelte';
     import EditorHeader from './editor-header.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
