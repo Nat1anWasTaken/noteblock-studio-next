@@ -65,6 +65,16 @@ export class CommandManager {
     }
 
     /**
+     * Register multiple commands at once
+     * @param commands Array of commands to register
+     */
+    registerCommands(commands: Command[]): void {
+        for (const command of commands) {
+            this.register(command);
+        }
+    }
+
+    /**
      * Handle keyboard events and execute matching commands
      */
     handleKeyboardEvent(event: KeyboardEvent): boolean {
