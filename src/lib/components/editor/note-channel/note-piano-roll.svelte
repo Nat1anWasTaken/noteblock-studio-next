@@ -335,9 +335,6 @@
      - Base `.note-rect` contains the normal appearance. */
 
     .note-rect {
-        transition:
-            background-color 240ms ease,
-            border-color 240ms ease;
         will-change: background-color, border-color;
     }
 
@@ -350,7 +347,9 @@
 
     /* Fade class: transitions from played color back to normal */
     .note-rect.note-playing-fade {
-        background-color: inherit;
-        border-color: inherit;
+        transition:
+            background-color 240ms ease,
+            border-color 240ms ease;
+        /* Let the transition happen naturally to the element's original styles */
     }
 </style>
