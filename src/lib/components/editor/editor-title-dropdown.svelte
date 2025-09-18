@@ -77,13 +77,13 @@
                 id: 'save',
                 title: 'Save',
                 callback: handleSave,
-                shortcut: 'Mod+S'
+                shortcut: 'MOD+S'
             },
             {
                 id: 'save-as',
                 title: 'Save As',
                 callback: handleSaveAs,
-                shortcut: 'Mod+Shift+S'
+                shortcut: 'MOD+SHIFT+S'
             }
         ]);
 
