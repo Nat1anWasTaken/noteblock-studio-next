@@ -54,3 +54,6 @@ Then open the shown URL and:
 ## Status
 
 Early work‑in‑progress; some actions (e.g., “Create Empty”, MIDI import) are not implemented yet.
+
+## License
+GPL-3.0 — see `LICENSE` for full text.
