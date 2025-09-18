@@ -8,7 +8,9 @@
         TooltipTrigger
     } from '$lib/components/ui/tooltip';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
+    import { editorMouse } from '$lib/editor-mouse.svelte';
     import { LoopMode, player } from '$lib/playback.svelte';
+    import { pianoRollMouse, type KeyRange, type PianoRollPointerMode } from '$lib/piano-roll-mouse.svelte';
     import { INSTRUMENT_NAMES, type Note, type NoteChannel, type NoteSection } from '$lib/types';
     import type { Snippet } from 'svelte';
     import MousePointer from '~icons/lucide/mouse-pointer';
@@ -18,8 +20,10 @@
     import Play from '~icons/lucide/play';
     import Repeat from '~icons/lucide/repeat';
     import SkipBack from '~icons/lucide/skip-back';
+    import PianoRollMouseWindowEvents from './piano-roll-mouse-window-events.svelte';
     import PlayheadCursor from '../playhead-cursor.svelte';
     import TimelineGrid from '../timeline-grid.svelte';
+    import RulerShell from '../ruler-shell.svelte';
 
     type PianoRollContext = {
         channel: NoteChannel;
@@ -27,10 +31,6 @@
         channelIndex: number;
         sectionIndex: number;
     };
-
-    type KeyRange = { min: number; max: number };
-
-    type PianoRollPointerMode = PointerMode.Normal | 'pen';
 
     const pianoRollTarget = $derived(editorState.pianoRollTarget);
 
@@ -95,40 +95,13 @@
     const keyCount = $derived.by(() => keyRange.max - keyRange.min + 1);
     const gridHeight = $derived(Math.max(1, keyCount) * keyHeight);
 
+    const NOTE_SPAN = 1;
     const noteLaneHeight = Math.max(8, keyHeight - 6);
 
     let gridScroller = $state<HTMLDivElement | null>(null);
     let keysScroller = $state<HTMLDivElement | null>(null);
     let gridScrollLeft = $state(0);
     let gridContent = $state<HTMLDivElement | null>(null);
-
-    let selectedNotes = $state<Note[]>([]);
-
-    let selectionBox = $state<{
-        startTick: number;
-        startKey: number;
-        currentTick: number;
-        currentKey: number;
-    } | null>(null);
-
-    type DragContext = {
-        notes: Note[];
-        original: Map<Note, { tick: number; key: number; duration: number }>;
-        minTick: number;
-        maxTickEnd: number;
-        minKey: number;
-        maxKey: number;
-        startTick: number;
-        startKey: number;
-        pointerId: number;
-        moved: boolean;
-    };
-    let dragContext: DragContext | null = null;
-
-    type PenContext = { note: Note; pointerId: number; startTick: number } | null;
-    let penContext: PenContext = null;
-
-    let selectionContext: { pointerId: number; startTick: number; startKey: number } | null = null;
 
     function handleGridScroll() {
         const grid = gridScroller;
@@ -141,390 +114,36 @@
         }
     }
 
-    const MIN_NOTE_DURATION = 1;
-    const DEFAULT_NOTE_VELOCITY = 100;
-    const DEFAULT_NOTE_PITCH = 0;
-
-    function snapTick(value: number): number {
-        if (!Number.isFinite(value)) return 0;
-        return Math.max(0, Math.round(value));
-    }
-
-    function normalizeDurationValue(value: number | undefined): number {
-        if (!Number.isFinite(value)) return MIN_NOTE_DURATION;
-        return Math.max(MIN_NOTE_DURATION, Math.round((value ?? MIN_NOTE_DURATION) as number));
-    }
-
-    function ensureNoteDuration(note: Note) {
-        const normalized = normalizeDurationValue(note.duration);
-        if (note.duration !== normalized) {
-            note.duration = normalized;
-        }
-    }
-
-    function ensureNoteTick(note: Note) {
-        const snapped = snapTick(note.tick);
-        if (note.tick !== snapped) {
-            note.tick = snapped;
-        }
-    }
-
-    function getNoteDuration(note: Note): number {
-        return normalizeDurationValue(note.duration);
-    }
-
-    function getSection(): NoteSection | null {
-        return sectionData?.section ?? null;
-    }
-
-    function clampTickToSection(tick: number, duration: number): number {
-        const section = getSection();
-        const snappedTick = snapTick(tick);
-        if (!section) return snappedTick;
-        const maxTick = Math.max(0, section.length - duration);
-        return Math.min(Math.max(0, snappedTick), maxTick);
-    }
-
-    function sortSectionNotes(section: NoteSection) {
-        section.notes.sort((a, b) => {
-            if (a.tick !== b.tick) return a.tick - b.tick;
-            if (a.key !== b.key) return a.key - b.key;
-            return getNoteDuration(a) - getNoteDuration(b);
-        });
-    }
-
-    function tickFromPointer(event: PointerEvent): number {
-        const content = gridContent;
-        const pxTickValue = pxPerTick > 0 ? pxPerTick : 1;
-        if (!content) return 0;
-        const rect = content.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const rawTick = x / pxTickValue;
-        return snapTick(rawTick);
-    }
-
-    function keyFromPointer(event: PointerEvent): number {
-        const content = gridContent;
-        if (!content) return keyRange.max;
-        const rect = content.getBoundingClientRect();
-        const relativeY = event.clientY - rect.top;
-        const rawRow = Math.floor(relativeY / keyHeight);
-        const clampedRow = Math.min(Math.max(rawRow, 0), Math.max(0, keyCount - 1));
-        const key = keyRange.max - clampedRow;
-        return Math.min(87, Math.max(0, key));
-    }
-
-    function findNoteAt(tick: number, key: number): Note | null {
-        const section = getSection();
-        if (!section) return null;
-        for (const note of section.notes) {
-            if (note.key !== key) continue;
-            const start = note.tick;
-            const end = start + getNoteDuration(note);
-            if (tick >= start && tick < end) return note;
-        }
-        return null;
-    }
-
-    function selectNotes(notes: Note[]) {
-        const seen = new Set<Note>();
-        const filtered: Note[] = [];
-        for (const note of notes) {
-            if (!note || seen.has(note)) continue;
-            seen.add(note);
-            filtered.push(note);
-        }
-        selectedNotes = filtered;
-    }
-
-    function clearSelection() {
-        if (selectedNotes.length) {
-            selectedNotes = [];
-        }
-    }
-
-    function isEditableTarget(target: EventTarget | null): boolean {
-        if (!(target instanceof HTMLElement)) return false;
-        const tag = target.tagName;
-        return (
-            target.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-        );
-    }
-
-    function refreshPlayer() {
-        player.refreshIndexes();
-    }
-
-    function handleBackgroundPointerDown(event: PointerEvent) {
-        if (event.button !== 0) return;
-        event.preventDefault();
-        const tick = clampTickToSection(tickFromPointer(event), MIN_NOTE_DURATION);
-        const key = keyFromPointer(event);
-        const captureTarget = gridContent;
-
-        if (pointerMode === PointerMode.Normal) {
-            selectionContext = { pointerId: event.pointerId, startTick: tick, startKey: key };
-            selectionBox = {
-                startTick: tick,
-                startKey: key,
-                currentTick: tick,
-                currentKey: key
-            };
-            clearSelection();
-        } else if (pointerMode === 'pen') {
-            const section = getSection();
-            if (!section) return;
-            const existing = findNoteAt(tick, key);
-            if (existing) {
-                selectNotes([existing]);
-                penContext = {
-                    note: existing,
-                    pointerId: event.pointerId,
-                    startTick: existing.tick
-                };
-            } else {
-                const newNote: Note = {
-                    tick,
-                    key,
-                    velocity: DEFAULT_NOTE_VELOCITY,
-                    pitch: DEFAULT_NOTE_PITCH,
-                    duration: MIN_NOTE_DURATION
-                };
-                section.notes.push(newNote);
-                sortSectionNotes(section);
-                selectNotes([newNote]);
-                penContext = { note: newNote, pointerId: event.pointerId, startTick: tick };
-                refreshPlayer();
-            }
-        }
-
-        captureTarget?.setPointerCapture(event.pointerId);
-    }
-
-    function handleNotePointerDown(note: Note, event: PointerEvent) {
-        if (event.button !== 0) return;
-        event.preventDefault();
-        event.stopPropagation();
-        const section = getSection();
-        if (!section) return;
-
-        if (pointerMode === PointerMode.Normal) {
-            if (!selectedNotes.includes(note)) {
-                selectNotes([note]);
-            }
-
-            const notes = [...selectedNotes];
-            const original = new Map<Note, { tick: number; key: number; duration: number }>();
-            let minTick = Number.POSITIVE_INFINITY;
-            let maxTickEnd = 0;
-            let minKey = Number.POSITIVE_INFINITY;
-            let maxKey = Number.NEGATIVE_INFINITY;
-
-            for (const n of notes) {
-                ensureNoteDuration(n);
-                ensureNoteTick(n);
-                original.set(n, {
-                    tick: n.tick,
-                    key: n.key,
-                    duration: getNoteDuration(n)
-                });
-                if (n.tick < minTick) minTick = n.tick;
-                const end = n.tick + getNoteDuration(n);
-                if (end > maxTickEnd) maxTickEnd = end;
-                if (n.key < minKey) minKey = n.key;
-                if (n.key > maxKey) maxKey = n.key;
-            }
-
-            dragContext = {
-                notes,
-                original,
-                minTick: Number.isFinite(minTick) ? minTick : 0,
-                maxTickEnd,
-                minKey: Number.isFinite(minKey) ? minKey : 0,
-                maxKey: Number.isFinite(maxKey) ? maxKey : 0,
-                startTick: tickFromPointer(event),
-                startKey: keyFromPointer(event),
-                pointerId: event.pointerId,
-                moved: false
-            };
-
-            gridContent?.setPointerCapture(event.pointerId);
-        } else if (pointerMode === 'pen') {
-            selectNotes([note]);
-            penContext = { note, pointerId: event.pointerId, startTick: note.tick };
-            gridContent?.setPointerCapture(event.pointerId);
-        }
-    }
-
-    function handleWindowPointerMove(event: PointerEvent) {
-        const section = getSection();
-        if (!section) return;
-
-        if (
-            dragContext &&
-            dragContext.pointerId === event.pointerId &&
-            pointerMode === PointerMode.Normal
-        ) {
-            const tick = tickFromPointer(event);
-            const key = keyFromPointer(event);
-            let tickDelta = tick - dragContext.startTick;
-            let keyDelta = key - dragContext.startKey;
-
-            const minTickDelta = -dragContext.minTick;
-            const maxTickDelta = section.length - dragContext.maxTickEnd;
-            tickDelta = Math.min(Math.max(tickDelta, minTickDelta), maxTickDelta);
-
-            const minKeyDelta = -dragContext.minKey;
-            const maxKeyDelta = 87 - dragContext.maxKey;
-            keyDelta = Math.min(Math.max(keyDelta, minKeyDelta), maxKeyDelta);
-
-            for (const note of dragContext.notes) {
-                const orig = dragContext.original.get(note);
-                if (!orig) continue;
-                const duration = getNoteDuration(note);
-                const nextTick = clampTickToSection(orig.tick + tickDelta, duration);
-                note.tick = nextTick;
-                note.key = Math.min(87, Math.max(0, orig.key + keyDelta));
-            }
-
-            dragContext.moved ||= tickDelta !== 0 || keyDelta !== 0;
-        }
-
-        if (
-            selectionContext &&
-            selectionContext.pointerId === event.pointerId &&
-            pointerMode === PointerMode.Normal
-        ) {
-            const tick = tickFromPointer(event);
-            const key = keyFromPointer(event);
-            selectionBox = {
-                startTick: selectionContext.startTick,
-                startKey: selectionContext.startKey,
-                currentTick: tick,
-                currentKey: key
-            };
-
-            const minTick = Math.min(selectionContext.startTick, tick);
-            const maxTick = Math.max(selectionContext.startTick, tick + 1);
-            const minKey = Math.min(selectionContext.startKey, key);
-            const maxKey = Math.max(selectionContext.startKey, key);
-
-            const notes: Note[] = [];
-            for (const n of section.notes) {
-                const start = n.tick;
-                const end = start + getNoteDuration(n);
-                const overlapsTick = end > minTick && start < maxTick;
-                const withinKey = n.key >= minKey && n.key <= maxKey;
-                if (overlapsTick && withinKey) notes.push(n);
-            }
-            selectNotes(notes);
-        }
-
-        if (penContext && penContext.pointerId === event.pointerId && pointerMode === 'pen') {
-            const note = penContext.note;
-            ensureNoteDuration(note);
-            const tick = clampTickToSection(tickFromPointer(event), MIN_NOTE_DURATION);
-            const newDuration = Math.max(MIN_NOTE_DURATION, snapTick(tick - note.tick + 1));
-            const maxDuration = Math.max(MIN_NOTE_DURATION, section.length - note.tick);
-            note.duration = Math.min(newDuration, maxDuration);
-        }
-    }
-
-    function handleWindowPointerUp(event: PointerEvent) {
-        const section = getSection();
-        if (dragContext && dragContext.pointerId === event.pointerId) {
-            if (dragContext.moved && section) {
-                sortSectionNotes(section);
-                refreshPlayer();
-            }
-            dragContext = null;
-        }
-
-        if (selectionContext && selectionContext.pointerId === event.pointerId) {
-            const box = selectionBox;
-            if (
-                box &&
-                box.startTick === box.currentTick &&
-                box.startKey === box.currentKey &&
-                pointerMode === PointerMode.Normal
-            ) {
-                clearSelection();
-            }
-            selectionContext = null;
-            selectionBox = null;
-        }
-
-        if (penContext && penContext.pointerId === event.pointerId) {
-            if (section) {
-                sortSectionNotes(section);
-                refreshPlayer();
-            }
-            penContext = null;
-        }
-
-        if (gridContent) {
-            try {
-                if (gridContent.hasPointerCapture(event.pointerId)) {
-                    gridContent.releasePointerCapture(event.pointerId);
-                }
-            } catch {
-                /* ignore */
-            }
-        }
-    }
-
-    function handleWindowKeyDown(event: KeyboardEvent) {
-        if (!sheetOpen) return;
-        if (event.key !== 'Backspace' && event.key !== 'Delete') return;
-        if (isEditableTarget(event.target)) return;
-
-        const section = getSection();
-        if (!section) return;
-        const notes = section.notes;
-        if (!notes?.length || !selectedNotes.length) return;
-
-        const toRemove = new Set(selectedNotes);
-        let removed = false;
-        for (let index = notes.length - 1; index >= 0; index--) {
-            if (toRemove.has(notes[index]!)) {
-                notes.splice(index, 1);
-                removed = true;
-            }
-        }
-
-        if (!removed) return;
-
-        event.preventDefault();
-        clearSelection();
-        sortSectionNotes(section);
-        refreshPlayer();
-    }
-
     $effect(() => {
-        const section = getSection();
-        if (!section) {
-            selectedNotes = [];
-            return;
-        }
-        const valid = new Set(section.notes);
-        const filtered: Note[] = [];
-        for (const note of selectedNotes) {
-            if (valid.has(note)) filtered.push(note);
-        }
-        if (filtered.length !== selectedNotes.length) {
-            selectedNotes = filtered;
+        const grid = gridScroller;
+        if (!grid) return;
+        if (Math.abs(grid.scrollLeft - gridScrollLeft) > 1) {
+            grid.scrollLeft = gridScrollLeft;
         }
     });
 
     $effect(() => {
-        if (pointerMode !== PointerMode.Normal) {
-            selectionBox = null;
-            selectionContext = null;
-            dragContext = null;
-        }
-        if (pointerMode !== 'pen') {
-            penContext = null;
-        }
+        pianoRollMouse.setGridContent(gridContent);
+    });
+
+    $effect(() => {
+        pianoRollMouse.setSection(sectionData?.section ?? null);
+    });
+
+    $effect(() => {
+        pianoRollMouse.updateGeometry({
+            pxPerTick: pxPerTick > 0 ? pxPerTick : 1,
+            keyRange,
+            keyHeight
+        });
+    });
+
+    $effect(() => {
+        pianoRollMouse.setActive(sheetOpen);
+    });
+
+    $effect(() => {
+        pianoRollMouse.setPointerMode(pointerMode);
     });
 
     function keyNumberToInfo(key: number) {
@@ -560,17 +179,6 @@
     });
     const contentWidth = $derived(totalBars * barWidth);
 
-    const beatMarkers = $derived.by<Array<{ left: number; index: number; isBar: boolean }>>(() => {
-        const pxPerBeatValue = Math.max(1, editorState.pxPerBeat);
-        const totalBeats = Math.ceil(contentWidth / pxPerBeatValue);
-        const markers: Array<{ left: number; index: number; isBar: boolean }> = [];
-        for (let beat = 0; beat <= totalBeats; beat++) {
-            const left = beat * pxPerBeatValue;
-            markers.push({ left, index: beat, isBar: beat % beatsPerBar === 0 });
-        }
-        return markers;
-    });
-
     const notesToRender = $derived.by<
         Array<{
             id: string;
@@ -598,12 +206,11 @@
         const pxTickValue = pxPerTick > 0 ? pxPerTick : 1;
         const laneHeight = noteLaneHeight;
         const offset = (keyHeight - laneHeight) / 2;
-        const selectedSet = new Set(selectedNotes);
+        const selectedSet = new Set(pianoRollMouse.selectedNotes);
 
         return (section.notes ?? []).map((note, index) => {
-            const duration = getNoteDuration(note);
             const top = (range.max - note.key) * keyHeight + offset;
-            const width = Math.max(8, Math.round(duration * pxTickValue));
+            const width = Math.max(8, Math.round(NOTE_SPAN * pxTickValue));
             const left = Math.max(0, Math.round(note.tick * pxTickValue));
             const id = `${section.startingTick + note.tick}:${note.key}:${index}`;
             return {
@@ -688,6 +295,7 @@
 
     const setPointerMode = (mode: PianoRollPointerMode) => {
         pointerMode = mode;
+        pianoRollMouse.setPointerMode(mode);
     };
 
     $effect(() => {
@@ -721,12 +329,11 @@
     </TooltipRoot>
 {/snippet}
 
-<svelte:window
-    onpointermove={handleWindowPointerMove}
-    onpointerup={handleWindowPointerUp}
-    onpointercancel={handleWindowPointerUp}
-    onkeydown={handleWindowKeyDown}
-/>
+{#snippet pianoRollRulerGutter()}
+    <span class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Keys</span>
+{/snippet}
+
+<PianoRollMouseWindowEvents />
 
 <Sheet.Root bind:open={sheetOpen}>
     <Sheet.Content
@@ -883,69 +490,74 @@
                     </TooltipProvider>
                 </div>
 
-                <div class="flex flex-1 overflow-hidden">
-                    <div class="flex w-24 flex-col border-r border-border/50 bg-muted/40">
-                        <div
-                            class="flex h-10 items-center border-b border-border/40 px-3 text-xs tracking-wide text-muted-foreground uppercase"
-                        >
-                            Keys
-                        </div>
-                        <div
-                            class="scrollbar-fade flex-1 overflow-auto"
-                            bind:this={keysScroller}
-                            onwheel={(event) => {
-                                const grid = gridScroller;
-                                if (!grid) return;
-                                grid.scrollBy({ left: event.deltaX, top: event.deltaY });
-                                event.preventDefault();
-                            }}
-                        >
-                            <div class="flex flex-col" style={`height:${gridHeight}px;`}>
-                                {#each keyRows as row, index}
-                                    <div
-                                        class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${index === keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
-                                        style={`height:${keyHeight}px;`}
-                                    >
-                                        {row.label}
-                                    </div>
-                                {/each}
-                            </div>
-                        </div>
-                    </div>
+                <div class="flex flex-1 flex-col overflow-hidden">
+                    <RulerShell
+                        class="items-center border-b border-border bg-secondary/40 text-sm"
+                        gutterWidth={96}
+                        contentWidth={contentWidth}
+                        scrollLeft={gridScrollLeft}
+                        pointerDownHandler={(container, event) =>
+                            editorMouse.handleRulerPointerDown(container, event)}
+                        gutter={pianoRollRulerGutter}
+                        on:scrollLeftChange={(event) => {
+                            const left = event.detail;
+                            const grid = gridScroller;
+                            if (grid && Math.abs(grid.scrollLeft - left) > 1) {
+                                grid.scrollLeft = left;
+                            }
+                            gridScrollLeft = left;
+                        }}
+                    >
+                        <TimelineGrid
+                            class="z-0"
+                            gutterWidth={0}
+                            contentWidth={contentWidth}
+                            scrollLeft={gridScrollLeft}
+                            {barWidth}
+                            {totalBars}
+                            {beatsPerBar}
+                            pxPerBeat={editorState.pxPerBeat}
+                            showLabels
+                        />
+                    </RulerShell>
 
-                    <div class="relative flex-1 overflow-hidden bg-muted/20">
-                        <div
-                            class="relative h-full w-full overflow-auto"
-                            bind:this={gridScroller}
-                            onscroll={handleGridScroll}
-                        >
+                    <div class="flex flex-1 overflow-hidden">
+                        <div class="flex w-24 flex-col border-r border-border/50 bg-muted/40">
                             <div
-                                class="sticky top-0 z-20 flex h-10 items-center border-b border-border/40 bg-background/95 px-4 text-xs font-medium text-muted-foreground backdrop-blur"
+                                class="scrollbar-fade flex-1 overflow-auto"
+                                bind:this={keysScroller}
+                                onwheel={(event) => {
+                                    const grid = gridScroller;
+                                    if (!grid) return;
+                                    grid.scrollBy({ left: event.deltaX, top: event.deltaY });
+                                    event.preventDefault();
+                                }}
                             >
-                                <div
-                                    class="relative h-full w-full"
-                                    style={`min-width:${contentWidth}px;`}
-                                >
-                                    {#each beatMarkers as marker}
+                                <div class="flex flex-col" style={`height:${gridHeight}px;`}>
+                                    {#each keyRows as row, index}
                                         <div
-                                            class={`${marker.isBar ? 'font-semibold text-foreground' : 'text-muted-foreground'} absolute top-1/2 -translate-y-1/2`}
-                                            style={`left:${marker.left}px;`}
+                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${index === keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                            style={`height:${keyHeight}px;`}
                                         >
-                                            {#if marker.isBar}
-                                                Bar {Math.floor(marker.index / beatsPerBar) + 1}
-                                            {:else}
-                                                {marker.index + 1}
-                                            {/if}
+                                            {row.label}
                                         </div>
                                     {/each}
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="relative flex-1 overflow-hidden bg-muted/20">
                             <div
-                                bind:this={gridContent}
-                                class="relative"
-                                style={`width:${contentWidth}px; height:${gridHeight}px;`}
-                                onpointerdown={handleBackgroundPointerDown}
+                                class="relative h-full w-full overflow-auto"
+                                bind:this={gridScroller}
+                                onscroll={handleGridScroll}
                             >
+                                <div
+                                    bind:this={gridContent}
+                                    class="relative"
+                                    style={`width:${contentWidth}px; height:${gridHeight}px;`}
+                                    onpointerdown={pianoRollMouse.handleBackgroundPointerDown}
+                                >
                                 <TimelineGrid
                                     gutterWidth={0}
                                     class="z-10"
@@ -974,27 +586,17 @@
                                         }`}
                                         style={`left:${note.left}px; top:${note.top}px; width:${note.width}px; height:${note.height}px;`}
                                         onpointerdown={(event) =>
-                                            handleNotePointerDown(note.note, event)}
+                                            pianoRollMouse.handleNotePointerDown(note.note, event)}
                                     ></div>
                                 {/each}
 
-                                {#if selectionBox}
+                                {#if pianoRollMouse.selectionBox}
+                                    {@const box = pianoRollMouse.selectionBox}
                                     {@const px = pxPerTick > 0 ? pxPerTick : 1}
-                                    {@const tickStart = Math.min(
-                                        selectionBox.startTick,
-                                        selectionBox.currentTick
-                                    )}
-                                    {@const tickEnd =
-                                        Math.max(selectionBox.startTick, selectionBox.currentTick) +
-                                        1}
-                                    {@const keyTop = Math.max(
-                                        selectionBox.startKey,
-                                        selectionBox.currentKey
-                                    )}
-                                    {@const keyBottom = Math.min(
-                                        selectionBox.startKey,
-                                        selectionBox.currentKey
-                                    )}
+                                    {@const tickStart = Math.min(box.startTick, box.currentTick)}
+                                    {@const tickEnd = Math.max(box.startTick, box.currentTick) + 1}
+                                    {@const keyTop = Math.max(box.startKey, box.currentKey)}
+                                    {@const keyBottom = Math.min(box.startKey, box.currentKey)}
                                     {@const left = Math.round(tickStart * px)}
                                     {@const right = Math.round(tickEnd * px)}
                                     {@const top = (keyRange.max - keyTop) * keyHeight}
@@ -1015,6 +617,7 @@
                             tickOffset={sectionStartTick}
                             visible={cursorVisible}
                         />
+                        </div>
                     </div>
                 </div>
             </div>
