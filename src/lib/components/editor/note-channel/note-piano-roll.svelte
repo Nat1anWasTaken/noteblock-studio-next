@@ -8,10 +8,10 @@
     import { onMount } from 'svelte';
     import PlayheadCursor from '../playhead-cursor.svelte';
     import RulerShell from '../ruler-shell.svelte';
+    import SelectionRectangleOverlay from '../selection-rectangle-overlay.svelte';
     import TimelineGrid from '../timeline-grid.svelte';
     import PianoRollHeader from './piano-roll-header.svelte';
     import PianoRollMouseWindowEvents from './piano-roll-mouse-window-events.svelte';
-    import SelectionRectangleOverlay from '../selection-rectangle-overlay.svelte';
 
     $effect(() => {
         pianoRollState.sheetOpen = pianoRollState.pianoRollTarget !== null;
@@ -263,7 +263,7 @@
                                             data-note-id={`${pianoRollState.sectionStartTick + note.note.tick}:${note.note.key}:${pianoRollState.sectionData?.channel.instrument ?? 'note'}`}
                                             class={`note-rect absolute z-30 rounded-sm border ${
                                                 note.selected
-                                                    ? 'border-white/70 bg-primary text-primary-foreground shadow-lg'
+                                                    ? 'scale-105 transform border-yellow-400 bg-yellow-500 text-primary-foreground shadow-2xl ring-4 ring-yellow-400/60 ring-offset-2 ring-offset-background'
                                                     : 'border-primary/30 bg-primary/80 shadow-sm'
                                             }`}
                                             style={`left:${note.left}px; top:${note.top}px; width:${note.width}px; height:${note.height}px;`}
@@ -276,11 +276,13 @@
                                     {/each}
                                 </div>
                             </div>
-                            <SelectionRectangleOverlay
-                                rect={pianoRollMouse.selectionOverlayRect}
-                                scrollLeft={pianoRollState.gridScrollLeft}
-                                scrollTop={pianoRollState.gridScrollTop}
-                            />
+                            {#if pianoRollState.pointerMode === PointerMode.Normal}
+                                <SelectionRectangleOverlay
+                                    rect={pianoRollMouse.selectionOverlayRect}
+                                    scrollLeft={pianoRollState.gridScrollLeft}
+                                    scrollTop={pianoRollState.gridScrollTop}
+                                />
+                            {/if}
                             <PlayheadCursor
                                 gutterWidth={0}
                                 class="z-40"
