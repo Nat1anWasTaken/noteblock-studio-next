@@ -24,6 +24,61 @@
     import RulerShell from '../ruler-shell.svelte';
     import TimelineGrid from '../timeline-grid.svelte';
     import PianoRollMouseWindowEvents from './piano-roll-mouse-window-events.svelte';
+
+    $effect(() => {
+        pianoRollState.sheetOpen = pianoRollState.pianoRollTarget !== null;
+    });
+
+    $effect(() => {
+        if (!pianoRollState.sheetOpen && pianoRollState.pianoRollTarget) {
+            editorState.closePianoRoll();
+        }
+    });
+
+    $effect(() => {
+        if (pianoRollState.pianoRollTarget && !pianoRollState.sectionData) {
+            editorState.closePianoRoll();
+            pianoRollState.sheetOpen = false;
+        }
+    });
+
+    $effect(() => {
+        const grid = pianoRollState.gridScroller;
+        if (!grid) return;
+        if (Math.abs(grid.scrollLeft - pianoRollState.gridScrollLeft) > 1) {
+            grid.scrollLeft = pianoRollState.gridScrollLeft;
+        }
+    });
+
+    $effect(() => {
+        pianoRollMouse.setGridContent(pianoRollState.gridContent);
+    });
+
+    $effect(() => {
+        pianoRollMouse.setSection(pianoRollState.sectionData?.section ?? null);
+    });
+
+    $effect(() => {
+        pianoRollMouse.updateGeometry({
+            pxPerTick: pianoRollState.pxPerTick > 0 ? pianoRollState.pxPerTick : 1,
+            keyRange: pianoRollState.keyRange,
+            keyHeight: pianoRollState.keyHeight
+        });
+    });
+
+    $effect(() => {
+        pianoRollMouse.setActive(pianoRollState.sheetOpen);
+    });
+
+    $effect(() => {
+        pianoRollMouse.setPointerMode(pianoRollState.pointerMode);
+    });
+
+    $effect(() => {
+        if (!pianoRollState.sheetOpen) {
+            pianoRollState.pointerMode = PointerMode.Normal;
+        }
+    });
 </script>
 
 {#snippet tooltipped({
