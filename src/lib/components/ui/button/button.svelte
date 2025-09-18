@@ -1,6 +1,10 @@
 <script lang="ts" module>
     import { cn, type WithElementRef } from '$lib/utils.js';
-    import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
+    import type {
+        HTMLAnchorAttributes,
+        HTMLButtonAttributes,
+        MouseEventHandler
+    } from 'svelte/elements';
     import { tv, type VariantProps } from 'tailwind-variants';
 
     export const buttonVariants = tv({
@@ -36,6 +40,8 @@
         WithElementRef<HTMLAnchorAttributes> & {
             variant?: ButtonVariant;
             size?: ButtonSize;
+            focusable?: boolean;
+            onclick?: (event?: MouseEvent) => void;
         };
 </script>
 
@@ -47,10 +53,24 @@
         ref = $bindable(null),
         href = undefined,
         type = 'button',
+        focusable = false,
         disabled,
         children,
+        onclick,
         ...restProps
     }: ButtonProps = $props();
+
+    function handleClick(event: MouseEvent) {
+        if (disabled) {
+            event.preventDefault();
+            return;
+        }
+        if (!focusable) {
+            const target = event.currentTarget as HTMLElement | null;
+            target?.blur();
+        }
+        onclick?.(event);
+    }
 </script>
 
 {#if href}
@@ -62,6 +82,7 @@
         aria-disabled={disabled}
         role={disabled ? 'link' : undefined}
         tabindex={disabled ? -1 : undefined}
+        onclick={handleClick}
         {...restProps}
     >
         {@render children?.()}
@@ -71,6 +92,7 @@
         bind:this={ref}
         data-slot="button"
         class={cn(buttonVariants({ variant, size }), className)}
+        onclick={handleClick}
         {type}
         {disabled}
         {...restProps}
