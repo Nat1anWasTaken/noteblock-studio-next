@@ -40,6 +40,7 @@
 
     // Reactive state for solo/mute buttons
     const isChannelMuted = $derived(() => {
+        if (!sectionData) return false;
         const channel = player.song?.channels?.[sectionData.channelIndex];
         return channel?.kind === 'note' ? channel.isMuted : false;
     });
@@ -48,10 +49,12 @@
     );
 
     function toggleMute() {
+        if (!sectionData) return;
         player.setMute(sectionData.channelIndex);
     }
 
     function toggleSolo() {
+        if (!sectionData) return;
         player.setSolo(sectionData.channelIndex);
     }
 </script>
@@ -76,9 +79,13 @@
 {/snippet}
 
 <Sheet.Header class="border-b border-border/60 px-6 pt-6 pb-4">
-    <Sheet.Title class="text-lg font-semibold">{sectionData.section.name}</Sheet.Title>
+    <Sheet.Title class="text-lg font-semibold"
+        >{sectionData?.section?.name ?? 'Unknown Section'}</Sheet.Title
+    >
     <Sheet.Description class="text-sm text-muted-foreground">
-        {INSTRUMENT_NAMES[sectionData.channel.instrument]} • Channel {sectionData.channelIndex + 1} •
+        {sectionData ? INSTRUMENT_NAMES[sectionData.channel.instrument] : 'Unknown'} • Channel {sectionData
+            ? sectionData.channelIndex + 1
+            : '?'} •
         {sectionBeatLength} beats
     </Sheet.Description>
 </Sheet.Header>
@@ -178,6 +185,58 @@
         <div
             class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
         >
+            {#if sectionData}
+                {#snippet muteButton({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Mute"
+                        onclick={toggleMute}
+                        class={cn(
+                            'h-8 w-8 p-0 text-xs font-bold',
+                            isChannelMuted()
+                                ? 'bg-red-600 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white hover:dark:bg-red-600'
+                                : ''
+                        )}
+                    >
+                        M
+                    </Button>
+                {/snippet}
+                {@render tooltipped({
+                    label: isChannelMuted() ? 'Unmute' : 'Mute',
+                    children: muteButton,
+                    disableCloseOnTriggerClick: true
+                })}
+
+                {#snippet soloButton({ props }: { props: any })}
+                    <Button
+                        {...props}
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Solo"
+                        onclick={toggleSolo}
+                        class={cn(
+                            'h-8 w-8 p-0 text-xs font-bold',
+                            isAnyMuted && sectionData && !isChannelMuted()
+                                ? 'bg-yellow-600 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white hover:dark:bg-yellow-600'
+                                : ''
+                        )}
+                    >
+                        S
+                    </Button>
+                {/snippet}
+                {@render tooltipped({
+                    label: isAnyMuted && sectionData && !isChannelMuted() ? 'Unsolo' : 'Solo',
+                    children: soloButton,
+                    disableCloseOnTriggerClick: true
+                })}
+            {/if}
+        </div>
+
+        <div
+            class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
+        >
             {#snippet normalModeButton({ props }: { props: any })}
                 <Button
                     {...props}
@@ -237,56 +296,6 @@
                     ? 'Follow Playhead: On'
                     : 'Follow Playhead: Off',
                 children: autoScrollButton,
-                disableCloseOnTriggerClick: true
-            })}
-        </div>
-
-        <div
-            class="flex h-9 items-center gap-1.5 rounded-md bg-background/10 shadow-xs dark:bg-background/20"
-        >
-            {#snippet muteButton({ props }: { props: any })}
-                <Button
-                    {...props}
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Mute"
-                    onclick={toggleMute}
-                    class={cn(
-                        'h-8 w-8 p-0 text-xs font-bold',
-                        isChannelMuted()
-                            ? 'bg-red-600 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white hover:dark:bg-red-600'
-                            : ''
-                    )}
-                >
-                    M
-                </Button>
-            {/snippet}
-            {@render tooltipped({
-                label: isChannelMuted() ? 'Unmute' : 'Mute',
-                children: muteButton,
-                disableCloseOnTriggerClick: true
-            })}
-
-            {#snippet soloButton({ props }: { props: any })}
-                <Button
-                    {...props}
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Solo"
-                    onclick={toggleSolo}
-                    class={cn(
-                        'h-8 w-8 p-0 text-xs font-bold',
-                        isAnyMuted && !isChannelMuted
-                            ? 'bg-yellow-600 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white hover:dark:bg-yellow-600'
-                            : ''
-                    )}
-                >
-                    S
-                </Button>
-            {/snippet}
-            {@render tooltipped({
-                label: isAnyMuted && !isChannelMuted ? 'Unsolo' : 'Solo',
-                children: soloButton,
                 disableCloseOnTriggerClick: true
             })}
         </div>
