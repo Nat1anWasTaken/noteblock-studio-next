@@ -46,26 +46,24 @@ const metronomeSounds: Record<'high' | 'low', HTMLAudioElement> = browser
       }
     : ({} as Record<'high' | 'low', HTMLAudioElement>);
 
+function configureAudioElement(el: HTMLAudioElement): void {
+    el.preload = 'auto';
+    (el as any).preservesPitch = false;
+    (el as any).mozPreservesPitch = false;
+    (el as any).webkitPreservesPitch = false;
+}
+
 function configureBaseAudio(): void {
     if (!browser) return;
     for (const instKey of Object.keys(soundMap)) {
         const inst = Number(instKey) as Instrument;
         const el = soundMap[inst];
         if (!el) continue;
-        el.preload = 'auto';
-        (el as any).preservesPitch = false;
-        (el as any).mozPreservesPitch = false;
-        (el as any).webkitPreservesPitch = false;
+        configureAudioElement(el);
     }
     // Metronome base config
-    metronomeSounds.high.preload = 'auto';
-    metronomeSounds.low.preload = 'auto';
-    (metronomeSounds.high as any).preservesPitch = false;
-    (metronomeSounds.high as any).mozPreservesPitch = false;
-    (metronomeSounds.high as any).webkitPreservesPitch = false;
-    (metronomeSounds.low as any).preservesPitch = false;
-    (metronomeSounds.low as any).mozPreservesPitch = false;
-    (metronomeSounds.low as any).webkitPreservesPitch = false;
+    configureAudioElement(metronomeSounds.high);
+    configureAudioElement(metronomeSounds.low);
 }
 
 const audioPool: Record<Instrument, HTMLAudioElement[]> = browser
@@ -84,14 +82,18 @@ function createPooledAudio(instrument: Instrument): HTMLAudioElement {
     return node;
 }
 
+function resetAudioElement(el: HTMLAudioElement): void {
+    try {
+        el.currentTime = 0;
+    } catch {}
+}
+
 function getPooledAudio(instrument: Instrument): HTMLAudioElement {
     if (!browser) return {} as HTMLAudioElement;
     const pool = (audioPool[instrument] ||= []);
     for (const el of pool) {
         if (el.ended || el.paused) {
-            try {
-                el.currentTime = 0;
-            } catch {}
+            resetAudioElement(el);
             return el;
         }
     }
@@ -101,9 +103,7 @@ function getPooledAudio(instrument: Instrument): HTMLAudioElement {
         return el;
     }
     const reused = pool[0];
-    try {
-        reused.currentTime = 0;
-    } catch {}
+    resetAudioElement(reused);
     return reused;
 }
 
@@ -132,6 +132,23 @@ function connectWithReverbGlobal(
     }
 }
 
+function calculatePlaybackRate(key: number, pitch: number): number {
+    const baseSampleKey = 33;
+    const keyOffset = key - baseSampleKey;
+    const pitchOffset = pitch / 1200;
+    return Math.pow(2, (keyOffset + pitchOffset) / 12);
+}
+
+function startAudioSource(src: AudioBufferSourceNode, when?: number): void {
+    try {
+        src.start(when);
+    } catch {
+        try {
+            src.start();
+        } catch {}
+    }
+}
+
 async function playWithHtmlAudio(
     instrument: Instrument,
     key: number,
@@ -141,10 +158,7 @@ async function playWithHtmlAudio(
     const audio = getPooledAudio(instrument);
     audio.volume = (velocity / 100) * 0.5;
 
-    const baseSampleKey = 33;
-    const keyOffset = key - baseSampleKey;
-    const pitchOffset = pitch / 1200;
-    audio.playbackRate = Math.pow(2, (keyOffset + pitchOffset) / 12);
+    audio.playbackRate = calculatePlaybackRate(key, pitch);
 
     return await audio.play();
 }
@@ -349,6 +363,14 @@ export class Player {
      */
     getBarAtTick(tick: number): number {
         return this.computeBarBeatAtTick(tick).bar;
+    }
+
+    /**
+     * Snap a tick to the start of its bar.
+     */
+    snapTickToBarStart(tick: number): number {
+        const bar = this.getBarAtTick(tick);
+        return this.findTickForBarBeat(bar, 0).tick;
     }
 
     /** Current loop mode. */
@@ -655,6 +677,15 @@ export class Player {
      * @param song The song to load into the player.
      */
     setSong(song: Song) {
+        // Ensure tempo changes are at bar boundaries
+        for (const channel of song.channels) {
+            if (channel.kind === 'tempo') {
+                for (const tempoChange of channel.tempoChanges) {
+                    tempoChange.tick = this.snapTickToBarStart(tempoChange.tick);
+                }
+            }
+        }
+
         this._song = song;
         this._currentTick = 0;
         this._tempo = song.tempo ?? this._tempo;
@@ -767,6 +798,11 @@ export class Player {
 
         // Apply updates to the channel
         Object.assign(channel, updates);
+
+        // Ensure tempo changes are at bar boundaries
+        for (const tempoChange of channel.tempoChanges) {
+            tempoChange.tick = this.snapTickToBarStart(tempoChange.tick);
+        }
 
         // Refresh indexes to ensure player state is synchronized
         this.refreshIndexes();
@@ -1162,19 +1198,10 @@ export class Player {
         const src = ctx.createBufferSource();
         src.buffer = buf;
         // Compute playback rate
-        const baseSampleKey = 33;
-        const keyOffset = note.key - baseSampleKey;
-        const pitchOffset = note.pitch / 1200;
-        src.playbackRate.value = Math.pow(2, (keyOffset + pitchOffset) / 12);
+        src.playbackRate.value = calculatePlaybackRate(note.key, note.pitch);
 
         this.connectWithReverb(src, (note.velocity / 100) * 0.5);
-        try {
-            src.start(when);
-        } catch {
-            try {
-                src.start();
-            } catch {}
-        }
+        startAudioSource(src, when);
         // Schedule a UI highlight at the same moment the audio is scheduled to play.
         // Convert audio-time offset to ms and schedule an event.
         const id = `${tick}:${note.key}:${instrument}`;
@@ -1197,13 +1224,7 @@ export class Player {
         const src = ctx.createBufferSource();
         src.buffer = this._metronomeBuffer;
         this.connectWithReverb(src, accent ? 0.8 : 0.5);
-        try {
-            src.start(when);
-        } catch {
-            try {
-                src.start();
-            } catch {}
-        }
+        startAudioSource(src, when);
         this.trackScheduled(src, when, tick);
     }
 

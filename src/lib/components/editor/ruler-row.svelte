@@ -41,13 +41,23 @@
     </Button>
     {#if showZoomControls}
         <div class="ml-2 flex items-center gap-1">
-            <Button variant="ghost" size="icon" onclick={() => editorState.zoomOut()} aria-label="Zoom out">
+            <Button
+                variant="ghost"
+                size="icon"
+                onclick={() => editorState.zoomOut()}
+                aria-label="Zoom out"
+            >
                 <ZoomOut class="size-4" />
             </Button>
             <div class="min-w-14 text-center font-mono text-xs tabular-nums">
                 {Math.round(editorState.pxPerBeat)} px/beat
             </div>
-            <Button variant="ghost" size="icon" onclick={() => editorState.zoomIn()} aria-label="Zoom in">
+            <Button
+                variant="ghost"
+                size="icon"
+                onclick={() => editorState.zoomIn()}
+                aria-label="Zoom in"
+            >
                 <ZoomIn class="size-4" />
             </Button>
         </div>
@@ -55,10 +65,7 @@
 {/snippet}
 
 <RulerShell
-    class={cn(
-        'items-center border-b border-border bg-secondary/40 text-sm',
-        className
-    )}
+    class={cn('items-center border-b border-border bg-secondary/40 text-sm', className)}
     {gutterWidth}
     contentWidth={editorState.contentWidth}
     scrollLeft={editorState.scrollLeft}
