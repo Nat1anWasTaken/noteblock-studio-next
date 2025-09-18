@@ -357,7 +357,7 @@ export class EditorMouseController {
 
         // New right section
         const newSection: any = {
-            startingTick: start + localSplit,
+            startingTick: player.snapTickToBarStart(start + localSplit),
             length: length - localSplit,
             notes: rightNotes,
             name: sec.name ? `${sec.name} (part)` : 'Part'
@@ -444,7 +444,9 @@ export class EditorMouseController {
             }> = [];
 
             for (const item of this._dragSectionRef.items) {
-                const newStart = Math.max(0, Math.round(absTick - item.offsetTick));
+                const newStart = player.snapTickToBarStart(
+                    Math.max(0, Math.round(absTick - item.offsetTick))
+                );
 
                 // Find the current channel that contains this section (robust identity lookup)
                 const currentSrcIndex = channels.findIndex(
