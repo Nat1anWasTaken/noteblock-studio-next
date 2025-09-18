@@ -4,6 +4,7 @@
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { pianoRollMouse } from '$lib/piano-roll-mouse.svelte';
     import { pianoRollState } from '$lib/piano-roll-state.svelte';
+    import { player } from '$lib/playback.svelte';
     import PlayheadCursor from '../playhead-cursor.svelte';
     import RulerShell from '../ruler-shell.svelte';
     import TimelineGrid from '../timeline-grid.svelte';
@@ -62,6 +63,47 @@
     $effect(() => {
         if (!pianoRollState.sheetOpen) {
             pianoRollState.pointerMode = PointerMode.Normal;
+        }
+    });
+
+    // Auto-follow playhead in piano roll
+    const playheadContentX = $derived.by(() => {
+        if (!pianoRollState.sectionData) return 0;
+        const relativeTick = player.currentTick - pianoRollState.sectionStartTick;
+        return Math.max(0, relativeTick * pianoRollState.pxPerTick);
+    });
+
+    // Keep about one beat of space from the left edge when auto-scrolling
+    const leftPadding = $derived(
+        Math.min(240, Math.max(48, Math.round(editorState.pxPerBeat * 1)))
+    );
+
+    $effect(() => {
+        // Re-run when playhead moves or viewport changes
+        const scroller = pianoRollState.gridScroller;
+        if (!scroller || !pianoRollState.sheetOpen) return;
+        const viewportWidth = scroller.clientWidth;
+        if (viewportWidth <= 0) return;
+
+        const left = pianoRollState.gridScrollLeft;
+        const right = left + viewportWidth;
+        const x = playheadContentX;
+
+        // Only auto-scroll while playing and enabled to avoid fighting manual seeks
+        if (!player.isPlaying || !editorState.autoScrollEnabled) return;
+
+        // Only auto-scroll if playhead is within this section
+        if (!pianoRollState.cursorVisible) return;
+
+        const isOutOfView = x < left + 4 || x > right - 4; // small margin
+        if (!isOutOfView) return;
+
+        // Place playhead near the left edge (with padding), clamped to content bounds
+        const desired = Math.round(x - leftPadding);
+        const maxScroll = Math.max(0, pianoRollState.contentWidth - viewportWidth);
+        const clamped = Math.min(maxScroll, Math.max(0, desired));
+        if (Math.abs(clamped - left) > 1) {
+            pianoRollState.gridScrollLeft = clamped;
         }
     });
 </script>
