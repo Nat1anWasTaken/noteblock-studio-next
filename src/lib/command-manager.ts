@@ -1,3 +1,38 @@
+type Platform = 'mac' | 'windows' | 'linux';
+
+export function detectPlatform(): Platform {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('mac')) return 'mac';
+    if (ua.includes('win')) return 'windows';
+    return 'linux';
+}
+
+function capitalizeFirstLetter(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+export function shortcutToString(shortcut: string): string {
+    const platform = detectPlatform();
+
+    shortcut.split('+').map((part) => capitalizeFirstLetter(part));
+
+    switch (platform) {
+        case 'mac':
+            return shortcut
+                .replace(/Mod/g, '⌘')
+                .replace(/Ctrl/g, '⌃')
+                .replace(/Alt/g, '⌥')
+                .replace(/Shift/g, '⇧');
+        default:
+            return shortcut
+                .replace(/Mod/g, 'Ctrl')
+                .replace(/Ctrl/g, 'Ctrl')
+                .replace(/Alt/g, 'Alt')
+                .replace(/Shift/g, 'Shift');
+    }
+}
+
 export interface Command {
     id: string;
     title: string;

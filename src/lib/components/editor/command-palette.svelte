@@ -1,5 +1,9 @@
 <script lang="ts">
-    import { commandManager, type Command as CommandType } from '$lib/command-manager.js';
+    import {
+        commandManager,
+        shortcutToString,
+        type Command as CommandType
+    } from '$lib/command-manager';
     import * as Command from '$lib/components/ui/command';
     import { onMount } from 'svelte';
 
@@ -56,7 +60,7 @@
                         {command.title}
                     </div>
                     {#if command.shortcut}
-                        <Command.Shortcut>{command.shortcut}</Command.Shortcut>
+                        <Command.Shortcut>{shortcutToString(command.shortcut)}</Command.Shortcut>
                     {/if}
                 </Command.Item>
             {/each}
