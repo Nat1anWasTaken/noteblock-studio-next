@@ -3,6 +3,7 @@ import {
     Instrument,
     type Note,
     type NoteChannel,
+    type NoteSection,
     type Song,
     type TempoChange,
     type TempoChannel
@@ -782,6 +783,24 @@ export class Player {
         if ((channel as any).id) {
             this._channelsById.set((channel as any).id as string, channel as NoteChannel);
         }
+
+        // Refresh indexes to ensure player state is synchronized
+        this.refreshIndexes();
+    }
+
+    /**
+     * Update a note section with partial data.
+     * Updates the section in place and refreshes indexes to keep player in sync.
+     */
+    updateNoteSection(channelIndex: number, sectionIndex: number, updates: Partial<NoteSection>) {
+        if (!this.song) return;
+        const channel = this.song.channels[channelIndex];
+        if (!channel || channel.kind !== 'note') return;
+        const section = channel.sections[sectionIndex];
+        if (!section) return;
+
+        // Apply updates to the section
+        Object.assign(section, updates);
 
         // Refresh indexes to ensure player state is synchronized
         this.refreshIndexes();
