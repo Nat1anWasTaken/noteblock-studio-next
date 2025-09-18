@@ -8,7 +8,12 @@ export type PianoRollPointerMode = PointerMode.Normal | 'pen';
 interface PianoRollState {
     pointerMode: PianoRollPointerMode;
     selectedNotes: Note[];
-    selectionBox: { startTick: number; startKey: number; currentTick: number; currentKey: number } | null;
+    selectionBox: {
+        startTick: number;
+        startKey: number;
+        currentTick: number;
+        currentKey: number;
+    } | null;
     selectionOverlayRect: { left: number; top: number; width: number; height: number } | null;
     gridContent: HTMLDivElement | null;
     keyRange: { min: number; max: number };
@@ -21,7 +26,6 @@ interface PianoRollState {
     updateSelectionOverlayRect: () => void;
 }
 export type KeyRange = { min: number; max: number };
-
 
 type DragContext = {
     notes: Note[];
@@ -40,7 +44,6 @@ type SelectionContext = { pointerId: number; startTick: number; startKey: number
 
 const POINTER_MOVE_HANDLED = Symbol('pianoRollPointerMoveHandled');
 const POINTER_UP_HANDLED = Symbol('pianoRollPointerUpHandled');
-
 
 const NOTE_SPAN = 1;
 const DEFAULT_NOTE_VELOCITY = 100;
