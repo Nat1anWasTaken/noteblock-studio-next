@@ -1,8 +1,8 @@
 export interface Command {
     id: string;
-    icon: string;
     title: string;
     callback: () => void;
+    icon?: string; // TODO: Implement icon support
     shortcut?: string;
 }
 
@@ -15,10 +15,13 @@ export class CommandManager {
      */
     register(command: Command): void {
         if (this.commands.has(command.id)) {
-            console.warn(`Command with id "${command.id}" is already registered. Overwriting.`);
+            throw new Error(`Command with id "${command.id}" is already registered.`);
         }
 
-        this.commands.set(command.id, command);
+        this.commands.set(command.id, {
+            shortcut: command.shortcut && this.normalizeShortcut(command.shortcut),
+            ...command
+        });
 
         // Register shortcut if provided
         if (command.shortcut) {
@@ -96,13 +99,13 @@ export class CommandManager {
 
         // Add modifier keys in a consistent order
         if (event.ctrlKey || event.metaKey) {
-            parts.push('Mod'); // Use 'Mod' to handle both Ctrl (Windows/Linux) and Cmd (Mac)
+            parts.push('MOD'); // Use 'Mod' to handle both Ctrl (Windows/Linux) and Cmd (Mac)
         }
         if (event.altKey) {
-            parts.push('Alt');
+            parts.push('ALT');
         }
         if (event.shiftKey) {
-            parts.push('Shift');
+            parts.push('SHIFT');
         }
 
         // Add the main key
