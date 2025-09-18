@@ -1,0 +1,50 @@
+name: CI
+
+on:
+    push:
+        branches: ['*']
+    pull_request:
+        branches: ['*']
+
+jobs:
+    lint-and-format:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10.16.1
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Register Prettier matcher
+              run: echo "::add-matcher::.github/matchers/prettier-matcher.json"
+
+            - name: Run lint
+              run: pnpm lint || (echo "Lint failed" && exit 1)
+
+            - name: Register Svelte Check matcher
+              run: echo "::add-matcher::.github/matchers/svelte-check-matcher.json"
+
+            - name: Run type check
+              run: pnpm check || (echo "Type check failed" && exit 1)
+
+            - name: Remove matchers
+              if: always()
+              run: |
+                  echo "::remove-matcher owner=prettier::"
+                  echo "::remove-matcher owner=svelte-check::"
+
+            - name: Run build
+              if: success()
+              run: pnpm build
