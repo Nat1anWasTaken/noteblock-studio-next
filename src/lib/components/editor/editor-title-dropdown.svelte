@@ -5,7 +5,9 @@
         DropdownMenuItem,
         DropdownMenuTrigger
     } from '$lib/components/ui/dropdown-menu';
-    import ChevronDown from '~icons/lucide/chevron-down';
+    import { downloadSongAsNbx, songToNbx } from '$lib/files';
+    import { player } from '$lib/playback.svelte';
+    import { toast } from 'svelte-sonner';
 
     interface Props {
         class?: string;
@@ -15,23 +17,67 @@
     let { class: className, children }: Props = $props();
 
     function handleSave() {
-        // TODO: Implement save functionality
-        console.log('Save clicked');
+        toast.warning('Save is not yet implemented. Please use Save As to download your song.');
     }
 
     function handleSaveAs() {
-        // TODO: Implement save as functionality
-        console.log('Save As clicked');
+        if (!player.song) {
+            console.warn('No song loaded to save');
+            return;
+        }
+
+        const suggestedName = player.song.name || 'Untitled';
+        saveSongWithPicker(suggestedName);
+    }
+
+    async function saveSongWithPicker(suggestedName: string) {
+        if (!player.song) return;
+
+        // Try modern File System Access API first
+        if ('showSaveFilePicker' in window) {
+            try {
+                const options = {
+                    suggestedName: `${suggestedName}.nbx`,
+                    types: [
+                        {
+                            description: 'Noteblock Studio Song',
+                            accept: {
+                                'application/zip': ['.nbx']
+                            }
+                        }
+                    ]
+                };
+
+                const handle = await (window as any).showSaveFilePicker(options);
+                const nbxData = await songToNbx(player.song);
+
+                const writable = await handle.createWritable();
+                await writable.write(nbxData);
+                await writable.close();
+
+                return;
+            } catch (error: any) {
+                if (error.name === 'AbortError') {
+                    console.log('User cancelled file picker');
+                    return;
+                }
+
+                console.log('File picker failed with error:', error);
+            }
+        }
+
+        // Fallback to regular download
+        downloadSongAsNbx(player.song, suggestedName);
     }
 </script>
 
 <DropdownMenu>
-    <DropdownMenuTrigger class={`flex min-w-0 items-center gap-1 ${className || ''}`}>
+    <DropdownMenuTrigger class={className}>
         {@render children()}
-        <ChevronDown class="size-4 text-muted-foreground" />
     </DropdownMenuTrigger>
     <DropdownMenuContent>
-        <DropdownMenuItem onclick={handleSave}>Save</DropdownMenuItem>
+        <!-- TODO: Enable Save button on desktop environments where we can save to a known location -->
+        <DropdownMenuItem onclick={handleSave} disabled>Save</DropdownMenuItem>
         <DropdownMenuItem onclick={handleSaveAs}>Save As</DropdownMenuItem>
     </DropdownMenuContent>
 </DropdownMenu>
