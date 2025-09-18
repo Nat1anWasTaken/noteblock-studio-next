@@ -20,16 +20,16 @@ export function shortcutToString(shortcut: string): string {
     switch (platform) {
         case 'mac':
             return shortcut
-                .replace(/Mod/g, '⌘')
-                .replace(/Ctrl/g, '⌃')
-                .replace(/Alt/g, '⌥')
-                .replace(/Shift/g, '⇧');
+                .replace(/MOD/g, '⌘')
+                .replace(/CTRL/g, '⌃')
+                .replace(/ALT/g, '⌥')
+                .replace(/SHIFT/g, '⇧');
         default:
             return shortcut
-                .replace(/Mod/g, 'Ctrl')
-                .replace(/Ctrl/g, 'Ctrl')
-                .replace(/Alt/g, 'Alt')
-                .replace(/Shift/g, 'Shift');
+                .replace(/MOD/g, 'Ctrl')
+                .replace(/CTRL/g, 'Ctrl')
+                .replace(/ALT/g, 'Alt')
+                .replace(/SHIFT/g, 'Shift');
     }
 }
 
