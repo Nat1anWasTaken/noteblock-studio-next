@@ -6,7 +6,7 @@
 <h3 align="center">Noteblock Studio Next</h3>
 
   <p align="center">
-    A modern, web-based music editor for Minecraft Note Block musics, built with SvelteKit and Tailwind CSS.
+    A modern, web-based music editor for Minecraft Note Block musics.
     <br />
     <a href="https://github.com/Nat1anWasTaken/noteblock-studio-next"><strong>Explore the docs »</strong></a>
     <br />
@@ -20,17 +20,14 @@
   </p>
 </div>
 
-# Noteblock Studio Next
-
-A modern, web-based music editor for Minecraft Note Block musics, built with SvelteKit and Tailwind CSS. With a better UI/UX, multi-platform support, and improved performance.
-
 ## Features
 
 - Import `.nbs` via `@nbsjs/core`; convert to editable tracks
 - Tempo track with time‑signature support and metronome
-- Note channels per instrument/layer with sections
-- Playback with Web Audio (pooled samples, optional reverb) and loop modes
+- Multi-Platform support (Windows, macOS, Linux)
+- Smooth playback with Web Audio API
 - Save/Open `.nbx` archives (ZIP with JSON metadata and channels)
+- Desktop App (Planned)
 
 ## Quick Start
 
