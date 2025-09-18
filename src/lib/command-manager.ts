@@ -139,6 +139,16 @@ export class CommandManager {
     }
 
     /**
+     * Unregister multiple commands
+     * @param ids Array of command IDs to unregister
+     */
+    unregisterCommands(ids: string[]): void {
+        for (const id of ids) {
+            this.unregister(id);
+        }
+    }
+
+    /**
      * Build a normalized shortcut string from a KeyboardEvent
      */
     private buildShortcutString(event: KeyboardEvent): string {
