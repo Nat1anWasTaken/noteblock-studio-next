@@ -5,6 +5,7 @@
     import { pianoRollMouse } from '$lib/piano-roll-mouse.svelte';
     import { pianoRollState } from '$lib/piano-roll-state.svelte';
     import { player } from '$lib/playback.svelte';
+    import { onMount } from 'svelte';
     import PlayheadCursor from '../playhead-cursor.svelte';
     import RulerShell from '../ruler-shell.svelte';
     import TimelineGrid from '../timeline-grid.svelte';
@@ -64,6 +65,53 @@
         if (!pianoRollState.sheetOpen) {
             pianoRollState.pointerMode = PointerMode.Normal;
         }
+    });
+
+    // DOM-based highlight handling
+    function handleNotePlayed(e: CustomEvent) {
+        const id = e.detail?.id;
+        if (!id) return;
+        const nodes = document.querySelectorAll<HTMLElement>(`[data-note-id="${id}"]`);
+        nodes.forEach((n) => {
+            n.classList.remove('note-playing-fade');
+            n.classList.add('note-playing-immediate');
+        });
+    }
+
+    function handleNoteEnded(e: CustomEvent) {
+        const id = e.detail?.id;
+        if (!id) return;
+        const nodes = document.querySelectorAll<HTMLElement>(`[data-note-id="${id}"]`);
+        nodes.forEach((n) => {
+            // Remove immediate state first so the element currently shows the "played" color.
+            n.classList.remove('note-playing-immediate');
+            // Force a reflow so the browser registers the style change before we add the fade class
+            // which will transition from the current (played) color to the default.
+            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+            n.offsetHeight;
+            // Add fade class which transitions properties back to normal
+            n.classList.add('note-playing-fade');
+            // Cleanup: remove the fade class after transition duration (match CSS below)
+            const CLEANUP_MS = 260;
+            const idKey = (n as any).__fadeCleanupId;
+            if (idKey) clearTimeout(idKey);
+            (n as any).__fadeCleanupId = setTimeout(() => {
+                n.classList.remove('note-playing-fade');
+                try {
+                    delete (n as any).__fadeCleanupId;
+                } catch {}
+            }, CLEANUP_MS);
+        });
+    }
+
+    onMount(() => {
+        if (typeof document === 'undefined') return;
+        document.addEventListener('noteplayed', handleNotePlayed as EventListener);
+        document.addEventListener('noteended', handleNoteEnded as EventListener);
+        return () => {
+            document.removeEventListener('noteplayed', handleNotePlayed as EventListener);
+            document.removeEventListener('noteended', handleNoteEnded as EventListener);
+        };
     });
 
     // Auto-follow playhead in piano roll
@@ -290,5 +338,33 @@
 
     .scrollbar-fade {
         scrollbar-width: thin;
+    }
+
+    /* Fade-on-end highlight behavior:
+     - `.note-playing-immediate`: applied immediately when note starts (no transition, strong color).
+     - `.note-playing-fade`: applied after note ends; transitions back to normal smoothly.
+     - Base `.note-rect` contains the normal appearance. */
+
+    .note-rect {
+        transition:
+            background-color 240ms ease,
+            border-color 240ms ease;
+        will-change: background-color, border-color;
+    }
+
+    /* Immediate visual when note starts. No transition so it changes instantly. */
+    .note-rect.note-playing-immediate {
+        transition: none !important;
+        background-color: rgba(0, 160, 255, 0.95) !important;
+        border-color: rgba(0, 160, 255, 0.7) !important;
+    }
+
+    /* Fade class: when applied, element will transition from the current (played) look
+     back to the base appearance defined on .note-rect because .note-playing-fade sets
+     the target (normal) values and .note-rect defines the transition. */
+    .note-rect.note-playing-fade {
+        /* Target values (normal) so the transitions animate towards these */
+        background-color: inherit;
+        border-color: inherit;
     }
 </style>
