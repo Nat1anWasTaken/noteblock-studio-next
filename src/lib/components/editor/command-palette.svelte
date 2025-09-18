@@ -1,16 +1,13 @@
 <script lang="ts">
     import { commandManager, type Command as CommandType } from '$lib/command-manager.js';
     import * as Command from '$lib/components/ui/command';
+    import { onMount } from 'svelte';
+
     let open = $state(false);
     let searchValue = $state('');
-    let commands = $state<CommandType[]>([]);
 
     function handleKeyDown(event: KeyboardEvent) {
-        // Toggle on Ctrl/Cmd + Shift + P
-        if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'p') {
-            event.preventDefault();
-            open = !open;
-        }
+        commandManager.handleKeyboardEvent(event);
     }
 
     function executeCommand(command: CommandType) {
@@ -20,12 +17,31 @@
     }
 
     const filteredCommands = $derived(
-        commands.filter(
-            (command) =>
-                command.title.toLowerCase().includes(searchValue.toLowerCase()) ||
-                command.id.toLowerCase().includes(searchValue.toLowerCase())
-        )
+        commandManager
+            .getCommands()
+            .filter(
+                (command) =>
+                    command.title.toLowerCase().includes(searchValue.toLowerCase()) ||
+                    command.id.toLowerCase().includes(searchValue.toLowerCase())
+            )
     );
+
+    onMount(() => {
+        commandManager.register({
+            id: 'toggle-command-palette',
+            title: 'Toggle Command Palette',
+            callback: () => {
+                open = !open;
+            },
+            shortcut: 'Mod+Shift+P'
+        });
+
+        return () => {
+            commandManager.unregister('toggle-command-palette');
+        };
+    });
+
+    // TODO: Implement icon rendering
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
@@ -36,8 +52,9 @@
         <Command.List>
             {#each filteredCommands as command (command.id)}
                 <Command.Item onSelect={() => executeCommand(command)}>
-                    <span class="mr-2">{command.icon}</span>
-                    {command.title}
+                    <div class="flex items-center gap-2">
+                        {command.title}
+                    </div>
                     {#if command.shortcut}
                         <Command.Shortcut>{command.shortcut}</Command.Shortcut>
                     {/if}
