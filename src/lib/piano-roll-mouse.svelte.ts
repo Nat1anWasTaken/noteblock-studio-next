@@ -1,4 +1,3 @@
-import { commandManager } from '$lib/command-manager';
 import { PointerMode } from '$lib/editor-state.svelte';
 import { player } from '$lib/playback.svelte';
 import type { Note, NoteSection } from '$lib/types';
