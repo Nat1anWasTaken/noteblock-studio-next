@@ -39,6 +39,7 @@ export class PianoRollState {
     keysScroller = $state<HTMLDivElement | null>(null);
     gridContent = $state<HTMLDivElement | null>(null);
     gridScrollLeft = $state(0);
+    gridScrollTop = $state(0);
 
     keyHeight = 20;
     noteLaneHeight = Math.max(8, this.keyHeight - 6);
@@ -182,6 +183,7 @@ export class PianoRollState {
         if (!grid) return;
         const { scrollTop, scrollLeft } = grid;
         this.gridScrollLeft = scrollLeft;
+        this.gridScrollTop = scrollTop;
         if (keys && Math.abs(keys.scrollTop - scrollTop) > 1) {
             keys.scrollTop = scrollTop;
         }

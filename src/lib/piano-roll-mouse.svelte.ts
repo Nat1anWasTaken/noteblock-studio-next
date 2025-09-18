@@ -27,6 +27,16 @@ type DragContext = {
 
 type SelectionContext = { pointerId: number; startTick: number; startKey: number } | null;
 
+const POINTER_MOVE_HANDLED = Symbol('pianoRollPointerMoveHandled');
+const POINTER_UP_HANDLED = Symbol('pianoRollPointerUpHandled');
+
+type OverlayRect = {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+};
+
 const NOTE_SPAN = 1;
 const DEFAULT_NOTE_VELOCITY = 100;
 const DEFAULT_NOTE_PITCH = 0;
@@ -41,6 +51,7 @@ export class PianoRollMouseController {
     // Public reactive state
     selectedNotes = $state<Note[]>([]);
     selectionBox = $state<SelectionBox | null>(null);
+    selectionOverlayRect = $state<OverlayRect | null>(null);
     pointerMode = $state<PianoRollPointerMode>(PointerMode.Normal);
     isActive = $state(false);
 
@@ -54,13 +65,18 @@ export class PianoRollMouseController {
 
     private dragContext: DragContext | null = null;
     private selectionContext: SelectionContext = null;
+    private overlayPendingRect: OverlayRect | null = null;
+    private overlayFrameId: number | null = null;
 
     setPointerMode = (mode: PianoRollPointerMode) => {
         this.pointerMode = mode;
         if (mode !== PointerMode.Normal) {
             this.selectionBox = null;
+            this.selectionOverlayRect = null;
             this.selectionContext = null;
             this.dragContext = null;
+            this.overlayPendingRect = null;
+            this.cancelOverlayFrame();
         }
     };
 
@@ -69,8 +85,11 @@ export class PianoRollMouseController {
         if (!active) {
             this.clearSelection();
             this.selectionBox = null;
+            this.selectionOverlayRect = null;
             this.dragContext = null;
             this.selectionContext = null;
+            this.overlayPendingRect = null;
+            this.cancelOverlayFrame();
         }
     };
 
@@ -95,6 +114,7 @@ export class PianoRollMouseController {
         this._pxPerTick = pxPerTick > 0 ? pxPerTick : 1;
         this._keyRange = keyRange;
         this._keyHeight = keyHeight;
+        this.updateSelectionOverlayRect();
     };
 
     handleBackgroundPointerDown = (event: PointerEvent) => {
@@ -116,6 +136,7 @@ export class PianoRollMouseController {
                 currentTick: tick,
                 currentKey: key
             };
+            this.updateSelectionOverlayRect();
             this.clearSelection();
         } else if (pointerMode === 'pen') {
             if (!section) return;
@@ -191,6 +212,39 @@ export class PianoRollMouseController {
     };
 
     handleWindowPointerMove = (event: PointerEvent) => {
+        if ((event as any)[POINTER_MOVE_HANDLED]) return;
+        (event as any)[POINTER_MOVE_HANDLED] = true;
+        this.processPointerMove(event);
+    };
+
+    handleGridPointerMove = (event: PointerEvent) => {
+        (event as any)[POINTER_MOVE_HANDLED] = true;
+        this.processPointerMove(event);
+    };
+
+    handleWindowPointerUp = (event: PointerEvent) => {
+        if ((event as any)[POINTER_UP_HANDLED]) return;
+        (event as any)[POINTER_UP_HANDLED] = true;
+        this.finishPointerInteraction(event);
+    };
+
+    handleGridPointerUp = (event: PointerEvent) => {
+        (event as any)[POINTER_UP_HANDLED] = true;
+        this.finishPointerInteraction(event);
+    };
+
+    handleWindowPointerCancel = (event: PointerEvent) => {
+        if ((event as any)[POINTER_UP_HANDLED]) return;
+        (event as any)[POINTER_UP_HANDLED] = true;
+        this.finishPointerInteraction(event);
+    };
+
+    handleGridPointerCancel = (event: PointerEvent) => {
+        (event as any)[POINTER_UP_HANDLED] = true;
+        this.finishPointerInteraction(event);
+    };
+
+    private processPointerMove(event: PointerEvent) {
         const section = this._section;
         if (!section) return;
 
@@ -237,9 +291,10 @@ export class PianoRollMouseController {
                 currentTick: tick,
                 currentKey: key
             };
+            this.updateSelectionOverlayRect();
 
             const minTick = Math.min(this.selectionContext.startTick, tick);
-            const maxTick = Math.max(this.selectionContext.startTick, tick + NOTE_SPAN);
+            const maxTick = Math.max(this.selectionContext.startTick, tick) + NOTE_SPAN;
             const minKey = Math.min(this.selectionContext.startKey, key);
             const maxKey = Math.max(this.selectionContext.startKey, key);
 
@@ -253,9 +308,9 @@ export class PianoRollMouseController {
             }
             this.selectNotes(notes);
         }
-    };
+    }
 
-    handleWindowPointerUp = (event: PointerEvent) => {
+    private finishPointerInteraction(event: PointerEvent) {
         const section = this._section;
 
         if (this.dragContext && this.dragContext.pointerId === event.pointerId) {
@@ -278,6 +333,7 @@ export class PianoRollMouseController {
             }
             this.selectionContext = null;
             this.selectionBox = null;
+            this.updateSelectionOverlayRect();
         }
 
         const grid = this.gridContent;
@@ -290,11 +346,7 @@ export class PianoRollMouseController {
                 // ignore
             }
         }
-    };
-
-    handleWindowPointerCancel = (event: PointerEvent) => {
-        this.handleWindowPointerUp(event);
-    };
+    }
 
     handleWindowKeyDown = (event: KeyboardEvent) => {
         if (!this.isActive) return;
@@ -391,6 +443,19 @@ export class PianoRollMouseController {
             seen.add(note);
             filtered.push(note);
         }
+        const current = this.selectedNotes;
+        if (current.length === filtered.length) {
+            let changed = false;
+            for (let index = 0; index < current.length; index++) {
+                if (current[index] !== filtered[index]) {
+                    changed = true;
+                    break;
+                }
+            }
+            if (!changed) {
+                return;
+            }
+        }
         this.selectedNotes = filtered;
     }
 
@@ -404,6 +469,9 @@ export class PianoRollMouseController {
         const section = this._section;
         if (!section) {
             this.selectedNotes = [];
+            this.selectionOverlayRect = null;
+            this.overlayPendingRect = null;
+            this.cancelOverlayFrame();
             return;
         }
         const valid = new Set(section.notes);
@@ -413,11 +481,80 @@ export class PianoRollMouseController {
         }
         if (filtered.length !== this.selectedNotes.length) {
             this.selectedNotes = filtered;
+        } else {
+            // Compare existing order; avoid reassigning when unchanged
+            const current = this.selectedNotes;
+            let changed = false;
+            for (let index = 0; index < current.length; index++) {
+                if (current[index] !== filtered[index]) {
+                    changed = true;
+                    break;
+                }
+            }
+            if (changed) {
+                this.selectedNotes = filtered;
+            }
         }
     }
 
     private refreshPlayer() {
         player.refreshIndexes();
+    }
+
+    private updateSelectionOverlayRect() {
+        const box = this.selectionBox;
+        if (!box) {
+            this.queueOverlayRect(null);
+            return;
+        }
+
+        const px = this._pxPerTick > 0 ? this._pxPerTick : 1;
+        const tickStart = Math.min(box.startTick, box.currentTick);
+        const tickEnd = Math.max(box.startTick, box.currentTick) + NOTE_SPAN;
+        const left = Math.round(tickStart * px);
+        const right = Math.round(tickEnd * px);
+
+        const keyTop = Math.max(box.startKey, box.currentKey);
+        const keyBottom = Math.min(box.startKey, box.currentKey);
+        const top = (this._keyRange.max - keyTop) * this._keyHeight;
+        const bottom = (this._keyRange.max - keyBottom + 1) * this._keyHeight;
+
+        this.queueOverlayRect({
+            left: Math.min(left, right),
+            top: Math.min(top, bottom),
+            width: Math.max(1, Math.abs(right - left)),
+            height: Math.max(1, Math.abs(bottom - top))
+        });
+    }
+
+    private queueOverlayRect(rect: OverlayRect | null) {
+        if (
+            typeof globalThis === 'undefined' ||
+            typeof globalThis.requestAnimationFrame !== 'function'
+        ) {
+            this.selectionOverlayRect = rect;
+            return;
+        }
+
+        this.overlayPendingRect = rect;
+        if (this.overlayFrameId !== null) return;
+
+        this.overlayFrameId = globalThis.requestAnimationFrame(() => {
+            this.selectionOverlayRect = this.overlayPendingRect;
+            this.overlayFrameId = null;
+        });
+    }
+
+    private cancelOverlayFrame() {
+        if (this.overlayFrameId === null) return;
+        if (
+            typeof globalThis !== 'undefined' &&
+            typeof globalThis.cancelAnimationFrame === 'function'
+        ) {
+            globalThis.cancelAnimationFrame(this.overlayFrameId);
+        }
+        this.overlayFrameId = null;
+        this.overlayPendingRect = null;
     }
 }
 

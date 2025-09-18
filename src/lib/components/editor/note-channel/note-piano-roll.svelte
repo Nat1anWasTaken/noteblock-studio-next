@@ -11,6 +11,7 @@
     import TimelineGrid from '../timeline-grid.svelte';
     import PianoRollHeader from './piano-roll-header.svelte';
     import PianoRollMouseWindowEvents from './piano-roll-mouse-window-events.svelte';
+    import SelectionRectangleOverlay from '../selection-rectangle-overlay.svelte';
 
     $effect(() => {
         pianoRollState.sheetOpen = pianoRollState.pianoRollTarget !== null;
@@ -234,6 +235,9 @@
                                     class="relative"
                                     style={`width:${pianoRollState.contentWidth}px; height:${pianoRollState.gridHeight}px;`}
                                     onpointerdown={pianoRollMouse.handleBackgroundPointerDown}
+                                    onpointermove={pianoRollMouse.handleGridPointerMove}
+                                    onpointerup={pianoRollMouse.handleGridPointerUp}
+                                    onpointercancel={pianoRollMouse.handleGridPointerCancel}
                                 >
                                     <TimelineGrid
                                         gutterWidth={0}
@@ -270,36 +274,13 @@
                                                 )}
                                         ></div>
                                     {/each}
-
-                                    {#if pianoRollMouse.selectionBox}
-                                        {@const box = pianoRollMouse.selectionBox}
-                                        {@const px =
-                                            pianoRollState.pxPerTick > 0
-                                                ? pianoRollState.pxPerTick
-                                                : 1}
-                                        {@const tickStart = Math.min(
-                                            box.startTick,
-                                            box.currentTick
-                                        )}
-                                        {@const tickEnd =
-                                            Math.max(box.startTick, box.currentTick) + 1}
-                                        {@const keyTop = Math.max(box.startKey, box.currentKey)}
-                                        {@const keyBottom = Math.min(box.startKey, box.currentKey)}
-                                        {@const left = Math.round(tickStart * px)}
-                                        {@const right = Math.round(tickEnd * px)}
-                                        {@const top =
-                                            (pianoRollState.keyRange.max - keyTop) *
-                                            pianoRollState.keyHeight}
-                                        {@const bottom =
-                                            (pianoRollState.keyRange.max - keyBottom + 1) *
-                                            pianoRollState.keyHeight}
-                                        <div
-                                            class="pointer-events-none absolute z-20 border-2 border-indigo-400/70 bg-indigo-500/10"
-                                            style={`left:${Math.min(left, right)}px; top:${Math.min(top, bottom)}px; width:${Math.max(1, Math.abs(right - left))}px; height:${Math.max(1, Math.abs(bottom - top))}px;`}
-                                        ></div>
-                                    {/if}
                                 </div>
                             </div>
+                            <SelectionRectangleOverlay
+                                rect={pianoRollMouse.selectionOverlayRect}
+                                scrollLeft={pianoRollState.gridScrollLeft}
+                                scrollTop={pianoRollState.gridScrollTop}
+                            />
                             <PlayheadCursor
                                 gutterWidth={0}
                                 class="z-40"
