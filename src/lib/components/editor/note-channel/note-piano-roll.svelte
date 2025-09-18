@@ -83,15 +83,10 @@
         if (!id) return;
         const nodes = document.querySelectorAll<HTMLElement>(`[data-note-id="${id}"]`);
         nodes.forEach((n) => {
-            // Remove immediate state first so the element currently shows the "played" color.
             n.classList.remove('note-playing-immediate');
-            // Force a reflow so the browser registers the style change before we add the fade class
-            // which will transition from the current (played) color to the default.
             // eslint-disable-next-line @typescript-eslint/no-unused-expressions
             n.offsetHeight;
-            // Add fade class which transitions properties back to normal
             n.classList.add('note-playing-fade');
-            // Cleanup: remove the fade class after transition duration (match CSS below)
             const CLEANUP_MS = 260;
             const idKey = (n as any).__fadeCleanupId;
             if (idKey) clearTimeout(idKey);
@@ -114,20 +109,17 @@
         };
     });
 
-    // Auto-follow playhead in piano roll
     const playheadContentX = $derived.by(() => {
         if (!pianoRollState.sectionData) return 0;
         const relativeTick = player.currentTick - pianoRollState.sectionStartTick;
         return Math.max(0, relativeTick * pianoRollState.pxPerTick);
     });
 
-    // Keep about one beat of space from the left edge when auto-scrolling
     const leftPadding = $derived(
         Math.min(240, Math.max(48, Math.round(editorState.pxPerBeat * 1)))
     );
 
     $effect(() => {
-        // Re-run when playhead moves or viewport changes
         const scroller = pianoRollState.gridScroller;
         if (!scroller || !pianoRollState.sheetOpen) return;
         const viewportWidth = scroller.clientWidth;
@@ -137,16 +129,13 @@
         const right = left + viewportWidth;
         const x = playheadContentX;
 
-        // Only auto-scroll while playing and enabled to avoid fighting manual seeks
         if (!player.isPlaying || !editorState.autoScrollEnabled) return;
 
-        // Only auto-scroll if playhead is within this section
         if (!pianoRollState.cursorVisible) return;
 
-        const isOutOfView = x < left + 4 || x > right - 4; // small margin
+        const isOutOfView = x < left + 4 || x > right - 4;
         if (!isOutOfView) return;
 
-        // Place playhead near the left edge (with padding), clamped to content bounds
         const desired = Math.round(x - leftPadding);
         const maxScroll = Math.max(0, pianoRollState.contentWidth - viewportWidth);
         const clamped = Math.min(maxScroll, Math.max(0, desired));
@@ -260,7 +249,7 @@
                                     {#each pianoRollState.notesToRender as note}
                                         <div
                                             data-note-id={`${pianoRollState.sectionStartTick + note.note.tick}:${note.note.key}:${pianoRollState.sectionData?.channel.instrument ?? 'note'}`}
-                                            class={`absolute z-30 rounded-sm border ${
+                                            class={`note-rect absolute z-30 rounded-sm border ${
                                                 note.selected
                                                     ? 'border-white/70 bg-primary text-primary-foreground shadow-lg'
                                                     : 'border-primary/30 bg-primary/80 shadow-sm'
@@ -359,11 +348,8 @@
         border-color: rgba(0, 160, 255, 0.7) !important;
     }
 
-    /* Fade class: when applied, element will transition from the current (played) look
-     back to the base appearance defined on .note-rect because .note-playing-fade sets
-     the target (normal) values and .note-rect defines the transition. */
+    /* Fade class: transitions from played color back to normal */
     .note-rect.note-playing-fade {
-        /* Target values (normal) so the transitions animate towards these */
         background-color: inherit;
         border-color: inherit;
     }
