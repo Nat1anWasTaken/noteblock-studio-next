@@ -169,8 +169,14 @@
                         gutterWidth={96}
                         contentWidth={pianoRollState.contentWidth}
                         scrollLeft={pianoRollState.gridScrollLeft}
-                        pointerDownHandler={(container, event) =>
-                            editorMouse.handleRulerPointerDown(container, event)}
+                        pointerDownHandler={(container, event) => {
+                            const relativeTick = editorMouse.tickFromClientX(
+                                container,
+                                event.clientX
+                            );
+                            const absoluteTick = pianoRollState.sectionStartTick + relativeTick;
+                            player.setCurrentTick(absoluteTick);
+                        }}
                         gutter={pianoRollRulerGutter}
                         on:scrollLeftChange={(event) =>
                             pianoRollState.handleRulerScrollLeft(event.detail)}
