@@ -1,38 +1,32 @@
-# sv
+# Noteblock Studio Next
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Web-based piano‑roll editor and player for Minecraft Note Block songs. Import `.nbs` files, edit in a modern timeline, and export to a portable `.nbx` project format — all in the browser.
 
-## Creating a project
+## Features
+- Import `.nbs` via `@nbsjs/core`; convert to editable tracks
+- Tempo track with time‑signature support and metronome
+- Note channels per instrument/layer with sections
+- Playback with Web Audio (pooled samples, optional reverb) and loop modes
+- Save/Open `.nbx` archives (ZIP with JSON metadata and channels)
 
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Quick Start
+This repo uses `pnpm` (enforced). Node 18+ recommended.
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+pnpm install
+pnpm dev
 ```
 
-## Building
+Then open the shown URL and:
+- Choose “Import NBS” to load a song, or “Open NBX” to resume a project
+- Edit tracks in the editor view and press Play to audition
+- Use File actions to download your project as `.nbx`
 
-To create a production version of your app:
+## Tech
+- Svelte 5 + SvelteKit (Vite)
+- Tailwind CSS v4
+- Web Audio API for playback
+- `@nbsjs/core` for `.nbs` parsing
 
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Status
+Early work‑in‑progress; some actions (e.g., “Create Empty”, MIDI import) are not implemented yet.
