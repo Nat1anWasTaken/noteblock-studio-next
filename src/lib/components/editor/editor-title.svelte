@@ -5,12 +5,6 @@
     import ChevronDown from '~icons/lucide/chevron-down';
     import EditorTitleDropdown from './editor-title-dropdown.svelte';
 
-    interface Props {
-        class?: string;
-    }
-
-    let { class: className }: Props = $props();
-
     let editingName = $state(false);
     let inputElement = $state<HTMLInputElement | null>(null);
 
