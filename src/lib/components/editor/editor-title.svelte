@@ -2,7 +2,7 @@
     import Input from '$lib/components/ui/input/input.svelte';
     import { player } from '$lib/playback.svelte';
     import { tick } from 'svelte';
-    import ChevronDown from '~icons/lucide/chevron-down';
+    import EditorTitleDropdown from './editor-title-dropdown.svelte';
 
     interface Props {
         class?: string;
@@ -44,7 +44,7 @@
     }
 </script>
 
-<div class={`flex min-w-0 items-center gap-1 ${className || ''}`}>
+<EditorTitleDropdown class={className}>
     {#if editingName}
         <Input
             bind:ref={inputElement}
@@ -64,5 +64,4 @@
             {songName}
         </span>
     {/if}
-    <ChevronDown class="size-4 text-muted-foreground" />
-</div>
+</EditorTitleDropdown>
