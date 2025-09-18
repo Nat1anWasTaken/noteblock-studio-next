@@ -1,5 +1,6 @@
 <script lang="ts">
     import Button from '$lib/components/ui/button/button.svelte';
+    import Input from '$lib/components/ui/input/input.svelte';
     import * as Sheet from '$lib/components/ui/sheet';
     import {
         TooltipContent,
@@ -10,9 +11,10 @@
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { pianoRollState } from '$lib/piano-roll-state.svelte';
     import { player } from '$lib/playback.svelte';
-    import { INSTRUMENT_NAMES, type Instrument } from '$lib/types';
+    import { INSTRUMENT_NAMES, type NoteChannel, type NoteSection } from '$lib/types';
     import { cn } from '$lib/utils';
     import type { Snippet } from 'svelte';
+    import { tick } from 'svelte';
     import MousePointer from '~icons/lucide/mouse-pointer';
     import MousePointerClick from '~icons/lucide/mouse-pointer-click';
     import Pause from '~icons/lucide/pause';
@@ -25,18 +27,19 @@
 
     interface Props {
         sectionData: {
-            section: {
-                name: string;
-            };
-            channel: {
-                instrument: Instrument;
-            };
+            channel: NoteChannel;
+            section: NoteSection;
             channelIndex: number;
+            sectionIndex: number;
         };
         sectionBeatLength: number;
     }
 
     let { sectionData, sectionBeatLength }: Props = $props();
+
+    // State for editing section name
+    let editingName = $state(false);
+    let inputElement = $state<HTMLInputElement | null>(null);
 
     // Reactive state for solo/mute buttons
     const isChannelMuted = $derived(() => {
@@ -56,6 +59,37 @@
     function toggleSolo() {
         if (!sectionData) return;
         player.setSolo(sectionData.channelIndex);
+    }
+
+    async function startEditing() {
+        console.log('start editing section name');
+        editingName = true;
+        await tick();
+        inputElement?.focus();
+        inputElement?.select();
+    }
+
+    function saveNameChange(event: Event) {
+        const target = event.target as HTMLInputElement;
+        const newName = target.value.trim();
+        if (newName && newName !== sectionData?.section?.name && sectionData) {
+            player.updateNoteSection(sectionData.channelIndex, sectionData.sectionIndex, {
+                name: newName
+            });
+        }
+        editingName = false;
+    }
+
+    function cancelNameChange() {
+        editingName = false;
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+        if (event.key === 'Enter') {
+            saveNameChange(event);
+        } else if (event.key === 'Escape') {
+            cancelNameChange();
+        }
     }
 </script>
 
@@ -79,9 +113,25 @@
 {/snippet}
 
 <Sheet.Header class="border-b border-border/60 px-6 pt-6 pb-4">
-    <Sheet.Title class="text-lg font-semibold"
-        >{sectionData?.section?.name ?? 'Unknown Section'}</Sheet.Title
-    >
+    {#if editingName}
+        <Input
+            bind:ref={inputElement}
+            value={sectionData?.section?.name ?? 'Unknown Section'}
+            class="h-auto border-none bg-transparent p-0 text-lg font-semibold shadow-none focus-visible:ring-0"
+            onkeydown={handleKeydown}
+            onblur={cancelNameChange}
+        />
+    {:else}
+        <div
+            class="w-full cursor-text truncate border-1 border-transparent text-lg font-semibold hover:border-current/20"
+            ondblclick={startEditing}
+            role="button"
+            tabindex="0"
+            onkeydown={(e) => e.key === 'Enter' && startEditing()}
+        >
+            {sectionData?.section?.name ?? 'Unknown Section'}
+        </div>
+    {/if}
     <Sheet.Description class="text-sm text-muted-foreground">
         {sectionData ? INSTRUMENT_NAMES[sectionData.channel.instrument] : 'Unknown'} • Channel {sectionData
             ? sectionData.channelIndex + 1
