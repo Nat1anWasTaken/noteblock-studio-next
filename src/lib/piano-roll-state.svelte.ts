@@ -234,6 +234,7 @@ export class PianoRollState {
     };
 
     setPointerMode(mode: PianoRollPointerMode) {
+        if (this.pointerMode === mode) return;
         this.pointerMode = mode;
     }
 

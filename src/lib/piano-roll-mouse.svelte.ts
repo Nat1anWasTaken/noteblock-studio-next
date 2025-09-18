@@ -52,7 +52,6 @@ export class PianoRollMouseController {
     selectedNotes = $state<Note[]>([]);
     selectionBox = $state<SelectionBox | null>(null);
     selectionOverlayRect = $state<OverlayRect | null>(null);
-    pointerMode = $state<PianoRollPointerMode>(PointerMode.Normal);
     isActive = $state(false);
 
     gridContent = $state<HTMLDivElement | null>(null);
@@ -62,6 +61,7 @@ export class PianoRollMouseController {
     private _keyHeight = 20;
 
     private _section: NoteSection | null = null;
+    private _pointerMode: PianoRollPointerMode = PointerMode.Normal;
 
     private dragContext: DragContext | null = null;
     private selectionContext: SelectionContext = null;
@@ -69,14 +69,22 @@ export class PianoRollMouseController {
     private overlayFrameId: number | null = null;
 
     setPointerMode = (mode: PianoRollPointerMode) => {
-        this.pointerMode = mode;
-        if (mode !== PointerMode.Normal) {
-            this.selectionBox = null;
-            this.selectionOverlayRect = null;
-            this.selectionContext = null;
-            this.dragContext = null;
-            this.overlayPendingRect = null;
-            this.cancelOverlayFrame();
+        // Early exit if mode hasn't changed to prevent unnecessary updates
+        if (this._pointerMode === mode) return;
+
+        this._pointerMode = mode;
+
+        // Always clear selection state when changing modes to ensure clean state
+        this.selectionBox = null;
+        this.selectionOverlayRect = null;
+        this.selectionContext = null;
+        this.dragContext = null;
+        this.overlayPendingRect = null;
+        this.cancelOverlayFrame();
+
+        // In pen mode, also clear any selected notes to start fresh
+        if (mode === 'pen') {
+            this.clearSelection();
         }
     };
 
@@ -111,7 +119,16 @@ export class PianoRollMouseController {
         keyRange: KeyRange;
         keyHeight: number;
     }) => {
-        this._pxPerTick = pxPerTick > 0 ? pxPerTick : 1;
+        const newPxPerTick = pxPerTick > 0 ? pxPerTick : 1;
+        const hasChanged =
+            this._pxPerTick !== newPxPerTick ||
+            this._keyRange.min !== keyRange.min ||
+            this._keyRange.max !== keyRange.max ||
+            this._keyHeight !== keyHeight;
+
+        if (!hasChanged) return;
+
+        this._pxPerTick = newPxPerTick;
         this._keyRange = keyRange;
         this._keyHeight = keyHeight;
         this.updateSelectionOverlayRect();
@@ -123,7 +140,7 @@ export class PianoRollMouseController {
 
         const section = this._section;
         const grid = this.gridContent;
-        const pointerMode = this.pointerMode;
+        const pointerMode = this._pointerMode;
 
         const tick = this.clampTickToSection(this.tickFromPointer(event));
         const key = this.keyFromPointer(event);
@@ -138,7 +155,14 @@ export class PianoRollMouseController {
             };
             this.updateSelectionOverlayRect();
             this.clearSelection();
+            grid?.setPointerCapture(event.pointerId);
         } else if (pointerMode === 'pen') {
+            // Clear any existing selection state when in pen mode
+            this.selectionContext = null;
+            this.selectionBox = null;
+            this.selectionOverlayRect = null;
+            this.dragContext = null;
+
             if (!section) return;
             const existing = this.findNoteAt(tick, key);
             if (existing) {
@@ -155,9 +179,8 @@ export class PianoRollMouseController {
                 this.selectNotes([newNote]);
                 this.refreshPlayer();
             }
+            // Don't capture pointer in pen mode to avoid interfering with note creation
         }
-
-        grid?.setPointerCapture(event.pointerId);
     };
 
     handleNotePointerDown = (note: Note, event: PointerEvent) => {
@@ -168,7 +191,7 @@ export class PianoRollMouseController {
         const section = this._section;
         if (!section) return;
 
-        if (this.pointerMode === PointerMode.Normal) {
+        if (this._pointerMode === PointerMode.Normal) {
             if (!this.selectedNotes.includes(note)) {
                 this.selectNotes([note]);
             }
@@ -206,7 +229,12 @@ export class PianoRollMouseController {
             };
 
             this.gridContent?.setPointerCapture(event.pointerId);
-        } else if (this.pointerMode === 'pen') {
+        } else if (this._pointerMode === 'pen') {
+            // In pen mode, just select the note and clear any selection state
+            this.selectionContext = null;
+            this.selectionBox = null;
+            this.selectionOverlayRect = null;
+            this.dragContext = null;
             this.selectNotes([note]);
         }
     };
@@ -248,11 +276,17 @@ export class PianoRollMouseController {
         const section = this._section;
         if (!section) return;
 
-        if (
-            this.dragContext &&
-            this.dragContext.pointerId === event.pointerId &&
-            this.pointerMode === PointerMode.Normal
-        ) {
+        // Early exit if in pen mode - no selection or drag behavior
+        if (this._pointerMode === 'pen') {
+            return;
+        }
+
+        // Only process drag and selection in Normal mode
+        if (this._pointerMode !== PointerMode.Normal) {
+            return;
+        }
+
+        if (this.dragContext && this.dragContext.pointerId === event.pointerId) {
             const tick = this.tickFromPointer(event);
             const key = this.keyFromPointer(event);
             let tickDelta = tick - this.dragContext.startTick;
@@ -278,11 +312,7 @@ export class PianoRollMouseController {
             this.dragContext.moved ||= tickDelta !== 0 || keyDelta !== 0;
         }
 
-        if (
-            this.selectionContext &&
-            this.selectionContext.pointerId === event.pointerId &&
-            this.pointerMode === PointerMode.Normal
-        ) {
+        if (this.selectionContext && this.selectionContext.pointerId === event.pointerId) {
             const tick = this.tickFromPointer(event);
             const key = this.keyFromPointer(event);
             this.selectionBox = {
@@ -313,6 +343,15 @@ export class PianoRollMouseController {
     private finishPointerInteraction(event: PointerEvent) {
         const section = this._section;
 
+        // In pen mode, just clean up any stale state and exit early
+        if (this._pointerMode === 'pen') {
+            this.selectionContext = null;
+            this.selectionBox = null;
+            this.selectionOverlayRect = null;
+            this.dragContext = null;
+            return;
+        }
+
         if (this.dragContext && this.dragContext.pointerId === event.pointerId) {
             if (this.dragContext.moved && section) {
                 this.sortSectionNotes(section);
@@ -327,7 +366,7 @@ export class PianoRollMouseController {
                 box &&
                 box.startTick === box.currentTick &&
                 box.startKey === box.currentKey &&
-                this.pointerMode === PointerMode.Normal
+                this._pointerMode === PointerMode.Normal
             ) {
                 this.clearSelection();
             }
@@ -502,6 +541,12 @@ export class PianoRollMouseController {
     }
 
     private updateSelectionOverlayRect() {
+        // Never show selection overlay in pen mode
+        if (this._pointerMode === 'pen') {
+            this.queueOverlayRect(null);
+            return;
+        }
+
         const box = this.selectionBox;
         if (!box) {
             this.queueOverlayRect(null);
