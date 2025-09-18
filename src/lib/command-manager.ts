@@ -169,8 +169,7 @@ export class CommandManager {
         if (event.key === ' ') {
             parts.push('SPACE');
         } else {
-            const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
-            parts.push(key);
+            parts.push(event.key.toUpperCase());
         }
 
         return parts.join('+');
