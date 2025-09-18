@@ -70,6 +70,8 @@ export class CommandManager {
     handleKeyboardEvent(event: KeyboardEvent): boolean {
         const shortcut = this.buildShortcutString(event);
 
+        console.log('Detected shortcut:', shortcut);
+
         if (this.shortcuts.has(shortcut)) {
             const commandId = this.shortcuts.get(shortcut)!;
             const command = this.commands.get(commandId);
@@ -144,8 +146,12 @@ export class CommandManager {
         }
 
         // Add the main key
-        const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
-        parts.push(key);
+        if (event.key === ' ') {
+            parts.push('SPACE');
+        } else {
+            const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+            parts.push(key);
+        }
 
         return parts.join('+');
     }
@@ -155,7 +161,7 @@ export class CommandManager {
      */
     private normalizeShortcut(shortcut: string): string {
         return shortcut
-            .replace(/\s+/g, '') // Remove spaces
+            .replace(/\s+/g, ' ') // Remove spaces
             .replace(/Cmd|Command/g, 'Mod') // Normalize Cmd/Command to Mod
             .replace(/Ctrl/g, 'Mod') // Normalize Ctrl to Mod
             .toUpperCase(); // Make case insensitive
