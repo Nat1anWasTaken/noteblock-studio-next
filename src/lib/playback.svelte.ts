@@ -351,6 +351,14 @@ export class Player {
         return this.computeBarBeatAtTick(tick).bar;
     }
 
+    /**
+     * Snap a tick to the start of its bar.
+     */
+    snapTickToBarStart(tick: number): number {
+        const bar = this.getBarAtTick(tick);
+        return this.findTickForBarBeat(bar, 0).tick;
+    }
+
     /** Current loop mode. */
     get loopMode() {
         return this._loopMode;
@@ -655,6 +663,15 @@ export class Player {
      * @param song The song to load into the player.
      */
     setSong(song: Song) {
+        // Ensure tempo changes are at bar boundaries
+        for (const channel of song.channels) {
+            if (channel.kind === 'tempo') {
+                for (const tempoChange of channel.tempoChanges) {
+                    tempoChange.tick = this.snapTickToBarStart(tempoChange.tick);
+                }
+            }
+        }
+
         this._song = song;
         this._currentTick = 0;
         this._tempo = song.tempo ?? this._tempo;
@@ -767,6 +784,11 @@ export class Player {
 
         // Apply updates to the channel
         Object.assign(channel, updates);
+
+        // Ensure tempo changes are at bar boundaries
+        for (const tempoChange of channel.tempoChanges) {
+            tempoChange.tick = this.snapTickToBarStart(tempoChange.tick);
+        }
 
         // Refresh indexes to ensure player state is synchronized
         this.refreshIndexes();
