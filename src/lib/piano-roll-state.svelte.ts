@@ -41,6 +41,12 @@ export class PianoRollState {
     gridScrollLeft = $state(0);
     gridScrollTop = $state(0);
 
+    // Mouse state - moved from piano-roll-mouse.svelte.ts
+    selectedNotes = $state<Note[]>([]);
+    selectionBox = $state<{ startTick: number; startKey: number; currentTick: number; currentKey: number } | null>(null);
+    selectionOverlayRect = $state<{ left: number; top: number; width: number; height: number } | null>(null);
+    isMouseActive = $state(false);
+
     keyHeight = 20;
     noteLaneHeight = Math.max(8, this.keyHeight - 6);
 
@@ -105,7 +111,7 @@ export class PianoRollState {
         const pxTickValue = this.pxPerTick > 0 ? this.pxPerTick : 1;
         const laneHeight = this.noteLaneHeight;
         const offset = (this.keyHeight - laneHeight) / 2;
-        const selectedSet = new Set(pianoRollMouse.selectedNotes);
+        const selectedSet = new Set(this.selectedNotes);
 
         return (section.notes ?? []).map((note, index) => {
             const top = (range.max - note.key) * this.keyHeight + offset;
@@ -236,6 +242,30 @@ export class PianoRollState {
     setPointerMode(mode: PianoRollPointerMode) {
         if (this.pointerMode === mode) return;
         this.pointerMode = mode;
+
+        // Clear selection state when changing modes
+        this.selectionBox = null;
+        this.selectionOverlayRect = null;
+
+        // In pen mode, clear selected notes
+        if (mode === 'pen') {
+            this.selectedNotes = [];
+        }
+    }
+
+    selectNotes(notes: Note[]) {
+        const seen = new Set<Note>();
+        const filtered: Note[] = [];
+        for (const note of notes) {
+            if (!note || seen.has(note)) continue;
+            seen.add(note);
+            filtered.push(note);
+        }
+        this.selectedNotes = filtered;
+    }
+
+    clearSelection() {
+        this.selectedNotes = [];
     }
 
     pointerButtonClass(mode: PianoRollPointerMode) {

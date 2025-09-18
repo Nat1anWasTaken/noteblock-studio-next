@@ -38,28 +38,13 @@
         }
     });
 
+    // Mouse controller is now stateless - all state managed by pianoRollState
     $effect(() => {
-        pianoRollMouse.setGridContent(pianoRollState.gridContent);
+        pianoRollMouse.setPianoRollState(pianoRollState);
     });
 
     $effect(() => {
-        pianoRollMouse.setSection(pianoRollState.sectionData?.section ?? null);
-    });
-
-    $effect(() => {
-        pianoRollMouse.updateGeometry({
-            pxPerTick: pianoRollState.pxPerTick > 0 ? pianoRollState.pxPerTick : 1,
-            keyRange: pianoRollState.keyRange,
-            keyHeight: pianoRollState.keyHeight
-        });
-    });
-
-    $effect(() => {
-        pianoRollMouse.setActive(pianoRollState.sheetOpen);
-    });
-
-    $effect(() => {
-        pianoRollMouse.setPointerMode(pianoRollState.pointerMode);
+        pianoRollState.isMouseActive = pianoRollState.sheetOpen;
     });
 
     $effect(() => {
@@ -278,7 +263,7 @@
                             </div>
                             {#if pianoRollState.pointerMode === PointerMode.Normal}
                                 <SelectionRectangleOverlay
-                                    rect={pianoRollMouse.selectionOverlayRect}
+                                    rect={pianoRollState.selectionOverlayRect}
                                     scrollLeft={pianoRollState.gridScrollLeft}
                                     scrollTop={pianoRollState.gridScrollTop}
                                 />
