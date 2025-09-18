@@ -194,13 +194,12 @@
                         aria-label="Mute"
                         onclick={toggleMute}
                         class={cn(
-                            'h-8 w-8 p-0 text-xs font-bold',
                             isChannelMuted()
-                                ? 'bg-red-600 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white hover:dark:bg-red-600'
+                                ? 'bg-red-600 text-white hover:bg-red-600/80 hover:text-white dark:hover:bg-red-600/80'
                                 : ''
                         )}
                     >
-                        M
+                        <span class="text-xs font-bold">M</span>
                     </Button>
                 {/snippet}
                 {@render tooltipped({
@@ -217,13 +216,12 @@
                         aria-label="Solo"
                         onclick={toggleSolo}
                         class={cn(
-                            'h-8 w-8 p-0 text-xs font-bold',
                             isAnyMuted && sectionData && !isChannelMuted()
-                                ? 'bg-yellow-600 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white hover:dark:bg-yellow-600'
+                                ? 'bg-yellow-600 text-white hover:bg-yellow-600/80 hover:text-white dark:hover:bg-yellow-600/80'
                                 : ''
                         )}
                     >
-                        S
+                        <span class="text-xs font-bold">S</span>
                     </Button>
                 {/snippet}
                 {@render tooltipped({
