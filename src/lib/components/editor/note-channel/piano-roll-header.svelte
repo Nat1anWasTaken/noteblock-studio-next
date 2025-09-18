@@ -18,6 +18,8 @@
     import Play from '~icons/lucide/play';
     import Repeat from '~icons/lucide/repeat';
     import SkipBack from '~icons/lucide/skip-back';
+    import ZoomIn from '~icons/lucide/zoom-in';
+    import ZoomOut from '~icons/lucide/zoom-out';
 
     interface Props {
         sectionData: {
@@ -129,6 +131,28 @@
                 class="flex h-9 items-center rounded-md bg-background/20 px-3 font-mono text-sm tracking-widest tabular-nums shadow-xs select-none"
             >
                 {pianoRollState.positionBar}:{pianoRollState.positionBeat}:{pianoRollState.positionTickInBeat}
+            </div>
+
+            <div class="flex items-center gap-1 rounded-md bg-background/20 shadow-xs">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onclick={() => editorState.zoomOut()}
+                    aria-label="Zoom out"
+                >
+                    <ZoomOut class="size-4" />
+                </Button>
+                <div class="min-w-14 text-center font-mono text-xs tabular-nums">
+                    {Math.round(editorState.pxPerBeat)} px/beat
+                </div>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onclick={() => editorState.zoomIn()}
+                    aria-label="Zoom in"
+                >
+                    <ZoomIn class="size-4" />
+                </Button>
             </div>
         </div>
 
