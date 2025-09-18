@@ -10,16 +10,16 @@
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { LoopMode, player } from '$lib/playback.svelte';
     import { INSTRUMENT_NAMES, type Note, type NoteChannel, type NoteSection } from '$lib/types';
-    import PlayheadCursor from '../playhead-cursor.svelte';
-    import TimelineGrid from '../timeline-grid.svelte';
     import type { Snippet } from 'svelte';
     import MousePointer from '~icons/lucide/mouse-pointer';
     import MousePointerClick from '~icons/lucide/mouse-pointer-click';
-    import Pencil from '~icons/lucide/pencil';
     import Pause from '~icons/lucide/pause';
+    import Pencil from '~icons/lucide/pencil';
     import Play from '~icons/lucide/play';
     import Repeat from '~icons/lucide/repeat';
     import SkipBack from '~icons/lucide/skip-back';
+    import PlayheadCursor from '../playhead-cursor.svelte';
+    import TimelineGrid from '../timeline-grid.svelte';
 
     type PianoRollContext = {
         channel: NoteChannel;
@@ -60,7 +60,12 @@
         if (!channel || channel.kind !== 'note') return null;
         const section = channel.sections?.[target.sectionIndex];
         if (!section) return null;
-        return { channel, section, channelIndex: target.channelIndex, sectionIndex: target.sectionIndex };
+        return {
+            channel,
+            section,
+            channelIndex: target.channelIndex,
+            sectionIndex: target.sectionIndex
+        };
     });
 
     const ticksPerBeat = $derived(Math.max(1, editorState.ticksPerBeat));
@@ -125,7 +130,6 @@
 
     let selectionContext: { pointerId: number; startTick: number; startKey: number } | null = null;
 
-
     function handleGridScroll() {
         const grid = gridScroller;
         const keys = keysScroller;
@@ -141,6 +145,11 @@
     const DEFAULT_NOTE_VELOCITY = 100;
     const DEFAULT_NOTE_PITCH = 0;
 
+    function snapTick(value: number): number {
+        if (!Number.isFinite(value)) return 0;
+        return Math.max(0, Math.round(value));
+    }
+
     function normalizeDurationValue(value: number | undefined): number {
         if (!Number.isFinite(value)) return MIN_NOTE_DURATION;
         return Math.max(MIN_NOTE_DURATION, Math.round((value ?? MIN_NOTE_DURATION) as number));
@@ -150,6 +159,13 @@
         const normalized = normalizeDurationValue(note.duration);
         if (note.duration !== normalized) {
             note.duration = normalized;
+        }
+    }
+
+    function ensureNoteTick(note: Note) {
+        const snapped = snapTick(note.tick);
+        if (note.tick !== snapped) {
+            note.tick = snapped;
         }
     }
 
@@ -163,9 +179,10 @@
 
     function clampTickToSection(tick: number, duration: number): number {
         const section = getSection();
-        if (!section) return Math.max(0, Math.round(tick));
+        const snappedTick = snapTick(tick);
+        if (!section) return snappedTick;
         const maxTick = Math.max(0, section.length - duration);
-        return Math.min(Math.max(0, Math.round(tick)), maxTick);
+        return Math.min(Math.max(0, snappedTick), maxTick);
     }
 
     function sortSectionNotes(section: NoteSection) {
@@ -182,7 +199,8 @@
         if (!content) return 0;
         const rect = content.getBoundingClientRect();
         const x = event.clientX - rect.left;
-        return Math.max(0, Math.round(x / pxTickValue));
+        const rawTick = x / pxTickValue;
+        return snapTick(rawTick);
     }
 
     function keyFromPointer(event: PointerEvent): number {
@@ -229,10 +247,7 @@
         if (!(target instanceof HTMLElement)) return false;
         const tag = target.tagName;
         return (
-            target.isContentEditable ||
-            tag === 'INPUT' ||
-            tag === 'TEXTAREA' ||
-            tag === 'SELECT'
+            target.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
         );
     }
 
@@ -262,7 +277,11 @@
             const existing = findNoteAt(tick, key);
             if (existing) {
                 selectNotes([existing]);
-                penContext = { note: existing, pointerId: event.pointerId, startTick: existing.tick };
+                penContext = {
+                    note: existing,
+                    pointerId: event.pointerId,
+                    startTick: existing.tick
+                };
             } else {
                 const newNote: Note = {
                     tick,
@@ -303,6 +322,7 @@
 
             for (const n of notes) {
                 ensureNoteDuration(n);
+                ensureNoteTick(n);
                 original.set(n, {
                     tick: n.tick,
                     key: n.key,
@@ -340,7 +360,11 @@
         const section = getSection();
         if (!section) return;
 
-        if (dragContext && dragContext.pointerId === event.pointerId && pointerMode === PointerMode.Normal) {
+        if (
+            dragContext &&
+            dragContext.pointerId === event.pointerId &&
+            pointerMode === PointerMode.Normal
+        ) {
             const tick = tickFromPointer(event);
             const key = keyFromPointer(event);
             let tickDelta = tick - dragContext.startTick;
@@ -357,14 +381,20 @@
             for (const note of dragContext.notes) {
                 const orig = dragContext.original.get(note);
                 if (!orig) continue;
-                note.tick = orig.tick + tickDelta;
-                note.key = orig.key + keyDelta;
+                const duration = getNoteDuration(note);
+                const nextTick = clampTickToSection(orig.tick + tickDelta, duration);
+                note.tick = nextTick;
+                note.key = Math.min(87, Math.max(0, orig.key + keyDelta));
             }
 
             dragContext.moved ||= tickDelta !== 0 || keyDelta !== 0;
         }
 
-        if (selectionContext && selectionContext.pointerId === event.pointerId && pointerMode === PointerMode.Normal) {
+        if (
+            selectionContext &&
+            selectionContext.pointerId === event.pointerId &&
+            pointerMode === PointerMode.Normal
+        ) {
             const tick = tickFromPointer(event);
             const key = keyFromPointer(event);
             selectionBox = {
@@ -394,7 +424,7 @@
             const note = penContext.note;
             ensureNoteDuration(note);
             const tick = clampTickToSection(tickFromPointer(event), MIN_NOTE_DURATION);
-            const newDuration = Math.max(MIN_NOTE_DURATION, tick - note.tick + 1);
+            const newDuration = Math.max(MIN_NOTE_DURATION, snapTick(tick - note.tick + 1));
             const maxDuration = Math.max(MIN_NOTE_DURATION, section.length - note.tick);
             note.duration = Math.min(newDuration, maxDuration);
         }
@@ -595,9 +625,13 @@
     });
 
     const sectionStartTick = $derived(sectionData?.section?.startingTick ?? 0);
-    const sectionEndTick = $derived.by(() => sectionStartTick + (sectionData?.section?.length ?? 0));
+    const sectionEndTick = $derived.by(
+        () => sectionStartTick + (sectionData?.section?.length ?? 0)
+    );
     const cursorTick = $derived(player.currentTick);
-    const cursorVisible = $derived.by(() => cursorTick >= sectionStartTick && cursorTick <= sectionEndTick);
+    const cursorVisible = $derived.by(
+        () => cursorTick >= sectionStartTick && cursorTick <= sectionEndTick
+    );
 
     $effect(() => {
         gridScrollLeft = gridScroller?.scrollLeft ?? 0;
@@ -701,10 +735,13 @@
     >
         {#if sectionData}
             <div class="flex h-full flex-col">
-                <Sheet.Header class="border-b border-border/60 px-6 pb-4 pt-6">
-                    <Sheet.Title class="text-lg font-semibold">{sectionData.section.name}</Sheet.Title>
+                <Sheet.Header class="border-b border-border/60 px-6 pt-6 pb-4">
+                    <Sheet.Title class="text-lg font-semibold"
+                        >{sectionData.section.name}</Sheet.Title
+                    >
                     <Sheet.Description class="text-sm text-muted-foreground">
-                        {INSTRUMENT_NAMES[sectionData.channel.instrument]} • Channel {sectionData.channelIndex + 1} •
+                        {INSTRUMENT_NAMES[sectionData.channel.instrument]} • Channel {sectionData.channelIndex +
+                            1} •
                         {sectionBeatLength} beats
                     </Sheet.Description>
                 </Sheet.Header>
@@ -728,7 +765,10 @@
                                         <SkipBack class="size-5" />
                                     </Button>
                                 {/snippet}
-                                {@render tooltipped({ label: 'Rewind to start', children: rewindButton })}
+                                {@render tooltipped({
+                                    label: 'Rewind to start',
+                                    children: rewindButton
+                                })}
 
                                 {#snippet playPauseButton({ props }: { props: any })}
                                     <Button
@@ -815,16 +855,18 @@
                                 disableCloseOnTriggerClick: true
                             })}
 
-
                             {#snippet autoScrollButton({ props }: { props: any })}
                                 <Button
                                     {...props}
                                     variant="ghost"
                                     size="icon"
                                     aria-label="Follow Playhead"
-                                    onclick={() => editorState.setAutoScrollEnabled(!editorState.autoScrollEnabled)}
+                                    onclick={() =>
+                                        editorState.setAutoScrollEnabled(
+                                            !editorState.autoScrollEnabled
+                                        )}
                                     class={editorState.autoScrollEnabled
-                                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 dark:hover:bg-primary/90 hover:text-primary-foreground'
+                                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground dark:hover:bg-primary/90'
                                         : ''}
                                 >
                                     <MousePointerClick class="size-5" />
@@ -843,7 +885,9 @@
 
                 <div class="flex flex-1 overflow-hidden">
                     <div class="flex w-24 flex-col border-r border-border/50 bg-muted/40">
-                        <div class="flex h-10 items-center border-b border-border/40 px-3 text-xs uppercase tracking-wide text-muted-foreground">
+                        <div
+                            class="flex h-10 items-center border-b border-border/40 px-3 text-xs tracking-wide text-muted-foreground uppercase"
+                        >
                             Keys
                         </div>
                         <div
@@ -870,9 +914,18 @@
                     </div>
 
                     <div class="relative flex-1 overflow-hidden bg-muted/20">
-                        <div class="relative h-full w-full overflow-auto" bind:this={gridScroller} onscroll={handleGridScroll}>
-                            <div class="sticky top-0 z-20 flex h-10 items-center border-b border-border/40 bg-background/95 px-4 text-xs font-medium text-muted-foreground backdrop-blur">
-                                <div class="relative h-full w-full" style={`min-width:${contentWidth}px;`}>
+                        <div
+                            class="relative h-full w-full overflow-auto"
+                            bind:this={gridScroller}
+                            onscroll={handleGridScroll}
+                        >
+                            <div
+                                class="sticky top-0 z-20 flex h-10 items-center border-b border-border/40 bg-background/95 px-4 text-xs font-medium text-muted-foreground backdrop-blur"
+                            >
+                                <div
+                                    class="relative h-full w-full"
+                                    style={`min-width:${contentWidth}px;`}
+                                >
                                     {#each beatMarkers as marker}
                                         <div
                                             class={`${marker.isBar ? 'font-semibold text-foreground' : 'text-muted-foreground'} absolute top-1/2 -translate-y-1/2`}
@@ -896,17 +949,17 @@
                                 <TimelineGrid
                                     gutterWidth={0}
                                     class="z-10"
-                                    contentWidth={contentWidth}
+                                    {contentWidth}
                                     scrollLeft={0}
-                                    barWidth={barWidth}
-                                    totalBars={totalBars}
-                                    beatsPerBar={beatsPerBar}
+                                    {barWidth}
+                                    {totalBars}
+                                    {beatsPerBar}
                                     pxPerBeat={editorState.pxPerBeat}
                                 />
 
                                 {#each keyRows as row, index}
                                     <div
-                                        class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} absolute left-0 right-0 ${index === keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                        class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} absolute right-0 left-0 ${index === keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
                                         style={`top:${index * keyHeight}px; height:${keyHeight}px;`}
                                     ></div>
                                 {/each}
@@ -914,21 +967,34 @@
                                 {#each notesToRender as note}
                                     <div
                                         data-note-id={`${sectionStartTick + note.note.tick}:${note.note.key}:${sectionData?.channel.instrument ?? 'note'}`}
-                                        class={`absolute z-30 rounded-sm border transition-all ${note.selected
-                                            ? 'border-white/70 bg-primary text-primary-foreground shadow-lg'
-                                            : 'border-primary/30 bg-primary/80 shadow-sm'}`}
+                                        class={`absolute z-30 rounded-sm border ${
+                                            note.selected
+                                                ? 'border-white/70 bg-primary text-primary-foreground shadow-lg'
+                                                : 'border-primary/30 bg-primary/80 shadow-sm'
+                                        }`}
                                         style={`left:${note.left}px; top:${note.top}px; width:${note.width}px; height:${note.height}px;`}
-                                        onpointerdown={(event) => handleNotePointerDown(note.note, event)}
-                                    >
-                                    </div>
+                                        onpointerdown={(event) =>
+                                            handleNotePointerDown(note.note, event)}
+                                    ></div>
                                 {/each}
 
                                 {#if selectionBox}
                                     {@const px = pxPerTick > 0 ? pxPerTick : 1}
-                                    {@const tickStart = Math.min(selectionBox.startTick, selectionBox.currentTick)}
-                                    {@const tickEnd = Math.max(selectionBox.startTick, selectionBox.currentTick) + 1}
-                                    {@const keyTop = Math.max(selectionBox.startKey, selectionBox.currentKey)}
-                                    {@const keyBottom = Math.min(selectionBox.startKey, selectionBox.currentKey)}
+                                    {@const tickStart = Math.min(
+                                        selectionBox.startTick,
+                                        selectionBox.currentTick
+                                    )}
+                                    {@const tickEnd =
+                                        Math.max(selectionBox.startTick, selectionBox.currentTick) +
+                                        1}
+                                    {@const keyTop = Math.max(
+                                        selectionBox.startKey,
+                                        selectionBox.currentKey
+                                    )}
+                                    {@const keyBottom = Math.min(
+                                        selectionBox.startKey,
+                                        selectionBox.currentKey
+                                    )}
                                     {@const left = Math.round(tickStart * px)}
                                     {@const right = Math.round(tickEnd * px)}
                                     {@const top = (keyRange.max - keyTop) * keyHeight}
