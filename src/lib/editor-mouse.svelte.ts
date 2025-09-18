@@ -444,7 +444,9 @@ export class EditorMouseController {
             }> = [];
 
             for (const item of this._dragSectionRef.items) {
-                const newStart = player.snapTickToBarStart(Math.max(0, Math.round(absTick - item.offsetTick)));
+                const newStart = player.snapTickToBarStart(
+                    Math.max(0, Math.round(absTick - item.offsetTick))
+                );
 
                 // Find the current channel that contains this section (robust identity lookup)
                 const currentSrcIndex = channels.findIndex(
