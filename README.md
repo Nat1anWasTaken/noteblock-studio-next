@@ -1,38 +1,60 @@
-# sv
+<div align="center">
+  <a href="https://github.com/Nat1anWasTaken/noteblock-studio-next">
+    <img src="static/noteblock.png" alt="Logo" width="80" height="80">
+  </a>
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+<h3 align="center">Noteblock Studio Next</h3>
 
-## Creating a project
+  <p align="center">
+    A modern, web-based music editor for Minecraft Note Block musics.
+    <br />
+    <a href="https://github.com/Nat1anWasTaken/noteblock-studio-next"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/Nat1anWasTaken/noteblock-studio-next">View Demo</a>
+    ·
+    <a href="https://github.com/Nat1anWasTaken/noteblock-studio-next/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/Nat1anWasTaken/noteblock-studio-next/issues">Request Feature</a>
 
-If you're seeing this, you've probably already done this step. Congrats!
+  </p>
+</div>
+
+## Features
+
+- Import `.nbs` via `@nbsjs/core`; convert to editable tracks
+- Tempo track with time‑signature support and metronome
+- Multi-Platform support (Windows, macOS, Linux)
+- Smooth playback with Web Audio API
+- Save/Open `.nbx` archives (ZIP with JSON metadata and channels)
+- Desktop App (Planned)
+
+## Quick Start
+
+This repo uses `pnpm` (enforced). Node 18+ recommended.
 
 ```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+pnpm install
+pnpm dev
 ```
 
-## Developing
+Then open the shown URL and:
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+- Choose “Import NBS” to load a song, or “Open NBX” to resume a project
+- Edit tracks in the editor view and press Play to audition
+- Use File actions to download your project as `.nbx`
 
-```sh
-npm run dev
+## Tech
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+- Svelte 5 + SvelteKit (Vite)
+- Tailwind CSS v4
+- Web Audio API for playback
+- `@nbsjs/core` for `.nbs` parsing
 
-## Building
+## Status
 
-To create a production version of your app:
+Early work‑in‑progress; some actions (e.g., “Create Empty”, MIDI import) are not implemented yet.
 
-```sh
-npm run build
-```
+## License
 
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+GPL-3.0 — see `LICENSE` for full text.
