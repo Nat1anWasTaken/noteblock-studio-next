@@ -1,10 +1,19 @@
-export { Player, playSound, playNote, LoopMode } from './playback.svelte';
+export {
+    downloadSongAsNbx,
+    getNbxMetadataFromFile,
+    nbxToSong,
+    readSongFromNbxFile,
+    songToNbx,
+    validateNbxFileFromFile
+} from './files';
+export { LoopMode, Player, playNote, playSound } from './playback.svelte';
 export type {
-    Song,
-    Note,
-    TempoChange,
     Channel,
+    Note,
     NoteChannel,
-    TempoChannel,
-    NoteSection
+    NoteSection,
+    Song,
+    SongMetadata,
+    TempoChange,
+    TempoChannel
 } from './types';

@@ -6,6 +6,17 @@ export interface Song {
     name: string;
     author: string;
     description: string;
+
+    // File format metadata
+    metadata?: SongMetadata;
+}
+
+export interface SongMetadata {
+    version: string;
+    format: string;
+    created: string;
+    modified: string;
+    assets: string[];
 }
 
 export type Channel = NoteChannel | TempoChannel;

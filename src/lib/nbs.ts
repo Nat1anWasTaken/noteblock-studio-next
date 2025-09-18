@@ -45,7 +45,14 @@ export function convertNbsSong(nbs: NbsSong, mode: ChannelSeparationMode = 'per-
         channels: [tempoChannel, ...noteChannels],
         name: nbs.name ?? '',
         author: nbs.author ?? nbs.originalAuthor ?? '',
-        description: nbs.description ?? ''
+        description: nbs.description ?? '',
+        metadata: {
+            version: '1.0.0',
+            format: 'nbs-import',
+            created: new Date().toISOString(),
+            modified: new Date().toISOString(),
+            assets: []
+        }
     };
 }
 

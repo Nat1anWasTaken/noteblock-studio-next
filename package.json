@@ -47,6 +47,7 @@
     },
     "dependencies": {
         "@nbsjs/core": "^6.0.0",
+        "jszip": "^3.10.1",
         "mode-watcher": "^1.1.0"
     }
 }
