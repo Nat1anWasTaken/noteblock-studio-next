@@ -47,6 +47,10 @@ export class PianoRollState {
     selectionOverlayRect = $state<{ left: number; top: number; width: number; height: number } | null>(null);
     isMouseActive = $state(false);
 
+    // Overlay optimization
+    private overlayPendingRect: { left: number; top: number; width: number; height: number } | null = null;
+    private overlayFrameId: number | null = null;
+
     keyHeight = 20;
     noteLaneHeight = Math.max(8, this.keyHeight - 6);
 
@@ -246,6 +250,7 @@ export class PianoRollState {
         // Clear selection state when changing modes
         this.selectionBox = null;
         this.selectionOverlayRect = null;
+        this.cancelOverlayFrame();
 
         // In pen mode, clear selected notes
         if (mode === 'pen') {
@@ -266,6 +271,69 @@ export class PianoRollState {
 
     clearSelection() {
         this.selectedNotes = [];
+    }
+
+    updateSelectionOverlayRect() {
+        // Never show selection overlay in pen mode
+        if (this.pointerMode === 'pen') {
+            this.queueOverlayRect(null);
+            return;
+        }
+
+        const box = this.selectionBox;
+        if (!box) {
+            this.queueOverlayRect(null);
+            return;
+        }
+
+        const NOTE_SPAN = 1;
+        const px = this.pxPerTick > 0 ? this.pxPerTick : 1;
+        const tickStart = Math.min(box.startTick, box.currentTick);
+        const tickEnd = Math.max(box.startTick, box.currentTick) + NOTE_SPAN;
+        const left = Math.round(tickStart * px);
+        const right = Math.round(tickEnd * px);
+
+        const keyTop = Math.max(box.startKey, box.currentKey);
+        const keyBottom = Math.min(box.startKey, box.currentKey);
+        const top = (this.keyRange.max - keyTop) * this.keyHeight;
+        const bottom = (this.keyRange.max - keyBottom + 1) * this.keyHeight;
+
+        this.queueOverlayRect({
+            left: Math.min(left, right),
+            top: Math.min(top, bottom),
+            width: Math.max(1, Math.abs(right - left)),
+            height: Math.max(1, Math.abs(bottom - top))
+        });
+    }
+
+    private queueOverlayRect(rect: { left: number; top: number; width: number; height: number } | null) {
+        if (
+            typeof globalThis === 'undefined' ||
+            typeof globalThis.requestAnimationFrame !== 'function'
+        ) {
+            this.selectionOverlayRect = rect;
+            return;
+        }
+
+        this.overlayPendingRect = rect;
+        if (this.overlayFrameId !== null) return;
+
+        this.overlayFrameId = globalThis.requestAnimationFrame(() => {
+            this.selectionOverlayRect = this.overlayPendingRect;
+            this.overlayFrameId = null;
+        });
+    }
+
+    private cancelOverlayFrame() {
+        if (this.overlayFrameId === null) return;
+        if (
+            typeof globalThis !== 'undefined' &&
+            typeof globalThis.cancelAnimationFrame === 'function'
+        ) {
+            globalThis.cancelAnimationFrame(this.overlayFrameId);
+        }
+        this.overlayFrameId = null;
+        this.overlayPendingRect = null;
     }
 
     pointerButtonClass(mode: PianoRollPointerMode) {

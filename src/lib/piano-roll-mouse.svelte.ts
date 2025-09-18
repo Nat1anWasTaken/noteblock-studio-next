@@ -18,6 +18,7 @@ interface PianoRollState {
     isMouseActive: boolean;
     selectNotes: (notes: Note[]) => void;
     clearSelection: () => void;
+    updateSelectionOverlayRect: () => void;
 }
 export type KeyRange = { min: number; max: number };
 
@@ -417,8 +418,7 @@ export class PianoRollMouseController {
     }
 
     private updateSelectionOverlayRect() {
-        if (!this.pianoRollState) return;
-        // Overlay rendering now handled by pianoRollState
+        this.pianoRollState?.updateSelectionOverlayRect();
     }
 }
 
