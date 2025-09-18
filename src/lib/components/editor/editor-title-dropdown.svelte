@@ -58,11 +58,8 @@
                 return;
             } catch (error: any) {
                 if (error.name === 'AbortError') {
-                    console.log('User cancelled file picker');
                     return;
                 }
-
-                console.log('File picker failed with error:', error);
             }
         }
 
