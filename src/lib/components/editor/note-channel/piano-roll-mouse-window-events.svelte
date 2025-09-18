@@ -6,5 +6,4 @@
     onpointermove={pianoRollMouse.handleWindowPointerMove}
     onpointerup={pianoRollMouse.handleWindowPointerUp}
     onpointercancel={pianoRollMouse.handleWindowPointerCancel}
-    onkeydown={pianoRollMouse.handleWindowKeyDown}
 />

@@ -3,6 +3,7 @@
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
+    import CommandPalette from './command-palette.svelte';
     import EditorHeader from './editor-header.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
     import NoteChannelInfo from './note-channel/note-channel-info.svelte';
@@ -84,17 +85,6 @@
 
     const channels = $derived(player.song?.channels ?? []);
 
-    function handleKeyDown(e: KeyboardEvent) {
-        if (e.code === 'Space' && e.target === document.body) {
-            e.preventDefault();
-            if (player.isPlaying) {
-                player.pause();
-            } else {
-                player.resume();
-            }
-        }
-    }
-
     function computeCursorClass(): string {
         if (editorMouse.isScrubbing) return 'cursor-ew-resize';
         if (editorState.pointerMode === PointerMode.Shears) return 'cursor-crosshair';
@@ -103,8 +93,6 @@
     }
     const cursorClass = $derived(computeCursorClass());
 </script>
-
-<svelte:window onkeydown={handleKeyDown} />
 
 <div class="flex h-screen flex-col">
     <EditorHeader />
@@ -221,6 +209,8 @@
 </div>
 
 <NotePianoRoll />
+
+<CommandPalette />
 
 <style>
     .scrollbar-hidden::-webkit-scrollbar {

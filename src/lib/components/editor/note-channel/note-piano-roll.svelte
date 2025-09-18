@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { commandManager } from '$lib/command-manager';
     import * as Sheet from '$lib/components/ui/sheet';
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
@@ -87,9 +88,33 @@
 
     onMount(() => {
         if (typeof document === 'undefined') return;
+
+        // Register piano roll commands
+        commandManager.registerCommands([
+            {
+                id: 'piano-roll-delete-selected-notes',
+                title: 'Delete Selected Notes',
+                shortcut: 'Delete',
+                callback: () => pianoRollMouse.deleteSelectedNotes()
+            },
+            {
+                id: 'piano-roll-backspace-selected-notes',
+                title: 'Delete Selected Notes',
+                shortcut: 'Backspace',
+                callback: () => pianoRollMouse.deleteSelectedNotes()
+            }
+        ]);
+
         document.addEventListener('noteplayed', handleNotePlayed as EventListener);
         document.addEventListener('noteended', handleNoteEnded as EventListener);
+
         return () => {
+            // Clean up commands
+            commandManager.unregisterCommands([
+                'piano-roll-delete-selected-notes',
+                'piano-roll-backspace-selected-notes'
+            ]);
+
             document.removeEventListener('noteplayed', handleNotePlayed as EventListener);
             document.removeEventListener('noteended', handleNoteEnded as EventListener);
         };
@@ -104,35 +129,6 @@
     const leftPadding = $derived(
         Math.min(240, Math.max(48, Math.round(editorState.pxPerBeat * 1)))
     );
-
-    function handleKeyDown(event: KeyboardEvent) {
-        // Only handle keyboard events when the piano roll is active
-        if (!pianoRollState.sheetOpen || !pianoRollState.sectionData) return;
-
-        if (event.key === 'Backspace' || event.key === 'Delete') {
-            const section = pianoRollState.sectionData.section;
-            const notes = section.notes;
-            if (!notes?.length || !pianoRollState.selectedNotes.length) return;
-
-            // Prevent default to avoid browser back navigation on backspace
-            event.preventDefault();
-
-            // Remove selected notes
-            const toRemove = new Set(pianoRollState.selectedNotes);
-            let removed = false;
-            for (let index = notes.length - 1; index >= 0; index--) {
-                if (toRemove.has(notes[index]!)) {
-                    notes.splice(index, 1);
-                    removed = true;
-                }
-            }
-
-            if (removed) {
-                pianoRollState.clearSelection();
-                player.refreshIndexes();
-            }
-        }
-    }
 
     $effect(() => {
         const scroller = pianoRollState.gridScroller;
@@ -170,7 +166,6 @@
     <Sheet.Content
         side="bottom"
         class="h-[70vh] w-full max-w-none border-t border-border bg-background"
-        onkeydown={handleKeyDown}
     >
         {#if pianoRollState.sectionData}
             <div class="flex h-full flex-col">
