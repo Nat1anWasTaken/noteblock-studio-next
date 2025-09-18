@@ -37,7 +37,7 @@
             callback: () => {
                 open = !open;
             },
-            shortcut: 'Mod+Shift+P'
+            shortcut: 'MOD+SHIFT+P'
         });
 
         return () => {

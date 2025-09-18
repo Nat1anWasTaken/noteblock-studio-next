@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { commandManager } from '$lib/command-manager';
     import {
         DropdownMenu,
         DropdownMenuContent,
@@ -7,6 +8,7 @@
     } from '$lib/components/ui/dropdown-menu';
     import { downloadSongAsNbx, songToNbx } from '$lib/files';
     import { player } from '$lib/playback.svelte';
+    import { onMount } from 'svelte';
     import { toast } from 'svelte-sonner';
 
     interface Props {
@@ -17,7 +19,9 @@
     let { class: className, children }: Props = $props();
 
     function handleSave() {
-        toast.warning('Save is not yet implemented. Please use Save As to download your song.');
+        toast.warning(
+            'Save is not available on the web browser. Please use Save As to download your song.'
+        );
     }
 
     function handleSaveAs() {
@@ -66,6 +70,25 @@
         // Fallback to regular download
         downloadSongAsNbx(player.song, suggestedName);
     }
+
+    onMount(() => {
+        commandManager.registerCommands([
+            {
+                id: 'save',
+                title: 'Save',
+                callback: handleSave,
+                shortcut: 'Mod+S'
+            },
+            {
+                id: 'save-as',
+                title: 'Save As',
+                callback: handleSaveAs,
+                shortcut: 'Mod+Shift+S'
+            }
+        ]);
+
+        return () => commandManager.unregisterCommands(['save', 'save-as']);
+    });
 </script>
 
 <DropdownMenu>

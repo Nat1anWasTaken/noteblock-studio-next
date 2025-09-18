@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { commandManager } from '$lib/command-manager';
     import Button from '$lib/components/ui/button/button.svelte';
     import { Input } from '$lib/components/ui/input';
     import {
@@ -12,7 +13,7 @@
     import { cn } from '$lib/utils';
     import EditorTitle from './editor-title.svelte';
 
-    import type { Snippet } from 'svelte';
+    import { onMount, type Snippet } from 'svelte';
     import ChevronLeft from '~icons/lucide/chevron-left';
     import GitMerge from '~icons/lucide/git-merge';
     import MousePointer from '~icons/lucide/mouse-pointer';
@@ -48,6 +49,8 @@
     };
     const toggleMetronome = () => player.setMetronomeEnabled(!player.metronomeEnabled);
     const toggleAutoScroll = () => editorState.setAutoScrollEnabled(!editorState.autoScrollEnabled);
+
+    let tempoInputElement = $state<HTMLInputElement | null>(null);
 
     const positionBar = $derived(String(player.currentBar + 1).padStart(3, '0'));
     const positionBeat = $derived(String(player.currentBeat + 1).padStart(2, '0'));
@@ -103,6 +106,87 @@
         editorState.pointerMode === mode
             ? 'bg-indigo-600 text-white hover:bg-indigo-600/80 dark:hover:bg-indigo-600/80 hover:text-white'
             : '';
+
+    onMount(() => {
+        commandManager.registerCommands([
+            {
+                id: 'toggle-playback',
+                title: 'Toggle Playback',
+                callback: () => {
+                    if (player.isPlaying) {
+                        player.pause();
+                    } else {
+                        player.resume();
+                    }
+                },
+                shortcut: 'Space'
+            },
+            {
+                id: 'rotate-loop-mode',
+                title: 'Rotate Loop Mode',
+                callback: cycleLoop,
+                shortcut: 'R'
+            },
+            {
+                id: 'rewind-to-start',
+                title: 'Rewind to Start',
+                callback: rewind,
+                shortcut: '0'
+            },
+            {
+                id: 'change-tempo',
+                title: 'Change Tempo',
+                callback: () => {
+                    tempoInputElement?.focus();
+                },
+                shortcut: 'T'
+            },
+            {
+                id: 'editor-pointer-normal',
+                title: 'Pointer: Normal',
+                callback: () => editorState.setPointerMode(PointerMode.Normal),
+                shortcut: 'MOD+1'
+            },
+            {
+                id: 'editor-pointer-shears',
+                title: 'Pointer: Shears',
+                callback: () => editorState.setPointerMode(PointerMode.Shears),
+                shortcut: 'MOD+2'
+            },
+            {
+                id: 'editor-pointer-merge',
+                title: 'Pointer: Merge',
+                callback: () => editorState.setPointerMode(PointerMode.Merge),
+                shortcut: 'MOD+3'
+            },
+            {
+                id: 'toggle-metronome',
+                title: 'Toggle Metronome',
+                callback: toggleMetronome,
+                shortcut: 'C'
+            },
+            {
+                id: 'toggle-auto-scroll',
+                title: 'Toggle Follow Playhead',
+                callback: toggleAutoScroll,
+                shortcut: 'F'
+            }
+        ]);
+
+        return () => {
+            commandManager.unregisterCommands([
+                'toggle-playback',
+                'rotate-loop-mode',
+                'rewind-to-start',
+                'change-tempo',
+                'editor-pointer-normal',
+                'editor-pointer-shears',
+                'editor-pointer-merge',
+                'toggle-metronome',
+                'toggle-auto-scroll'
+            ]);
+        };
+    });
 </script>
 
 {#snippet tooltipped({
@@ -222,6 +306,7 @@
                     value={player.tempo}
                     oninput={(e) => player.setTempo(parseFloat(e.currentTarget.value))}
                     class="h-auto w-12  border-0 bg-background/20 p-0 text-sm tabular-nums shadow-none focus-visible:ring-0 dark:bg-background/20"
+                    bind:ref={tempoInputElement}
                 />
                 <span class="ml-1 text-xs">ticks/s</span>
             </div>

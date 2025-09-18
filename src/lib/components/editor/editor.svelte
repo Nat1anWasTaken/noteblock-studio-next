@@ -1,10 +1,8 @@
 <script lang="ts">
-    import { commandManager } from '$lib/command-manager';
     import * as Resizable from '$lib/components/ui/resizable';
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
-    import { onMount } from 'svelte';
     import CommandPalette from './command-palette.svelte';
     import EditorHeader from './editor-header.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
@@ -86,25 +84,6 @@
     });
 
     const channels = $derived(player.song?.channels ?? []);
-
-    onMount(() => {
-        commandManager.register({
-            id: 'toggle-playback',
-            title: 'Toggle Playback',
-            callback: () => {
-                if (player.isPlaying) {
-                    player.pause();
-                } else {
-                    player.resume();
-                }
-            },
-            shortcut: 'Space'
-        });
-
-        return () => {
-            commandManager.unregister('toggle-playback');
-        };
-    });
 
     function computeCursorClass(): string {
         if (editorMouse.isScrubbing) return 'cursor-ew-resize';

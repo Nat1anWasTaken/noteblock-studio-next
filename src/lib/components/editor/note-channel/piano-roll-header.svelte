@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { commandManager } from '$lib/command-manager';
     import Button from '$lib/components/ui/button/button.svelte';
     import Input from '$lib/components/ui/input/input.svelte';
     import * as Sheet from '$lib/components/ui/sheet';
@@ -14,7 +15,7 @@
     import { INSTRUMENT_NAMES, type NoteChannel, type NoteSection } from '$lib/types';
     import { cn } from '$lib/utils';
     import type { Snippet } from 'svelte';
-    import { tick } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import MousePointer from '~icons/lucide/mouse-pointer';
     import MousePointerClick from '~icons/lucide/mouse-pointer-click';
     import Pause from '~icons/lucide/pause';
@@ -91,6 +92,60 @@
             cancelNameChange();
         }
     }
+
+    onMount(() => {
+        commandManager.registerCommands([
+            {
+                id: 'toggle-mute',
+                title: 'Toggle Mute for Current Channel',
+                callback: () => {
+                    toggleMute();
+                },
+                shortcut: 'M'
+            },
+            {
+                id: 'toggle-solo',
+                title: 'Toggle Solo for Current Channel',
+                callback: () => {
+                    toggleSolo();
+                },
+                shortcut: 'S'
+            },
+            {
+                id: 'start-editing-section-name',
+                title: 'Edit Section Name',
+                callback: () => {
+                    startEditing();
+                },
+                shortcut: 'ENTER'
+            },
+            {
+                id: 'piano-roll-normal-mode',
+                title: 'Switch to Normal Mode (Piano Roll)',
+                callback: () => {
+                    pianoRollState.setPointerMode(PointerMode.Normal);
+                },
+                shortcut: '1'
+            },
+            {
+                id: 'piano-roll-pen-mode',
+                title: 'Switch to Pen Mode (Piano Roll)',
+                callback: () => {
+                    pianoRollState.setPointerMode('pen');
+                },
+                shortcut: '2'
+            }
+        ]);
+
+        return () =>
+            commandManager.unregisterCommands([
+                'toggle-mute',
+                'toggle-solo',
+                'start-editing-section-name',
+                'piano-roll-normal-mode',
+                'piano-roll-pen-mode'
+            ]);
+    });
 </script>
 
 {#snippet tooltipped({
