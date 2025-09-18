@@ -10,6 +10,7 @@
     import ChannelCreationDialog from '$lib/components/editor/channel-creation-dialog.svelte';
     import { player } from '$lib/playback.svelte';
     import type { Instrument } from '$lib/types';
+    import RulerShell from './ruler-shell.svelte';
 
     interface Props {
         class?: string;
@@ -21,10 +22,6 @@
 
     let { class: className, gutterWidth = 240, showZoomControls = true }: Props = $props();
 
-    // Sync scroll position through shared state for future channel rows
-    let scroller: HTMLDivElement | null = null;
-    const onScroll = () => editorState.setScrollLeft(scroller?.scrollLeft ?? 0);
-
     // Channel creation dialog
     let showChannelDialog = $state(false);
 
@@ -34,80 +31,40 @@
         }
     }
 
-    // Keep this scroller in sync if external changes modify scrollLeft
-    $effect(() => {
-        if (!scroller) return;
-        if (Math.abs(scroller.scrollLeft - editorState.scrollLeft) > 1) {
-            scroller.scrollLeft = editorState.scrollLeft;
-        }
-    });
+    const handlePointerDown = (container: HTMLElement, event: PointerEvent) =>
+        editorMouse.handleRulerPointerDown(container, event);
 </script>
 
-<div
+{#snippet gutterContent()}
+    <Button size="icon" aria-label="Create channel" onclick={() => (showChannelDialog = true)}>
+        <Plus class="size-4" />
+    </Button>
+    {#if showZoomControls}
+        <div class="ml-2 flex items-center gap-1">
+            <Button variant="ghost" size="icon" onclick={() => editorState.zoomOut()} aria-label="Zoom out">
+                <ZoomOut class="size-4" />
+            </Button>
+            <div class="min-w-14 text-center font-mono text-xs tabular-nums">
+                {Math.round(editorState.pxPerBeat)} px/beat
+            </div>
+            <Button variant="ghost" size="icon" onclick={() => editorState.zoomIn()} aria-label="Zoom in">
+                <ZoomIn class="size-4" />
+            </Button>
+        </div>
+    {/if}
+{/snippet}
+
+<RulerShell
     class={cn(
-        'flex w-full items-center border-b border-border bg-secondary/40 text-sm select-none',
+        'items-center border-b border-border bg-secondary/40 text-sm',
         className
     )}
->
-    <!-- Left gutter: channel/global controls -->
-    <div
-        class="flex items-center gap-2 border-r border-border px-3 py-2"
-        style={`width:${gutterWidth}px`}
-    >
-        <Button size="icon" aria-label="Create channel" onclick={() => (showChannelDialog = true)}>
-            <Plus class="size-4" />
-        </Button>
-        {#if showZoomControls}
-            <div class="ml-2 flex items-center gap-1">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onclick={() => editorState.zoomOut()}
-                    aria-label="Zoom out"
-                >
-                    <ZoomOut class="size-4" />
-                </Button>
-                <div class="min-w-14 text-center font-mono text-xs tabular-nums">
-                    {Math.round(editorState.pxPerBeat)} px/beat
-                </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onclick={() => editorState.zoomIn()}
-                    aria-label="Zoom in"
-                >
-                    <ZoomIn class="size-4" />
-                </Button>
-            </div>
-        {/if}
-    </div>
-
-    <!-- Timeline ruler -->
-    <div
-        bind:this={scroller}
-        class="scrollbar-thin relative h-full flex-1 overflow-x-auto overflow-y-hidden bg-background"
-        onscroll={onScroll}
-    >
-        <div
-            class="relative h-full cursor-crosshair"
-            style={`width:${editorState.contentWidth}px`}
-            onpointerdown={(e) =>
-                editorMouse.handleRulerPointerDown(e.currentTarget as HTMLElement, e)}
-        ></div>
-    </div>
-</div>
+    {gutterWidth}
+    contentWidth={editorState.contentWidth}
+    scrollLeft={editorState.scrollLeft}
+    pointerDownHandler={handlePointerDown}
+    gutter={gutterContent}
+    on:scrollLeftChange={(event) => editorState.setScrollLeft(event.detail)}
+/>
 
 <ChannelCreationDialog bind:open={showChannelDialog} onCreate={handleCreateChannels} />
-
-<style>
-    .scrollbar-thin::-webkit-scrollbar {
-        height: 0px;
-    }
-    .scrollbar-thin::-webkit-scrollbar-thumb {
-        background-color: hsl(var(--muted-foreground) / 0.25);
-        border-radius: 8px;
-    }
-    .scrollbar-thin::-webkit-scrollbar-track {
-        background: transparent;
-    }
-</style>

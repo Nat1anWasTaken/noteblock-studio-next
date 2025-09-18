@@ -344,6 +344,13 @@ export class Player {
         return this.computeBarBeatAtTick(this._currentTick).beat;
     }
 
+    /**
+     * Get the bar number (0-based) at a specific tick.
+     */
+    getBarAtTick(tick: number): number {
+        return this.computeBarBeatAtTick(tick).bar;
+    }
+
     /** Current loop mode. */
     get loopMode() {
         return this._loopMode;

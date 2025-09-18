@@ -163,6 +163,11 @@
             document.removeEventListener('noteended', handleNoteEnded as EventListener);
         };
     });
+
+    function handleOpenPianoRoll(event: MouseEvent) {
+        event.stopPropagation();
+        editorState.openPianoRoll(channelIndex, sectionIndex);
+    }
 </script>
 
 <!-- Simple visual block for a note section; color tokens are placeholders -->
@@ -174,6 +179,9 @@
     onpointermove={(ev) =>
         editorMouse.handleSectionPointerMove(channelIndex, sectionIndex, section, null, ev)}
     onpointerleave={() => editorMouse.handleSectionPointerLeave(channelIndex, sectionIndex)}
+    ondblclick={handleOpenPianoRoll}
+    role="button"
+    tabindex="0"
 >
     <!-- Header strip with section name -->
     <div class="w-full truncate bg-emerald-200/80 px-2 py-1 font-medium text-emerald-900">

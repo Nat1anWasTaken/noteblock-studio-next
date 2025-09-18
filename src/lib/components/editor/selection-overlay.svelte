@@ -1,6 +1,7 @@
 <script lang="ts">
     import { editorState } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
+    import SelectionRectangleOverlay from './selection-rectangle-overlay.svelte';
 
     interface Props {
         class?: string;
@@ -28,17 +29,23 @@
               )
             : 0
     );
-    const innerLeft = $derived(contentLeft - editorState.scrollLeft);
+    const rect = $derived(
+        hasSelection
+            ? {
+                  left: contentLeft,
+                  top: 0,
+                  width,
+                  height: 1
+              }
+            : null
+    );
 </script>
 
-{#if hasSelection}
-    <div
-        class={`pointer-events-none absolute z-20 ${className}`}
-        style={`top:0; bottom:0; left:${gutterWidth}px; right:0;`}
-    >
-        <div
-            class="absolute inset-y-0 rounded-sm bg-primary/20 outline-1 outline-primary/50"
-            style={`left:${innerLeft}px; width:${width}px;`}
-        ></div>
-    </div>
-{/if}
+<SelectionRectangleOverlay
+    {rect}
+    {gutterWidth}
+    scrollLeft={editorState.scrollLeft}
+    class={className}
+    stretchY
+    overlayClass="rounded-sm bg-primary/20 outline outline-1 outline-primary/50"
+/>

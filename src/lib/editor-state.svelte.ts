@@ -27,6 +27,12 @@ export class EditorState {
     // Stored as an array of { channelIndex, sectionIndex } for simplicity.
     selectedSections = $state<Array<{ channelIndex: number; sectionIndex: number }>>([]);
 
+    // Current section opened in the piano roll editor (null when closed)
+    pianoRollTarget = $state<{
+        channelIndex: number;
+        sectionIndex: number;
+    } | null>(null);
+
     // Select a set of sections (overwrites current)
     setSelectedSections(selections: Array<{ channelIndex: number; sectionIndex: number }>) {
         this.selectedSections = selections;
@@ -114,6 +120,14 @@ export class EditorState {
 
     setPointerMode(mode: PointerMode) {
         this.pointerMode = mode;
+    }
+
+    openPianoRoll(channelIndex: number, sectionIndex: number) {
+        this.pianoRollTarget = { channelIndex, sectionIndex };
+    }
+
+    closePianoRoll() {
+        this.pianoRollTarget = null;
     }
 }
 
