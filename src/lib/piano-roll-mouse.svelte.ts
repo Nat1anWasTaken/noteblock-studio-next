@@ -1,3 +1,4 @@
+import { commandManager } from '$lib/command-manager';
 import { PointerMode } from '$lib/editor-state.svelte';
 import { player } from '$lib/playback.svelte';
 import type { Note, NoteSection } from '$lib/types';
@@ -48,13 +49,6 @@ const POINTER_UP_HANDLED = Symbol('pianoRollPointerUpHandled');
 const NOTE_SPAN = 1;
 const DEFAULT_NOTE_VELOCITY = 100;
 const DEFAULT_NOTE_PITCH = 0;
-
-function isEditableTarget(target: EventTarget | null): boolean {
-    if (!(target instanceof HTMLElement)) return false;
-    const tag = target.tagName;
-    return target.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-}
-
 export class PianoRollMouseController {
     private pianoRollState: PianoRollState | null = null;
 
@@ -63,6 +57,31 @@ export class PianoRollMouseController {
 
     setPianoRollState(state: PianoRollState) {
         this.pianoRollState = state;
+    }
+
+    deleteSelectedNotes() {
+        if (!this.pianoRollState) return;
+        if (!this.pianoRollState.isMouseActive) return;
+
+        const section = this.pianoRollState.sectionData?.section;
+        if (!section) return;
+        const notes = section.notes;
+        if (!notes?.length || !this.pianoRollState.selectedNotes.length) return;
+
+        const toRemove = new Set(this.pianoRollState.selectedNotes);
+        let removed = false;
+        for (let index = notes.length - 1; index >= 0; index--) {
+            if (toRemove.has(notes[index]!)) {
+                notes.splice(index, 1);
+                removed = true;
+            }
+        }
+
+        if (!removed) return;
+
+        this.pianoRollState.clearSelection();
+        this.sortSectionNotes(section);
+        this.refreshPlayer();
     }
 
     // Mouse controllers should be stateless - all state managed by pianoRollState
@@ -319,34 +338,6 @@ export class PianoRollMouseController {
             }
         }
     }
-
-    handleWindowKeyDown = (event: KeyboardEvent) => {
-        if (!this.pianoRollState) return;
-        if (!this.pianoRollState.isMouseActive) return;
-        if (event.key !== 'Backspace' && event.key !== 'Delete') return;
-        if (isEditableTarget(event.target)) return;
-
-        const section = this.pianoRollState.sectionData?.section;
-        if (!section) return;
-        const notes = section.notes;
-        if (!notes?.length || !this.pianoRollState.selectedNotes.length) return;
-
-        const toRemove = new Set(this.pianoRollState.selectedNotes);
-        let removed = false;
-        for (let index = notes.length - 1; index >= 0; index--) {
-            if (toRemove.has(notes[index]!)) {
-                notes.splice(index, 1);
-                removed = true;
-            }
-        }
-
-        if (!removed) return;
-
-        event.preventDefault();
-        this.pianoRollState.clearSelection();
-        this.sortSectionNotes(section);
-        this.refreshPlayer();
-    };
 
     private snapTick(value: number): number {
         if (!Number.isFinite(value)) return 0;

@@ -1,5 +1,11 @@
 type Platform = 'mac' | 'windows' | 'linux';
 
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    return target.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
 export function detectPlatform(): Platform {
     const ua = navigator.userAgent.toLowerCase();
     if (ua.includes('mac')) return 'mac';
@@ -78,6 +84,11 @@ export class CommandManager {
      * Handle keyboard events and execute matching commands
      */
     handleKeyboardEvent(event: KeyboardEvent): boolean {
+        // Don't process shortcuts if user is focused on an editable element
+        if (isEditableTarget(event.target)) {
+            return false;
+        }
+
         const shortcut = this.buildShortcutString(event);
 
         if (this.shortcuts.has(shortcut)) {
