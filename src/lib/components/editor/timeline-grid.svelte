@@ -11,6 +11,7 @@
         totalBars?: number;
         beatsPerBar?: number;
         pxPerBeat?: number;
+        startBar?: number;
     }
 
     let {
@@ -22,7 +23,8 @@
         barWidth: barWidthProp,
         totalBars: totalBarsProp,
         beatsPerBar: beatsPerBarProp,
-        pxPerBeat: pxPerBeatProp
+        pxPerBeat: pxPerBeatProp,
+        startBar = 0
     }: Props = $props();
 
     const contentWidth = $derived(contentWidthProp ?? editorState.contentWidth);
@@ -53,7 +55,7 @@
                     <div
                         class="absolute top-1 left-1 rounded bg-secondary px-1.5 py-0.5 text-[11px] leading-none text-secondary-foreground"
                     >
-                        {barIdx + 1}
+                        {barIdx + startBar + 1}
                     </div>
                 {/if}
                 {#each range(beatsPerBar) as beatIdx}

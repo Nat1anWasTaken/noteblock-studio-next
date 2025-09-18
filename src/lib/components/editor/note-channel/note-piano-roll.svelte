@@ -190,6 +190,7 @@
                             totalBars={pianoRollState.totalBars}
                             beatsPerBar={pianoRollState.beatsPerBar}
                             pxPerBeat={editorState.pxPerBeat}
+                            startBar={pianoRollState.sectionStartBar}
                             showLabels
                         />
                     </RulerShell>
@@ -243,6 +244,7 @@
                                         totalBars={pianoRollState.totalBars}
                                         beatsPerBar={pianoRollState.beatsPerBar}
                                         pxPerBeat={editorState.pxPerBeat}
+                                        startBar={pianoRollState.sectionStartBar}
                                     />
 
                                     {#each pianoRollState.keyRows as row, index}

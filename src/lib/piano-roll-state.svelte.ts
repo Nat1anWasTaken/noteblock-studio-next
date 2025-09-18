@@ -130,6 +130,10 @@ export class PianoRollState {
     });
 
     sectionStartTick = $derived(this.sectionData?.section?.startingTick ?? 0);
+    sectionStartBar = $derived.by(() => {
+        if (!this.sectionData) return 0;
+        return player.getBarAtTick(this.sectionStartTick);
+    });
     sectionEndTick = $derived.by(
         () => this.sectionStartTick + (this.sectionData?.section?.length ?? 0)
     );
