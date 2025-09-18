@@ -80,8 +80,6 @@ export class CommandManager {
     handleKeyboardEvent(event: KeyboardEvent): boolean {
         const shortcut = this.buildShortcutString(event);
 
-        console.log('Detected shortcut:', shortcut);
-
         if (this.shortcuts.has(shortcut)) {
             const commandId = this.shortcuts.get(shortcut)!;
             const command = this.commands.get(commandId);
