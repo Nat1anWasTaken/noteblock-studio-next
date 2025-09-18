@@ -1,9 +1,5 @@
 import { editorState, PointerMode } from '$lib/editor-state.svelte';
-import {
-    pianoRollMouse,
-    type KeyRange,
-    type PianoRollPointerMode
-} from '$lib/piano-roll-mouse.svelte';
+import { type KeyRange, type PianoRollPointerMode } from '$lib/piano-roll-mouse.svelte';
 import { LoopMode, player } from '$lib/playback.svelte';
 import type { Note, NoteChannel, NoteSection } from '$lib/types';
 
@@ -43,12 +39,27 @@ export class PianoRollState {
 
     // Mouse state - moved from piano-roll-mouse.svelte.ts
     selectedNotes = $state<Note[]>([]);
-    selectionBox = $state<{ startTick: number; startKey: number; currentTick: number; currentKey: number } | null>(null);
-    selectionOverlayRect = $state<{ left: number; top: number; width: number; height: number } | null>(null);
+    selectionBox = $state<{
+        startTick: number;
+        startKey: number;
+        currentTick: number;
+        currentKey: number;
+    } | null>(null);
+    selectionOverlayRect = $state<{
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    } | null>(null);
     isMouseActive = $state(false);
 
     // Overlay optimization
-    private overlayPendingRect: { left: number; top: number; width: number; height: number } | null = null;
+    private overlayPendingRect: {
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    } | null = null;
     private overlayFrameId: number | null = null;
 
     keyHeight = 20;
@@ -306,7 +317,9 @@ export class PianoRollState {
         });
     }
 
-    private queueOverlayRect(rect: { left: number; top: number; width: number; height: number } | null) {
+    private queueOverlayRect(
+        rect: { left: number; top: number; width: number; height: number } | null
+    ) {
         if (
             typeof globalThis === 'undefined' ||
             typeof globalThis.requestAnimationFrame !== 'function'

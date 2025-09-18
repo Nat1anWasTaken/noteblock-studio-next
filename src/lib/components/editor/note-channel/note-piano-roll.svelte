@@ -105,6 +105,35 @@
         Math.min(240, Math.max(48, Math.round(editorState.pxPerBeat * 1)))
     );
 
+    function handleKeyDown(event: KeyboardEvent) {
+        // Only handle keyboard events when the piano roll is active
+        if (!pianoRollState.sheetOpen || !pianoRollState.sectionData) return;
+
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+            const section = pianoRollState.sectionData.section;
+            const notes = section.notes;
+            if (!notes?.length || !pianoRollState.selectedNotes.length) return;
+
+            // Prevent default to avoid browser back navigation on backspace
+            event.preventDefault();
+
+            // Remove selected notes
+            const toRemove = new Set(pianoRollState.selectedNotes);
+            let removed = false;
+            for (let index = notes.length - 1; index >= 0; index--) {
+                if (toRemove.has(notes[index]!)) {
+                    notes.splice(index, 1);
+                    removed = true;
+                }
+            }
+
+            if (removed) {
+                pianoRollState.clearSelection();
+                player.refreshIndexes();
+            }
+        }
+    }
+
     $effect(() => {
         const scroller = pianoRollState.gridScroller;
         if (!scroller || !pianoRollState.sheetOpen) return;
@@ -141,6 +170,7 @@
     <Sheet.Content
         side="bottom"
         class="h-[70vh] w-full max-w-none border-t border-border bg-background"
+        onkeydown={handleKeyDown}
     >
         {#if pianoRollState.sectionData}
             <div class="flex h-full flex-col">
