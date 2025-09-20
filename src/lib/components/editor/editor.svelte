@@ -86,6 +86,7 @@
     const channels = $derived(player.song?.channels ?? []);
 
     function computeCursorClass(): string {
+        if (editorMouse.isResizingSection) return 'cursor-ew-resize';
         if (editorMouse.isScrubbing) return 'cursor-ew-resize';
         if (editorState.pointerMode === PointerMode.Shears) return 'cursor-crosshair';
         if (editorState.pointerMode === PointerMode.Merge) return 'cursor-ew-resize';

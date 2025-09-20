@@ -10,6 +10,7 @@ export class EditorMouseController {
     // Section-specific flags
     isSelectingSections = $state(false); // 2D section selection (normal mode drag)
     isDraggingSection = $state(false); // dragging a single section to move it
+    isResizingSection = $state(false); // resizing a section's duration via right handle
 
     // Shears-mode hover state: { channelIndex, sectionIndex, tick } when hovering a section
     shearsHover = $state<{ channelIndex: number; sectionIndex: number; tick: number } | null>(null);
@@ -33,6 +34,13 @@ export class EditorMouseController {
         }>;
         primaryOriginalChannel: number;
         primaryOriginalSectionIndex: number;
+    } | null = null;
+
+    private _resizeContext: {
+        section: any;
+        channelIndex: number;
+        sectionIndex: number;
+        startTick: number;
     } | null = null;
 
     // Helpers
@@ -169,6 +177,44 @@ export class EditorMouseController {
             primaryOriginalChannel: channelIndex,
             primaryOriginalSectionIndex: sectionIndex
         };
+    };
+
+    // --- Section resize: pointer down on the resize handle to change section length ---
+    handleSectionResizePointerDown = (
+        channelIndex: number,
+        sectionIndex: number,
+        section: any,
+        contentEl: HTMLElement | null,
+        ev: PointerEvent
+    ) => {
+        if (ev.button !== 0) return;
+        if (editorState.pointerMode !== PointerMode.Normal) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        const content =
+            contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
+        if (!content) return;
+
+        this.isResizingSection = true;
+        this._contentEl = content;
+        this._startX = ev.clientX;
+        this._moved = false;
+
+        const startTick = section?.startingTick ?? 0;
+        this._resizeContext = {
+            section,
+            channelIndex,
+            sectionIndex,
+            startTick
+        };
+
+        const alreadySelected = editorState.selectedSections.some(
+            (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
+        );
+        if (!alreadySelected) {
+            editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+        }
     };
 
     // --- Shears mode: pointer move over a section to update hover tick ---
@@ -426,6 +472,29 @@ export class EditorMouseController {
             editorState.setSelectedSections(selections);
             this._moved ||=
                 Math.abs(e.clientX - this._startX) > 3 || Math.abs(e.clientY - this._startY) > 3;
+        } else if (this.isResizingSection && this._resizeContext) {
+            const absTick = this.tickFromClientX(this._contentEl, e.clientX);
+            const ctx = this._resizeContext;
+
+            const startTick = ctx.startTick;
+            const startBar = player.getBarAtTick(startTick);
+            const pointerTick = Math.max(0, absTick);
+            const pointerBar = player.getBarAtTick(pointerTick);
+
+            // Always keep at least one full bar. Allow shrinking by moving pointer into earlier bars.
+            const targetBar = Math.max(startBar + 1, pointerBar + 1);
+            let snappedEnd = player.getBarStartTick(targetBar);
+
+            if (snappedEnd <= startTick) {
+                const fallback = player.getBarStartTick(startBar + 1);
+                snappedEnd = Math.max(fallback, startTick + 1);
+            }
+
+            const newLength = Math.max(1, Math.round(snappedEnd - startTick));
+            if (ctx.section.length !== newLength) {
+                ctx.section.length = newLength;
+                this._moved = true;
+            }
         } else if (this.isDraggingSection && this._dragSectionRef) {
             const absTick = this.tickFromClientX(this._contentEl, e.clientX);
 
@@ -522,6 +591,16 @@ export class EditorMouseController {
             }
             // Rebuild player indexes after edits
             player.refreshIndexes();
+        } else if (this.isResizingSection) {
+            if (this._resizeContext && !this._moved) {
+                editorState.setSelectedSections([
+                    {
+                        channelIndex: this._resizeContext.channelIndex,
+                        sectionIndex: this._resizeContext.sectionIndex
+                    }
+                ]);
+            }
+            player.refreshIndexes();
         }
         this.reset();
     };
@@ -535,12 +614,14 @@ export class EditorMouseController {
         this.isScrubbing = false;
         this.isSelectingSections = false;
         this.isDraggingSection = false;
+        this.isResizingSection = false;
         this._contentEl = null;
         this._moved = false;
         this._startTick = 0;
         this._startX = 0;
         this._startY = 0;
         this._dragSectionRef = null;
+        this._resizeContext = null;
     }
 }
 

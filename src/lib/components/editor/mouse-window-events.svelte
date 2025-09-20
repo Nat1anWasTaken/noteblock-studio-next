@@ -5,4 +5,6 @@
 <svelte:window
     onpointermove={editorMouse.handleWindowPointerMove}
     onpointerup={editorMouse.handleWindowPointerUp}
+    onpointercancel={() => editorMouse.cancel()}
+    onpointerleave={() => editorMouse.cancel()}
 />
