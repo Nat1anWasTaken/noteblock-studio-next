@@ -218,9 +218,17 @@
 
     <div
         class="resize-handle"
+        role="separator"
+        aria-label="Resize section"
         onpointerdown={(event) => {
             event.stopPropagation();
-            editorMouse.handleSectionResizePointerDown(channelIndex, sectionIndex, section, null, event);
+            editorMouse.handleSectionResizePointerDown(
+                channelIndex,
+                sectionIndex,
+                section,
+                null,
+                event
+            );
         }}
     ></div>
 </div>
@@ -269,9 +277,11 @@
     .resize-handle {
         position: absolute;
         top: 0;
-        right: -2px;
-        width: 6px;
+        right: -3px;
+        width: 8px;
         height: 100%;
         cursor: ew-resize;
+        /* Improve reliability of pointer interactions */
+        touch-action: none;
     }
 </style>
