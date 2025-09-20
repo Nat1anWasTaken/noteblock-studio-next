@@ -374,6 +374,13 @@ export class Player {
         return this.findTickForBarBeat(bar, 0).tick;
     }
 
+    /**
+     * Get the absolute tick for the start of a specific bar (0-based).
+     */
+    getBarStartTick(bar: number): number {
+        return this.findTickForBarBeat(Math.max(0, Math.floor(bar)), 0).tick;
+    }
+
     /** Current loop mode. */
     get loopMode() {
         return this._loopMode;
