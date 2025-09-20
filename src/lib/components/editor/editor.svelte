@@ -96,54 +96,35 @@
     }
     const cursorClass = $derived(computeCursorClass());
 
+    function deleteSelectedSections() {
+        if (editorState.selectedSections.length === 0) return;
+
+        const selectionsToDelete = [...editorState.selectedSections];
+        selectionsToDelete
+            .sort((a, b) => b.channelIndex - a.channelIndex || b.sectionIndex - a.sectionIndex)
+            .forEach(({ channelIndex, sectionIndex }) => {
+                const channel = player.song?.channels[channelIndex];
+                if (channel && channel.kind === 'note') {
+                    channel.sections.splice(sectionIndex, 1);
+                }
+            });
+
+        player.refreshIndexes();
+        editorState.clearSelectedSections();
+    }
+
     onMount(() => {
         commandManager.registerCommands([
             {
                 id: 'delete-selected-sections',
                 title: 'Delete Selected Sections',
-                callback: () => {
-                    if (editorState.selectedSections.length === 0) return;
-
-                    const selectionsToDelete = [...editorState.selectedSections];
-                    selectionsToDelete
-                        .sort(
-                            (a, b) =>
-                                b.channelIndex - a.channelIndex || b.sectionIndex - a.sectionIndex
-                        )
-                        .forEach(({ channelIndex, sectionIndex }) => {
-                            const channel = player.song?.channels[channelIndex];
-                            if (channel && channel.kind === 'note') {
-                                channel.sections.splice(sectionIndex, 1);
-                            }
-                        });
-
-                    player.refreshIndexes();
-                    editorState.clearSelectedSections();
-                },
+                callback: deleteSelectedSections,
                 shortcut: 'DELETE'
             },
             {
                 id: 'delete-selected-sections-backspace',
                 title: 'Delete Selected Sections (Backspace)',
-                callback: () => {
-                    if (editorState.selectedSections.length === 0) return;
-
-                    const selectionsToDelete = [...editorState.selectedSections];
-                    selectionsToDelete
-                        .sort(
-                            (a, b) =>
-                                b.channelIndex - a.channelIndex || b.sectionIndex - a.sectionIndex
-                        )
-                        .forEach(({ channelIndex, sectionIndex }) => {
-                            const channel = player.song?.channels[channelIndex];
-                            if (channel && channel.kind === 'note') {
-                                channel.sections.splice(sectionIndex, 1);
-                            }
-                        });
-
-                    player.refreshIndexes();
-                    editorState.clearSelectedSections();
-                },
+                callback: deleteSelectedSections,
                 shortcut: 'BACKSPACE'
             }
         ]);
