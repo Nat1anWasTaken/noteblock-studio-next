@@ -1,5 +1,6 @@
 <script lang="ts">
     import Input from '$lib/components/ui/input/input.svelte';
+    import { createRenameSongAction, historyManager } from '$lib/history';
     import { player } from '$lib/playback.svelte';
     import { tick } from 'svelte';
     import ChevronDown from '~icons/lucide/chevron-down';
@@ -20,8 +21,13 @@
     function saveNameChange(event: Event) {
         const target = event.target as HTMLInputElement;
         const newName = target.value.trim();
-        if (newName && newName !== songName && player.song) {
-            player.song.name = newName;
+        const song = player.song;
+        if (!song) return;
+        const oldName = song.name;
+        if (newName && newName !== oldName) {
+            historyManager.execute(createRenameSongAction(newName, oldName), {
+                label: 'Rename song'
+            });
         }
         editingName = false;
     }
