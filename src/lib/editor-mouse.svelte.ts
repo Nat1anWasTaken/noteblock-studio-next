@@ -1,5 +1,6 @@
 import { editorState, PointerMode } from './editor-state.svelte';
 import { player } from './playback.svelte';
+import type { NoteChannel } from './types';
 
 // Centralized mouse/gesture controller for the editor
 export class EditorMouseController {
@@ -16,12 +17,17 @@ export class EditorMouseController {
     shearsHover = $state<{ channelIndex: number; sectionIndex: number; tick: number } | null>(null);
     // Merge-mode hover state: { channelIndex, sectionIndex } when hovering a section (to merge with its next)
     mergeHover = $state<{ channelIndex: number; sectionIndex: number } | null>(null);
+    // Blank-area hover state for creating a new section
+    newSectionHover = $state<
+        { channelIndex: number; startingTick: number; length: number } | null
+    >(null);
 
     // Context captured on pointerdown
     private _contentEl: HTMLElement | null = null;
     private _startTick = 0;
     private _startX = 0;
     private _startY = 0;
+    private _startChannelIndex: number | null = null;
     private _moved = false;
 
     // Dragging section context (supports multi-section drags)
@@ -87,6 +93,7 @@ export class EditorMouseController {
         this._startX = ev.clientX;
         const tick = this.tickFromClientX(contentEl, ev.clientX);
         player.setCurrentTick(tick);
+        this.clearNewSectionHover();
     };
 
     // --- Content background pointerdown to start section selection (Normal mode) ---
@@ -101,6 +108,22 @@ export class EditorMouseController {
         this._startY = ev.clientY;
         this._startTick = this.tickFromClientX(contentEl, ev.clientX);
         this._moved = false;
+        this.clearNewSectionHover();
+
+        const rect = contentEl.getBoundingClientRect();
+        const relY = ev.clientY - rect.top;
+        const potentialIndex = Math.floor(relY / editorState.rowHeight);
+        const channels = player.song?.channels ?? [];
+        if (
+            Number.isFinite(potentialIndex) &&
+            potentialIndex >= 0 &&
+            potentialIndex < channels.length &&
+            channels[potentialIndex]?.kind === 'note'
+        ) {
+            this._startChannelIndex = potentialIndex;
+        } else {
+            this._startChannelIndex = null;
+        }
 
         // Clear current section selection to start fresh
         editorState.clearSelectedSections();
@@ -118,6 +141,7 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Normal) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
@@ -179,6 +203,72 @@ export class EditorMouseController {
         };
     };
 
+    handleTimelineBlankPointerMove = (contentEl: HTMLElement, ev: PointerEvent) => {
+        if (editorState.pointerMode !== PointerMode.Normal) {
+            this.clearNewSectionHover();
+            return;
+        }
+        if (
+            this.isSelecting ||
+            this.isScrubbing ||
+            this.isSelectingSections ||
+            this.isDraggingSection ||
+            this.isResizingSection
+        ) {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        const channels = player.song?.channels ?? [];
+        if (!contentEl || channels.length === 0) {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        const rect = contentEl.getBoundingClientRect();
+        const relY = ev.clientY - rect.top;
+        if (relY < 0) {
+            this.clearNewSectionHover();
+            return;
+        }
+        const channelIndex = Math.floor(relY / editorState.rowHeight);
+        const channel = channels[channelIndex] as NoteChannel | undefined;
+        if (!channel || channel.kind !== 'note') {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        const tick = this.tickFromClientX(contentEl, ev.clientX);
+        const ticksPerBeat = editorState.ticksPerBeat > 0 ? editorState.ticksPerBeat : 1;
+        const beatsPerBar = editorState.beatsPerBar > 0 ? editorState.beatsPerBar : 4;
+        const ticksPerBar = Math.max(1, Math.round(ticksPerBeat * beatsPerBar));
+        const startingTick = Math.max(0, Math.floor(tick / ticksPerBar) * ticksPerBar);
+        const length = ticksPerBar;
+
+        const overlap = channel.sections.some((section) => {
+            const sStart = section.startingTick ?? 0;
+            const sEnd = sStart + (section.length ?? 0);
+            const previewEnd = startingTick + length;
+            return previewEnd > sStart && startingTick < sEnd;
+        });
+        if (overlap) {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        this.newSectionHover = { channelIndex, startingTick, length };
+    };
+
+    handleTimelineBlankPointerLeave = () => {
+        this.clearNewSectionHover();
+    };
+
+    clearNewSectionHover() {
+        if (this.newSectionHover) {
+            this.newSectionHover = null;
+        }
+    }
+
     // --- Section resize: pointer down on the resize handle to change section length ---
     handleSectionResizePointerDown = (
         channelIndex: number,
@@ -191,6 +281,7 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Normal) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
@@ -225,6 +316,7 @@ export class EditorMouseController {
         contentEl: HTMLElement | null,
         ev: PointerEvent
     ) => {
+        this.clearNewSectionHover();
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
         if (!content) {
@@ -284,6 +376,7 @@ export class EditorMouseController {
 
     // --- Shears mode: pointer leave clears hover ---
     handleSectionPointerLeave = (channelIndex: number, sectionIndex: number) => {
+        this.clearNewSectionHover();
         const sh = this.shearsHover;
         if (sh && sh.channelIndex === channelIndex && sh.sectionIndex === sectionIndex) {
             this.shearsHover = null;
@@ -305,6 +398,7 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Shears) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
@@ -327,6 +421,7 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Merge) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
@@ -575,8 +670,20 @@ export class EditorMouseController {
             }
         } else if (this.isSelectingSections) {
             if (!this._moved) {
-                // Click without drag => clear section selection
-                editorState.clearSelectedSections();
+                if (
+                    editorState.pointerMode === PointerMode.Normal &&
+                    this._startChannelIndex !== null
+                ) {
+                    this.createSectionAt(
+                        this._startChannelIndex,
+                        this._contentEl,
+                        this._startTick,
+                        this._startX,
+                        this._startY
+                    );
+                } else {
+                    editorState.clearSelectedSections();
+                }
             }
             // Otherwise keep the selection as-is (already set during move)
         } else if (this.isDraggingSection) {
@@ -620,8 +727,73 @@ export class EditorMouseController {
         this._startTick = 0;
         this._startX = 0;
         this._startY = 0;
+        this._startChannelIndex = null;
         this._dragSectionRef = null;
         this._resizeContext = null;
+        this.clearNewSectionHover();
+    }
+
+    private createSectionAt(
+        channelIndex: number,
+        contentEl: HTMLElement,
+        rawTick: number,
+        clientX: number,
+        clientY: number
+    ) {
+        const song = player.song;
+        if (!song) return;
+        const channel = song.channels[channelIndex] as NoteChannel | undefined;
+        if (!channel || channel.kind !== 'note') return;
+
+        const rect = contentEl.getBoundingClientRect();
+        const relY = clientY - rect.top;
+        if (relY < 0 || relY >= song.channels.length * editorState.rowHeight) return;
+
+        const ticksPerBeat = editorState.ticksPerBeat > 0 ? editorState.ticksPerBeat : 1;
+        const beatsPerBar = editorState.beatsPerBar > 0 ? editorState.beatsPerBar : 4;
+        const ticksPerBar = Math.max(1, Math.round(ticksPerBeat * beatsPerBar));
+
+        const tickFromEvent = this.tickFromClientX(contentEl, clientX);
+        const baseTick = Number.isFinite(rawTick) ? rawTick : tickFromEvent;
+        const startingTick = Math.max(0, Math.floor(baseTick / ticksPerBar) * ticksPerBar);
+        const length = ticksPerBar;
+        const newEnd = startingTick + length;
+
+        const overlaps = channel.sections.some((section) => {
+            const sStart = section.startingTick ?? 0;
+            const sEnd = sStart + (section.length ?? 0);
+            return newEnd > sStart && startingTick < sEnd;
+        });
+        if (overlaps) return;
+
+        const newSection = {
+            startingTick,
+            length,
+            notes: [],
+            name: this.generateSectionName(channel)
+        };
+
+        const insertIndex = channel.sections.findIndex((s) => s.startingTick > startingTick);
+        if (insertIndex >= 0) channel.sections.splice(insertIndex, 0, newSection);
+        else channel.sections.push(newSection);
+
+        song.length = Math.max(song.length ?? 0, newEnd);
+        player.refreshIndexes();
+
+        const finalIndex = channel.sections.indexOf(newSection);
+        if (finalIndex >= 0) {
+            editorState.setSelectedSections([{ channelIndex, sectionIndex: finalIndex }]);
+        }
+    }
+
+    private generateSectionName(channel: NoteChannel): string {
+        const base = 'Section';
+        let counter = 1;
+        const existing = new Set(channel.sections.map((s) => s.name?.trim().toLowerCase()));
+        while (existing.has(`${base} ${counter}`.toLowerCase())) {
+            counter++;
+        }
+        return `${base} ${counter}`;
     }
 }
 

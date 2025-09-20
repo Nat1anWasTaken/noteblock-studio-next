@@ -167,6 +167,13 @@
                                         editorMouse.handleTimelineBlankPointerDown(contentEl, e);
                                     }
                                 }}
+                                onpointermove={(e) => {
+                                    const contentEl = timelineContentEl as HTMLElement;
+                                    if (!contentEl) return;
+                                    editorMouse.handleTimelineBlankPointerMove(contentEl, e);
+                                }}
+                                onpointerleave={() => editorMouse.handleTimelineBlankPointerLeave()}
+                                onpointercancel={() => editorMouse.handleTimelineBlankPointerLeave()}
                             ></div>
 
                             <!-- Channel row separators -->
