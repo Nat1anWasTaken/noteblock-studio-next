@@ -28,6 +28,7 @@ export class EditorMouseController {
     private _startX = 0;
     private _startY = 0;
     private _startChannelIndex: number | null = null;
+    private _startShiftKey = false;
     private _moved = false;
 
     // Dragging section context (supports multi-section drags)
@@ -107,6 +108,7 @@ export class EditorMouseController {
         this._startX = ev.clientX;
         this._startY = ev.clientY;
         this._startTick = this.tickFromClientX(contentEl, ev.clientX);
+        this._startShiftKey = ev.shiftKey;
         this._moved = false;
         this.clearNewSectionHover();
 
@@ -125,8 +127,10 @@ export class EditorMouseController {
             this._startChannelIndex = null;
         }
 
-        // Clear current section selection to start fresh
-        editorState.clearSelectedSections();
+        // Only clear current section selection if shift is not held
+        if (!ev.shiftKey) {
+            editorState.clearSelectedSections();
+        }
     };
 
     // --- Section pointerdown: click (or click+drag) on a specific section to move it ---
@@ -151,9 +155,39 @@ export class EditorMouseController {
         this._contentEl = content;
         this._startX = ev.clientX;
         this._startY = ev.clientY;
+        this._startShiftKey = ev.shiftKey;
         this._moved = false;
 
         const absTick = this.tickFromClientX(content, ev.clientX);
+
+        // Handle shift+select logic
+        if (ev.shiftKey) {
+            // Shift+click: toggle selection of this section
+            const wasSelected = editorState.selectedSections.some(
+                (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
+            );
+
+            if (wasSelected) {
+                // If this was the only selected section, don't deselect it
+                if (editorState.selectedSections.length > 1) {
+                    editorState.toggleSectionSelected(channelIndex, sectionIndex);
+                }
+            } else {
+                // Add to selection
+                editorState.toggleSectionSelected(channelIndex, sectionIndex);
+            }
+
+            // For shift+click, we don't want to drag unless the clicked section is still selected
+            const stillSelected = editorState.selectedSections.some(
+                (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
+            );
+
+            if (!stillSelected) {
+                // Section was deselected, don't prepare for dragging
+                this.isDraggingSection = false;
+                return;
+            }
+        }
 
         // If the clicked section is already part of the current multi-selection,
         // prepare to drag the entire selection. Otherwise single-select the clicked section.
@@ -186,14 +220,16 @@ export class EditorMouseController {
                 });
             }
         } else {
-            // Single selection (clicked)
-            items.push({
-                section,
-                originalChannelIndex: channelIndex,
-                originalSectionIndex: sectionIndex,
-                offsetTick: absTick - (section.startingTick ?? 0)
-            });
-            editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            // Single selection (clicked) - only if not shift+click
+            if (!ev.shiftKey) {
+                items.push({
+                    section,
+                    originalChannelIndex: channelIndex,
+                    originalSectionIndex: sectionIndex,
+                    offsetTick: absTick - (section.startingTick ?? 0)
+                });
+                editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            }
         }
 
         this._dragSectionRef = {
@@ -290,6 +326,7 @@ export class EditorMouseController {
         this.isResizingSection = true;
         this._contentEl = content;
         this._startX = ev.clientX;
+        this._startShiftKey = ev.shiftKey;
         this._moved = false;
 
         const startTick = section?.startingTick ?? 0;
@@ -300,11 +337,18 @@ export class EditorMouseController {
             startTick
         };
 
+        // Handle shift+select for resize: if shift is held and section is not selected, add it
         const alreadySelected = editorState.selectedSections.some(
             (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
         );
         if (!alreadySelected) {
-            editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            if (ev.shiftKey) {
+                // Add to selection
+                editorState.toggleSectionSelected(channelIndex, sectionIndex);
+            } else {
+                // Replace selection
+                editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            }
         }
     };
 
@@ -564,7 +608,26 @@ export class EditorMouseController {
                 }
             }
 
-            editorState.setSelectedSections(selections);
+            // Handle shift+select for marquee selection
+            if (this._startShiftKey) {
+                // Add to existing selection
+                const currentSelection = new Set(
+                    editorState.selectedSections.map((s) => `${s.channelIndex}-${s.sectionIndex}`)
+                );
+                const newSelections = selections.filter(
+                    (s) => !currentSelection.has(`${s.channelIndex}-${s.sectionIndex}`)
+                );
+                if (newSelections.length > 0) {
+                    editorState.setSelectedSections([
+                        ...editorState.selectedSections,
+                        ...newSelections
+                    ]);
+                }
+            } else {
+                // Replace selection
+                editorState.setSelectedSections(selections);
+            }
+
             this._moved ||=
                 Math.abs(e.clientX - this._startX) > 3 || Math.abs(e.clientY - this._startY) > 3;
         } else if (this.isResizingSection && this._resizeContext) {
@@ -670,9 +733,12 @@ export class EditorMouseController {
             }
         } else if (this.isSelectingSections) {
             if (!this._moved) {
+                // Store shift key state from the original pointer down event
+                const wasShiftHeld = this._startShiftKey ?? false;
                 if (
                     editorState.pointerMode === PointerMode.Normal &&
-                    this._startChannelIndex !== null
+                    this._startChannelIndex !== null &&
+                    !wasShiftHeld // Only create new section if shift was not held
                 ) {
                     this.createSectionAt(
                         this._startChannelIndex,
@@ -681,14 +747,16 @@ export class EditorMouseController {
                         this._startX,
                         this._startY
                     );
-                } else {
+                } else if (!wasShiftHeld) {
+                    // Only clear selection if shift was not held
                     editorState.clearSelectedSections();
                 }
             }
             // Otherwise keep the selection as-is (already set during move)
         } else if (this.isDraggingSection) {
             // Finalize drag: if it was a click (no move), select the clicked section
-            if (!this._moved && this._dragSectionRef) {
+            // (only if shift was not held, as shift+click selection is handled in pointerdown)
+            if (!this._moved && this._dragSectionRef && !this._startShiftKey) {
                 editorState.setSelectedSections([
                     {
                         channelIndex: this._dragSectionRef.primaryOriginalChannel,
@@ -728,6 +796,7 @@ export class EditorMouseController {
         this._startX = 0;
         this._startY = 0;
         this._startChannelIndex = null;
+        this._startShiftKey = false;
         this._dragSectionRef = null;
         this._resizeContext = null;
         this.clearNewSectionHover();
