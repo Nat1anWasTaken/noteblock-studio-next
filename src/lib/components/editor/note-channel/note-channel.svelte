@@ -24,7 +24,7 @@
     {@const width = Math.max(1, hover.length * pxPerTick)}
     {@const top = index * rowHeight}
     <div
-        class="absolute new-section-preview"
+        class="new-section-preview absolute"
         style={`left:${left}px; top:${top}px; width:${width}px; height:${rowHeight}px;`}
     >
         <Plus width={24} height={24} class="pointer-events-none" />
@@ -56,5 +56,4 @@
         z-index: 5;
         transition: opacity 120ms ease;
     }
-
 </style>

@@ -18,9 +18,9 @@ export class EditorMouseController {
     // Merge-mode hover state: { channelIndex, sectionIndex } when hovering a section (to merge with its next)
     mergeHover = $state<{ channelIndex: number; sectionIndex: number } | null>(null);
     // Blank-area hover state for creating a new section
-    newSectionHover = $state<
-        { channelIndex: number; startingTick: number; length: number } | null
-    >(null);
+    newSectionHover = $state<{ channelIndex: number; startingTick: number; length: number } | null>(
+        null
+    );
 
     // Context captured on pointerdown
     private _contentEl: HTMLElement | null = null;
