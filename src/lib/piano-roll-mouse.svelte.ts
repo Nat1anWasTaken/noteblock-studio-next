@@ -102,7 +102,12 @@ export class PianoRollMouseController {
                 currentKey: key
             };
             this.updateSelectionOverlayRect();
-            this.pianoRollState.clearSelection();
+
+            // Only clear selection if shift is not pressed
+            if (!event.shiftKey) {
+                this.pianoRollState.clearSelection();
+            }
+
             this.pianoRollState.gridContent?.setPointerCapture(event.pointerId);
         } else if (this.pianoRollState.pointerMode === 'pen') {
             // Clear any existing selection state when in pen mode
@@ -142,8 +147,25 @@ export class PianoRollMouseController {
         if (!section) return;
 
         if (this.pianoRollState.pointerMode === PointerMode.Normal) {
-            if (!this.pianoRollState.selectedNotes.includes(note)) {
-                this.pianoRollState.selectNotes([note]);
+            if (event.shiftKey) {
+                // Shift + click: toggle selection
+                const currentlySelected = this.pianoRollState.selectedNotes.includes(note);
+                if (currentlySelected) {
+                    // Remove from selection
+                    const newSelection = this.pianoRollState.selectedNotes.filter(
+                        (n) => n !== note
+                    );
+                    this.pianoRollState.selectNotes(newSelection);
+                } else {
+                    // Add to selection
+                    const newSelection = [...this.pianoRollState.selectedNotes, note];
+                    this.pianoRollState.selectNotes(newSelection);
+                }
+            } else {
+                // Normal click: replace selection
+                if (!this.pianoRollState.selectedNotes.includes(note)) {
+                    this.pianoRollState.selectNotes([note]);
+                }
             }
 
             const notes = [...this.pianoRollState.selectedNotes];
