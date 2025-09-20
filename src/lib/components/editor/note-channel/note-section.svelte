@@ -178,6 +178,7 @@
     onpointerdown={onPointerDown}
     onpointermove={(ev) =>
         editorMouse.handleSectionPointerMove(channelIndex, sectionIndex, section, null, ev)}
+    onpointerenter={() => editorMouse.clearNewSectionHover()}
     onpointerleave={() => editorMouse.handleSectionPointerLeave(channelIndex, sectionIndex)}
     ondblclick={handleOpenPianoRoll}
     role="button"

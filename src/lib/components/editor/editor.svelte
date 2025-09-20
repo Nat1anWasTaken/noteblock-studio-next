@@ -1,8 +1,10 @@
 <script lang="ts">
     import * as Resizable from '$lib/components/ui/resizable';
+    import { commandManager } from '$lib/command-manager';
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { player } from '$lib/playback.svelte';
+    import { onMount } from 'svelte';
     import CommandPalette from './command-palette.svelte';
     import EditorHeader from './editor-header.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
@@ -93,6 +95,47 @@
         return 'cursor-default';
     }
     const cursorClass = $derived(computeCursorClass());
+
+    function deleteSelectedSections() {
+        if (editorState.selectedSections.length === 0) return;
+
+        const selectionsToDelete = [...editorState.selectedSections];
+        selectionsToDelete
+            .sort((a, b) => b.channelIndex - a.channelIndex || b.sectionIndex - a.sectionIndex)
+            .forEach(({ channelIndex, sectionIndex }) => {
+                const channel = player.song?.channels[channelIndex];
+                if (channel && channel.kind === 'note') {
+                    channel.sections.splice(sectionIndex, 1);
+                }
+            });
+
+        player.refreshIndexes();
+        editorState.clearSelectedSections();
+    }
+
+    onMount(() => {
+        commandManager.registerCommands([
+            {
+                id: 'delete-selected-sections',
+                title: 'Delete Selected Sections',
+                callback: deleteSelectedSections,
+                shortcut: 'DELETE'
+            },
+            {
+                id: 'delete-selected-sections-backspace',
+                title: 'Delete Selected Sections (Backspace)',
+                callback: deleteSelectedSections,
+                shortcut: 'BACKSPACE'
+            }
+        ]);
+
+        return () => {
+            commandManager.unregisterCommands([
+                'delete-selected-sections',
+                'delete-selected-sections-backspace'
+            ]);
+        };
+    });
 </script>
 
 <div class="flex h-screen flex-col">
@@ -167,6 +210,14 @@
                                         editorMouse.handleTimelineBlankPointerDown(contentEl, e);
                                     }
                                 }}
+                                onpointermove={(e) => {
+                                    const contentEl = timelineContentEl as HTMLElement;
+                                    if (!contentEl) return;
+                                    editorMouse.handleTimelineBlankPointerMove(contentEl, e);
+                                }}
+                                onpointerleave={() => editorMouse.handleTimelineBlankPointerLeave()}
+                                onpointercancel={() =>
+                                    editorMouse.handleTimelineBlankPointerLeave()}
                             ></div>
 
                             <!-- Channel row separators -->

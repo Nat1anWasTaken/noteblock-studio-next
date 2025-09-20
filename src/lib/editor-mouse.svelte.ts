@@ -1,5 +1,6 @@
 import { editorState, PointerMode } from './editor-state.svelte';
 import { player } from './playback.svelte';
+import type { NoteChannel } from './types';
 
 // Centralized mouse/gesture controller for the editor
 export class EditorMouseController {
@@ -16,12 +17,18 @@ export class EditorMouseController {
     shearsHover = $state<{ channelIndex: number; sectionIndex: number; tick: number } | null>(null);
     // Merge-mode hover state: { channelIndex, sectionIndex } when hovering a section (to merge with its next)
     mergeHover = $state<{ channelIndex: number; sectionIndex: number } | null>(null);
+    // Blank-area hover state for creating a new section
+    newSectionHover = $state<{ channelIndex: number; startingTick: number; length: number } | null>(
+        null
+    );
 
     // Context captured on pointerdown
     private _contentEl: HTMLElement | null = null;
     private _startTick = 0;
     private _startX = 0;
     private _startY = 0;
+    private _startChannelIndex: number | null = null;
+    private _startShiftKey = false;
     private _moved = false;
 
     // Dragging section context (supports multi-section drags)
@@ -87,6 +94,7 @@ export class EditorMouseController {
         this._startX = ev.clientX;
         const tick = this.tickFromClientX(contentEl, ev.clientX);
         player.setCurrentTick(tick);
+        this.clearNewSectionHover();
     };
 
     // --- Content background pointerdown to start section selection (Normal mode) ---
@@ -100,10 +108,29 @@ export class EditorMouseController {
         this._startX = ev.clientX;
         this._startY = ev.clientY;
         this._startTick = this.tickFromClientX(contentEl, ev.clientX);
+        this._startShiftKey = ev.shiftKey;
         this._moved = false;
+        this.clearNewSectionHover();
 
-        // Clear current section selection to start fresh
-        editorState.clearSelectedSections();
+        const rect = contentEl.getBoundingClientRect();
+        const relY = ev.clientY - rect.top;
+        const potentialIndex = Math.floor(relY / editorState.rowHeight);
+        const channels = player.song?.channels ?? [];
+        if (
+            Number.isFinite(potentialIndex) &&
+            potentialIndex >= 0 &&
+            potentialIndex < channels.length &&
+            channels[potentialIndex]?.kind === 'note'
+        ) {
+            this._startChannelIndex = potentialIndex;
+        } else {
+            this._startChannelIndex = null;
+        }
+
+        // Only clear current section selection if shift is not held
+        if (!ev.shiftKey) {
+            editorState.clearSelectedSections();
+        }
     };
 
     // --- Section pointerdown: click (or click+drag) on a specific section to move it ---
@@ -118,6 +145,7 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Normal) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
@@ -127,9 +155,39 @@ export class EditorMouseController {
         this._contentEl = content;
         this._startX = ev.clientX;
         this._startY = ev.clientY;
+        this._startShiftKey = ev.shiftKey;
         this._moved = false;
 
         const absTick = this.tickFromClientX(content, ev.clientX);
+
+        // Handle shift+select logic
+        if (ev.shiftKey) {
+            // Shift+click: toggle selection of this section
+            const wasSelected = editorState.selectedSections.some(
+                (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
+            );
+
+            if (wasSelected) {
+                // If this was the only selected section, don't deselect it
+                if (editorState.selectedSections.length > 1) {
+                    editorState.toggleSectionSelected(channelIndex, sectionIndex);
+                }
+            } else {
+                // Add to selection
+                editorState.toggleSectionSelected(channelIndex, sectionIndex);
+            }
+
+            // For shift+click, we don't want to drag unless the clicked section is still selected
+            const stillSelected = editorState.selectedSections.some(
+                (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
+            );
+
+            if (!stillSelected) {
+                // Section was deselected, don't prepare for dragging
+                this.isDraggingSection = false;
+                return;
+            }
+        }
 
         // If the clicked section is already part of the current multi-selection,
         // prepare to drag the entire selection. Otherwise single-select the clicked section.
@@ -162,14 +220,16 @@ export class EditorMouseController {
                 });
             }
         } else {
-            // Single selection (clicked)
-            items.push({
-                section,
-                originalChannelIndex: channelIndex,
-                originalSectionIndex: sectionIndex,
-                offsetTick: absTick - (section.startingTick ?? 0)
-            });
-            editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            // Single selection (clicked) - only if not shift+click
+            if (!ev.shiftKey) {
+                items.push({
+                    section,
+                    originalChannelIndex: channelIndex,
+                    originalSectionIndex: sectionIndex,
+                    offsetTick: absTick - (section.startingTick ?? 0)
+                });
+                editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            }
         }
 
         this._dragSectionRef = {
@@ -178,6 +238,72 @@ export class EditorMouseController {
             primaryOriginalSectionIndex: sectionIndex
         };
     };
+
+    handleTimelineBlankPointerMove = (contentEl: HTMLElement, ev: PointerEvent) => {
+        if (editorState.pointerMode !== PointerMode.Normal) {
+            this.clearNewSectionHover();
+            return;
+        }
+        if (
+            this.isSelecting ||
+            this.isScrubbing ||
+            this.isSelectingSections ||
+            this.isDraggingSection ||
+            this.isResizingSection
+        ) {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        const channels = player.song?.channels ?? [];
+        if (!contentEl || channels.length === 0) {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        const rect = contentEl.getBoundingClientRect();
+        const relY = ev.clientY - rect.top;
+        if (relY < 0) {
+            this.clearNewSectionHover();
+            return;
+        }
+        const channelIndex = Math.floor(relY / editorState.rowHeight);
+        const channel = channels[channelIndex] as NoteChannel | undefined;
+        if (!channel || channel.kind !== 'note') {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        const tick = this.tickFromClientX(contentEl, ev.clientX);
+        const ticksPerBeat = editorState.ticksPerBeat > 0 ? editorState.ticksPerBeat : 1;
+        const beatsPerBar = editorState.beatsPerBar > 0 ? editorState.beatsPerBar : 4;
+        const ticksPerBar = Math.max(1, Math.round(ticksPerBeat * beatsPerBar));
+        const startingTick = Math.max(0, Math.floor(tick / ticksPerBar) * ticksPerBar);
+        const length = ticksPerBar;
+
+        const overlap = channel.sections.some((section) => {
+            const sStart = section.startingTick ?? 0;
+            const sEnd = sStart + (section.length ?? 0);
+            const previewEnd = startingTick + length;
+            return previewEnd > sStart && startingTick < sEnd;
+        });
+        if (overlap) {
+            this.clearNewSectionHover();
+            return;
+        }
+
+        this.newSectionHover = { channelIndex, startingTick, length };
+    };
+
+    handleTimelineBlankPointerLeave = () => {
+        this.clearNewSectionHover();
+    };
+
+    clearNewSectionHover() {
+        if (this.newSectionHover) {
+            this.newSectionHover = null;
+        }
+    }
 
     // --- Section resize: pointer down on the resize handle to change section length ---
     handleSectionResizePointerDown = (
@@ -191,6 +317,7 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Normal) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
@@ -199,6 +326,7 @@ export class EditorMouseController {
         this.isResizingSection = true;
         this._contentEl = content;
         this._startX = ev.clientX;
+        this._startShiftKey = ev.shiftKey;
         this._moved = false;
 
         const startTick = section?.startingTick ?? 0;
@@ -209,11 +337,18 @@ export class EditorMouseController {
             startTick
         };
 
+        // Handle shift+select for resize: if shift is held and section is not selected, add it
         const alreadySelected = editorState.selectedSections.some(
             (s) => s.channelIndex === channelIndex && s.sectionIndex === sectionIndex
         );
         if (!alreadySelected) {
-            editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            if (ev.shiftKey) {
+                // Add to selection
+                editorState.toggleSectionSelected(channelIndex, sectionIndex);
+            } else {
+                // Replace selection
+                editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
+            }
         }
     };
 
@@ -225,6 +360,7 @@ export class EditorMouseController {
         contentEl: HTMLElement | null,
         ev: PointerEvent
     ) => {
+        this.clearNewSectionHover();
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
         if (!content) {
@@ -241,9 +377,11 @@ export class EditorMouseController {
             const secEnd = secStart + (section.length ?? 0);
             if (absTick < secStart || absTick > secEnd) {
                 this.shearsHover = null;
-                return;
+            } else {
+                // Snap the hover tick to the nearest bar
+                const snappedTick = player.snapTickToNearestBarStart(absTick);
+                this.shearsHover = { channelIndex, sectionIndex, tick: snappedTick };
             }
-            this.shearsHover = { channelIndex, sectionIndex, tick: absTick };
             // clear merge hover when in shears mode
             this.mergeHover = null;
             return;
@@ -284,6 +422,7 @@ export class EditorMouseController {
 
     // --- Shears mode: pointer leave clears hover ---
     handleSectionPointerLeave = (channelIndex: number, sectionIndex: number) => {
+        this.clearNewSectionHover();
         const sh = this.shearsHover;
         if (sh && sh.channelIndex === channelIndex && sh.sectionIndex === sectionIndex) {
             this.shearsHover = null;
@@ -305,13 +444,16 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Shears) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
         if (!content) return;
 
         const absTick = this.tickFromClientX(content, ev.clientX);
-        this.splitSectionAt(channelIndex, sectionIndex, absTick);
+        // Snap the cut tick to the nearest bar
+        const snappedTick = player.snapTickToNearestBarStart(absTick);
+        this.splitSectionAt(channelIndex, sectionIndex, snappedTick);
         // Clear hover after splitting
         this.shearsHover = null;
     };
@@ -327,6 +469,7 @@ export class EditorMouseController {
         if (editorState.pointerMode !== PointerMode.Merge) return;
         ev.preventDefault();
         ev.stopPropagation();
+        this.clearNewSectionHover();
 
         const content =
             contentEl ?? (document.querySelector('[data-editor-content]') as HTMLElement);
@@ -403,7 +546,7 @@ export class EditorMouseController {
 
         // New right section
         const newSection: any = {
-            startingTick: player.snapTickToBarStart(start + localSplit),
+            startingTick: player.snapTickToNearestBarStart(start + localSplit),
             length: length - localSplit,
             notes: rightNotes,
             name: sec.name ? `${sec.name} (part)` : 'Part'
@@ -469,7 +612,26 @@ export class EditorMouseController {
                 }
             }
 
-            editorState.setSelectedSections(selections);
+            // Handle shift+select for marquee selection
+            if (this._startShiftKey) {
+                // Add to existing selection
+                const currentSelection = new Set(
+                    editorState.selectedSections.map((s) => `${s.channelIndex}-${s.sectionIndex}`)
+                );
+                const newSelections = selections.filter(
+                    (s) => !currentSelection.has(`${s.channelIndex}-${s.sectionIndex}`)
+                );
+                if (newSelections.length > 0) {
+                    editorState.setSelectedSections([
+                        ...editorState.selectedSections,
+                        ...newSelections
+                    ]);
+                }
+            } else {
+                // Replace selection
+                editorState.setSelectedSections(selections);
+            }
+
             this._moved ||=
                 Math.abs(e.clientX - this._startX) > 3 || Math.abs(e.clientY - this._startY) > 3;
         } else if (this.isResizingSection && this._resizeContext) {
@@ -477,19 +639,12 @@ export class EditorMouseController {
             const ctx = this._resizeContext;
 
             const startTick = ctx.startTick;
-            const startBar = player.getBarAtTick(startTick);
             const pointerTick = Math.max(0, absTick);
-            const pointerBar = player.getBarAtTick(pointerTick);
 
-            // Always keep at least one full bar. Allow shrinking by moving pointer into earlier bars.
-            const targetBar = Math.max(startBar + 1, pointerBar + 1);
-            let snappedEnd = player.getBarStartTick(targetBar);
+            // Snap the pointer tick to the nearest bar start
+            const snappedEnd = player.snapTickToNearestBarStart(pointerTick);
 
-            if (snappedEnd <= startTick) {
-                const fallback = player.getBarStartTick(startBar + 1);
-                snappedEnd = Math.max(fallback, startTick + 1);
-            }
-
+            // Ensure the snapped end is at least one tick after the start
             const newLength = Math.max(1, Math.round(snappedEnd - startTick));
             if (ctx.section.length !== newLength) {
                 ctx.section.length = newLength;
@@ -513,7 +668,7 @@ export class EditorMouseController {
             }> = [];
 
             for (const item of this._dragSectionRef.items) {
-                const newStart = player.snapTickToBarStart(
+                const newStart = player.snapTickToNearestBarStart(
                     Math.max(0, Math.round(absTick - item.offsetTick))
                 );
 
@@ -575,13 +730,30 @@ export class EditorMouseController {
             }
         } else if (this.isSelectingSections) {
             if (!this._moved) {
-                // Click without drag => clear section selection
-                editorState.clearSelectedSections();
+                // Store shift key state from the original pointer down event
+                const wasShiftHeld = this._startShiftKey ?? false;
+                if (
+                    editorState.pointerMode === PointerMode.Normal &&
+                    this._startChannelIndex !== null &&
+                    !wasShiftHeld // Only create new section if shift was not held
+                ) {
+                    this.createSectionAt(
+                        this._startChannelIndex,
+                        this._contentEl,
+                        this._startTick,
+                        this._startX,
+                        this._startY
+                    );
+                } else if (!wasShiftHeld) {
+                    // Only clear selection if shift was not held
+                    editorState.clearSelectedSections();
+                }
             }
             // Otherwise keep the selection as-is (already set during move)
         } else if (this.isDraggingSection) {
             // Finalize drag: if it was a click (no move), select the clicked section
-            if (!this._moved && this._dragSectionRef) {
+            // (only if shift was not held, as shift+click selection is handled in pointerdown)
+            if (!this._moved && this._dragSectionRef && !this._startShiftKey) {
                 editorState.setSelectedSections([
                     {
                         channelIndex: this._dragSectionRef.primaryOriginalChannel,
@@ -620,8 +792,74 @@ export class EditorMouseController {
         this._startTick = 0;
         this._startX = 0;
         this._startY = 0;
+        this._startChannelIndex = null;
+        this._startShiftKey = false;
         this._dragSectionRef = null;
         this._resizeContext = null;
+        this.clearNewSectionHover();
+    }
+
+    private createSectionAt(
+        channelIndex: number,
+        contentEl: HTMLElement,
+        rawTick: number,
+        clientX: number,
+        clientY: number
+    ) {
+        const song = player.song;
+        if (!song) return;
+        const channel = song.channels[channelIndex] as NoteChannel | undefined;
+        if (!channel || channel.kind !== 'note') return;
+
+        const rect = contentEl.getBoundingClientRect();
+        const relY = clientY - rect.top;
+        if (relY < 0 || relY >= song.channels.length * editorState.rowHeight) return;
+
+        const ticksPerBeat = editorState.ticksPerBeat > 0 ? editorState.ticksPerBeat : 1;
+        const beatsPerBar = editorState.beatsPerBar > 0 ? editorState.beatsPerBar : 4;
+        const ticksPerBar = Math.max(1, Math.round(ticksPerBeat * beatsPerBar));
+
+        const tickFromEvent = this.tickFromClientX(contentEl, clientX);
+        const baseTick = Number.isFinite(rawTick) ? rawTick : tickFromEvent;
+        const startingTick = Math.max(0, Math.floor(baseTick / ticksPerBar) * ticksPerBar);
+        const length = ticksPerBar;
+        const newEnd = startingTick + length;
+
+        const overlaps = channel.sections.some((section) => {
+            const sStart = section.startingTick ?? 0;
+            const sEnd = sStart + (section.length ?? 0);
+            return newEnd > sStart && startingTick < sEnd;
+        });
+        if (overlaps) return;
+
+        const newSection = {
+            startingTick,
+            length,
+            notes: [],
+            name: this.generateSectionName(channel)
+        };
+
+        const insertIndex = channel.sections.findIndex((s) => s.startingTick > startingTick);
+        if (insertIndex >= 0) channel.sections.splice(insertIndex, 0, newSection);
+        else channel.sections.push(newSection);
+
+        song.length = Math.max(song.length ?? 0, newEnd);
+        player.refreshIndexes();
+
+        const finalIndex = channel.sections.indexOf(newSection);
+        if (finalIndex >= 0) {
+            editorState.setSelectedSections([{ channelIndex, sectionIndex: finalIndex }]);
+        }
+    }
+
+    private generateSectionName(channel: NoteChannel): string {
+        const base = 'Section';
+        let counter = 1;
+        const existing = new Set(channel.sections.map((s) => s.name?.trim().toLowerCase()));
+        while (existing.has(`${base} ${counter}`.toLowerCase())) {
+            counter++;
+        }
+        return `${base} ${counter}`;
     }
 }
 
