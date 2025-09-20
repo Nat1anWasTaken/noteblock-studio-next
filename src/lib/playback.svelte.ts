@@ -367,11 +367,19 @@ export class Player {
     }
 
     /**
-     * Snap a tick to the start of its bar.
+     * Snap a tick to the start of the nearest bar.
      */
-    snapTickToBarStart(tick: number): number {
-        const bar = this.getBarAtTick(tick);
-        return this.findTickForBarBeat(bar, 0).tick;
+    snapTickToNearestBarStart(tick: number): number {
+        const { bar } = this.computeBarBeatAtTick(tick);
+        const currentBarStart = this.findTickForBarBeat(bar, 0).tick;
+        const nextBarStart = this.findTickForBarBeat(bar + 1, 0).tick;
+
+        // Calculate distance to current bar start and next bar start
+        const distanceToCurrent = Math.abs(tick - currentBarStart);
+        const distanceToNext = Math.abs(tick - nextBarStart);
+
+        // Return the closer bar start
+        return distanceToCurrent <= distanceToNext ? currentBarStart : nextBarStart;
     }
 
     /**
@@ -689,7 +697,7 @@ export class Player {
         for (const channel of song.channels) {
             if (channel.kind === 'tempo') {
                 for (const tempoChange of channel.tempoChanges) {
-                    tempoChange.tick = this.snapTickToBarStart(tempoChange.tick);
+                    tempoChange.tick = this.snapTickToNearestBarStart(tempoChange.tick);
                 }
             }
         }
@@ -827,7 +835,7 @@ export class Player {
 
         // Ensure tempo changes are at bar boundaries
         for (const tempoChange of channel.tempoChanges) {
-            tempoChange.tick = this.snapTickToBarStart(tempoChange.tick);
+            tempoChange.tick = this.snapTickToNearestBarStart(tempoChange.tick);
         }
 
         // Refresh indexes to ensure player state is synchronized

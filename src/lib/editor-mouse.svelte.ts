@@ -377,9 +377,11 @@ export class EditorMouseController {
             const secEnd = secStart + (section.length ?? 0);
             if (absTick < secStart || absTick > secEnd) {
                 this.shearsHover = null;
-                return;
+            } else {
+                // Snap the hover tick to the nearest bar
+                const snappedTick = player.snapTickToNearestBarStart(absTick);
+                this.shearsHover = { channelIndex, sectionIndex, tick: snappedTick };
             }
-            this.shearsHover = { channelIndex, sectionIndex, tick: absTick };
             // clear merge hover when in shears mode
             this.mergeHover = null;
             return;
@@ -449,7 +451,9 @@ export class EditorMouseController {
         if (!content) return;
 
         const absTick = this.tickFromClientX(content, ev.clientX);
-        this.splitSectionAt(channelIndex, sectionIndex, absTick);
+        // Snap the cut tick to the nearest bar
+        const snappedTick = player.snapTickToNearestBarStart(absTick);
+        this.splitSectionAt(channelIndex, sectionIndex, snappedTick);
         // Clear hover after splitting
         this.shearsHover = null;
     };
@@ -542,7 +546,7 @@ export class EditorMouseController {
 
         // New right section
         const newSection: any = {
-            startingTick: player.snapTickToBarStart(start + localSplit),
+            startingTick: player.snapTickToNearestBarStart(start + localSplit),
             length: length - localSplit,
             notes: rightNotes,
             name: sec.name ? `${sec.name} (part)` : 'Part'
@@ -635,19 +639,12 @@ export class EditorMouseController {
             const ctx = this._resizeContext;
 
             const startTick = ctx.startTick;
-            const startBar = player.getBarAtTick(startTick);
             const pointerTick = Math.max(0, absTick);
-            const pointerBar = player.getBarAtTick(pointerTick);
 
-            // Always keep at least one full bar. Allow shrinking by moving pointer into earlier bars.
-            const targetBar = Math.max(startBar + 1, pointerBar + 1);
-            let snappedEnd = player.getBarStartTick(targetBar);
+            // Snap the pointer tick to the nearest bar start
+            const snappedEnd = player.snapTickToNearestBarStart(pointerTick);
 
-            if (snappedEnd <= startTick) {
-                const fallback = player.getBarStartTick(startBar + 1);
-                snappedEnd = Math.max(fallback, startTick + 1);
-            }
-
+            // Ensure the snapped end is at least one tick after the start
             const newLength = Math.max(1, Math.round(snappedEnd - startTick));
             if (ctx.section.length !== newLength) {
                 ctx.section.length = newLength;
@@ -671,7 +668,7 @@ export class EditorMouseController {
             }> = [];
 
             for (const item of this._dragSectionRef.items) {
-                const newStart = player.snapTickToBarStart(
+                const newStart = player.snapTickToNearestBarStart(
                     Math.max(0, Math.round(absTick - item.offsetTick))
                 );
 
