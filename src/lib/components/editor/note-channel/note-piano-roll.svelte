@@ -100,7 +100,7 @@
             {
                 id: 'piano-roll-backspace-selected-notes',
                 title: 'Delete Selected Notes',
-                shortcut: 'Backspace',
+                shortcut: 'BACKSPACE',
                 callback: () => pianoRollMouse.deleteSelectedNotes()
             }
         ]);
