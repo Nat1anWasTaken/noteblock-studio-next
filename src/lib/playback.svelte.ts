@@ -1,10 +1,14 @@
 import { browser } from '$app/environment';
 import {
     createAddNoteAction,
+    createAddSectionAction,
     createCreateNoteChannelAction,
+    createMoveSectionAction,
     createRemoveChannelAction,
     createRemoveNoteAction,
     createRemoveNotesAction,
+    createRemoveSectionAction,
+    createRemoveSectionsAction,
     createSetSoloAction,
     createSetTempoAction,
     createToggleMuteAction,
@@ -967,7 +971,11 @@ export class Player {
      * Update a tempo channel with partial data.
      * Updates the channel in place and refreshes indexes to keep player in sync.
      */
-    updateTempoChannel(index: number, updates: Partial<TempoChannel>, options?: HistoryCallOptions) {
+    updateTempoChannel(
+        index: number,
+        updates: Partial<TempoChannel>,
+        options?: HistoryCallOptions
+    ) {
         if (!this.song) return;
         const channel = this.song.channels[index];
         if (!channel || channel.kind !== 'tempo') return;
@@ -1068,6 +1076,138 @@ export class Player {
 
         // Return the index where the channel was created
         return newIndex;
+    }
+
+    /**
+     * Add a new section to a note channel.
+     */
+    addSection(
+        channelIndex: number,
+        section: NoteSection,
+        insertIndex?: number,
+        options?: HistoryCallOptions
+    ): boolean {
+        if (!this.song) return false;
+        const channel = this.song.channels[channelIndex];
+        if (!channel || channel.kind !== 'note') return false;
+
+        const index = insertIndex ?? channel.sections.length;
+        const clampedIndex = Math.min(Math.max(index, 0), channel.sections.length);
+
+        if (options?.skipHistory) {
+            channel.sections.splice(clampedIndex, 0, section);
+            this.refreshIndexes();
+            return true;
+        }
+
+        const action = createAddSectionAction(channelIndex, section, clampedIndex);
+        historyManager.execute(action);
+        return true;
+    }
+
+    /**
+     * Remove a section from a note channel.
+     */
+    removeSection(
+        channelIndex: number,
+        sectionIndex: number,
+        options?: HistoryCallOptions
+    ): NoteSection | null {
+        if (!this.song) return null;
+        const channel = this.song.channels[channelIndex];
+        if (!channel || channel.kind !== 'note') return null;
+        if (sectionIndex < 0 || sectionIndex >= channel.sections.length) return null;
+
+        const section = channel.sections[sectionIndex];
+
+        if (options?.skipHistory) {
+            channel.sections.splice(sectionIndex, 1);
+            this.refreshIndexes();
+            return section;
+        }
+
+        const action = createRemoveSectionAction(channelIndex, sectionIndex, section);
+        historyManager.execute(action);
+        return section;
+    }
+
+    /**
+     * Remove multiple sections from various channels.
+     */
+    removeSections(
+        sectionsToRemove: Array<{
+            channelIndex: number;
+            sectionIndex: number;
+        }>,
+        options?: HistoryCallOptions
+    ): Array<{ channelIndex: number; sectionIndex: number; section: NoteSection }> {
+        if (!this.song) return [];
+
+        // Collect section references before removal
+        const sectionsWithData = sectionsToRemove
+            .map(({ channelIndex, sectionIndex }) => {
+                const channel = this.song?.channels[channelIndex];
+                if (!channel || channel.kind !== 'note') return null;
+                const section = channel.sections[sectionIndex];
+                if (!section) return null;
+                return { channelIndex, sectionIndex, section };
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null);
+
+        if (sectionsWithData.length === 0) return [];
+
+        if (options?.skipHistory) {
+            // Sort by channel index descending, then section index descending
+            const sorted = [...sectionsWithData].sort((a, b) => {
+                if (a.channelIndex !== b.channelIndex) {
+                    return b.channelIndex - a.channelIndex;
+                }
+                return b.sectionIndex - a.sectionIndex;
+            });
+
+            for (const { channelIndex, sectionIndex } of sorted) {
+                const channel = this.song.channels[channelIndex];
+                if (channel?.kind === 'note' && channel.sections[sectionIndex]) {
+                    channel.sections.splice(sectionIndex, 1);
+                }
+            }
+            this.refreshIndexes();
+            return sectionsWithData;
+        }
+
+        const action = createRemoveSectionsAction(sectionsWithData);
+        historyManager.execute(action);
+        return sectionsWithData;
+    }
+
+    /**
+     * Move a section within a channel.
+     */
+    moveSection(
+        channelIndex: number,
+        fromIndex: number,
+        toIndex: number,
+        options?: HistoryCallOptions
+    ): boolean {
+        if (!this.song) return false;
+        const channel = this.song.channels[channelIndex];
+        if (!channel || channel.kind !== 'note') return false;
+        if (fromIndex < 0 || fromIndex >= channel.sections.length) return false;
+        if (toIndex < 0 || toIndex > channel.sections.length) return false;
+        if (fromIndex === toIndex) return true;
+
+        if (options?.skipHistory) {
+            const section = channel.sections[fromIndex];
+            channel.sections.splice(fromIndex, 1);
+            const adjustedToIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+            channel.sections.splice(adjustedToIndex, 0, section);
+            this.refreshIndexes();
+            return true;
+        }
+
+        const action = createMoveSectionAction(channelIndex, fromIndex, toIndex);
+        historyManager.execute(action);
+        return true;
     }
 
     private scheduleUi() {

@@ -1,9 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { commandManager } from './command-manager';
-import { editorMouse } from './editor-mouse.svelte';
-import { editorState } from './editor-state.svelte';
-import { player } from './playback.svelte';
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));

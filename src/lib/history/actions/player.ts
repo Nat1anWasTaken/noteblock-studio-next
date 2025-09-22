@@ -141,7 +141,9 @@ export function createUpdateNoteSectionAction(
     return {
         label: 'Update section',
         do(ctx) {
-            ctx.player.updateNoteSection(channelIndex, sectionIndex, updates, { skipHistory: true });
+            ctx.player.updateNoteSection(channelIndex, sectionIndex, updates, {
+                skipHistory: true
+            });
         },
         undo(ctx) {
             ctx.player.updateNoteSection(channelIndex, sectionIndex, previousState, {
@@ -448,6 +450,157 @@ export function createRemoveNotesAction(
         },
         canCoalesceWith(next) {
             return next.label === label;
+        }
+    };
+}
+
+/**
+ * Action for creating a new section in a note channel
+ */
+export function createAddSectionAction(
+    channelIndex: number,
+    section: NoteSection,
+    insertIndex: number
+): HistoryAction {
+    return {
+        label: 'Add section',
+        do(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                channel.sections.splice(insertIndex, 0, section);
+                ctx.player.refreshIndexes();
+            }
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const actualIndex = channel.sections.indexOf(section);
+                if (actualIndex !== -1) {
+                    channel.sections.splice(actualIndex, 1);
+                } else if (insertIndex < channel.sections.length) {
+                    channel.sections.splice(insertIndex, 1);
+                }
+                ctx.player.refreshIndexes();
+            }
+        }
+    };
+}
+
+/**
+ * Action for removing a section from a note channel
+ */
+export function createRemoveSectionAction(
+    channelIndex: number,
+    sectionIndex: number,
+    removedSection: NoteSection
+): HistoryAction {
+    return {
+        label: 'Remove section',
+        do(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                channel.sections.splice(sectionIndex, 1);
+                ctx.player.refreshIndexes();
+            }
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const insertIndex = Math.min(sectionIndex, channel.sections.length);
+                channel.sections.splice(insertIndex, 0, removedSection);
+                ctx.player.refreshIndexes();
+            }
+        }
+    };
+}
+
+/**
+ * Action for removing multiple sections from channels
+ */
+export function createRemoveSectionsAction(
+    sectionsToRemove: Array<{
+        channelIndex: number;
+        sectionIndex: number;
+        section: NoteSection;
+    }>
+): HistoryAction {
+    // Sort by channel index descending, then section index descending
+    // This ensures we remove from the end first to avoid index shifting
+    const sortedRemovals = [...sectionsToRemove].sort((a, b) => {
+        if (a.channelIndex !== b.channelIndex) {
+            return b.channelIndex - a.channelIndex;
+        }
+        return b.sectionIndex - a.sectionIndex;
+    });
+
+    const label = sectionsToRemove.length === 1 ? 'Remove section' : 'Remove sections';
+
+    return {
+        label,
+        do(ctx) {
+            const song = getSong(ctx.player);
+            for (const removal of sortedRemovals) {
+                const channel = song.channels[removal.channelIndex];
+                if (channel?.kind === 'note' && channel.sections[removal.sectionIndex]) {
+                    channel.sections.splice(removal.sectionIndex, 1);
+                }
+            }
+            ctx.player.refreshIndexes();
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            // Restore in reverse order (ascending indices)
+            for (const removal of [...sortedRemovals].reverse()) {
+                const channel = song.channels[removal.channelIndex];
+                if (channel?.kind === 'note') {
+                    const insertIndex = Math.min(removal.sectionIndex, channel.sections.length);
+                    channel.sections.splice(insertIndex, 0, removal.section);
+                }
+            }
+            ctx.player.refreshIndexes();
+        }
+    };
+}
+
+/**
+ * Action for moving a section within a channel
+ */
+export function createMoveSectionAction(
+    channelIndex: number,
+    fromIndex: number,
+    toIndex: number
+): HistoryAction {
+    return {
+        label: 'Move section',
+        do(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const section = channel.sections[fromIndex];
+                if (section) {
+                    channel.sections.splice(fromIndex, 1);
+                    const adjustedToIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+                    channel.sections.splice(adjustedToIndex, 0, section);
+                    ctx.player.refreshIndexes();
+                }
+            }
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const adjustedToIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+                const section = channel.sections[adjustedToIndex];
+                if (section) {
+                    channel.sections.splice(adjustedToIndex, 1);
+                    channel.sections.splice(fromIndex, 0, section);
+                    ctx.player.refreshIndexes();
+                }
+            }
         }
     };
 }

@@ -430,37 +430,39 @@
 
     <!-- Right: Undo/Redo controls -->
     <div class="flex flex-1 items-center justify-end gap-1.5">
+        {#snippet undoButton({ props }: { props: any })}
+            <Button
+                {...props}
+                variant="ghost"
+                size="icon"
+                aria-label="Undo"
+                disabled={!historyManager.canUndo}
+                onclick={() => historyManager.undo()}
+            >
+                <Undo class="size-5" />
+            </Button>
+        {/snippet}
+
+        {#snippet redoButton({ props }: { props: any })}
+            <Button
+                {...props}
+                variant="ghost"
+                size="icon"
+                aria-label="Redo"
+                disabled={!historyManager.canRedo}
+                onclick={() => historyManager.redo()}
+            >
+                <Redo class="size-5" />
+            </Button>
+        {/snippet}
+
         <TooltipProvider>
-            {#snippet undoButton({ props }: { props: any })}
-                <Button
-                    {...props}
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Undo"
-                    disabled={!historyManager.canUndo}
-                    onclick={() => historyManager.undo()}
-                >
-                    <Undo class="size-5" />
-                </Button>
-            {/snippet}
             {@render tooltipped({
                 label: 'Undo',
                 children: undoButton,
                 disableCloseOnTriggerClick: true
             })}
 
-            {#snippet redoButton({ props }: { props: any })}
-                <Button
-                    {...props}
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Redo"
-                    disabled={!historyManager.canRedo}
-                    onclick={() => historyManager.redo()}
-                >
-                    <Redo class="size-5" />
-                </Button>
-            {/snippet}
             {@render tooltipped({
                 label: 'Redo',
                 children: redoButton,

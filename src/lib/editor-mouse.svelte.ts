@@ -1,4 +1,5 @@
 import { editorState, PointerMode } from './editor-state.svelte';
+import { historyManager } from './history';
 import { player } from './playback.svelte';
 import type { NoteChannel } from './types';
 
@@ -49,6 +50,13 @@ export class EditorMouseController {
         sectionIndex: number;
         startTick: number;
     } | null = null;
+
+    private _initialDragState: Array<{
+        channelIndex: number;
+        sectionIndex: number;
+        section: any;
+        startingTick: number;
+    }> | null = null;
 
     // Helpers
     get pxPerTick(): number {
@@ -237,6 +245,14 @@ export class EditorMouseController {
             primaryOriginalChannel: channelIndex,
             primaryOriginalSectionIndex: sectionIndex
         };
+
+        // Capture initial state for history
+        this._initialDragState = items.map((item) => ({
+            channelIndex: item.originalChannelIndex,
+            sectionIndex: item.originalSectionIndex,
+            section: item.section,
+            startingTick: item.section.startingTick
+        }));
     };
 
     handleTimelineBlankPointerMove = (contentEl: HTMLElement, ev: PointerEvent) => {
@@ -760,6 +776,9 @@ export class EditorMouseController {
                         sectionIndex: this._dragSectionRef.primaryOriginalSectionIndex
                     }
                 ]);
+            } else if (this._moved && this._initialDragState) {
+                // Create history action for the completed drag operation
+                this.createDragHistoryAction();
             }
             // Rebuild player indexes after edits
             player.refreshIndexes();
@@ -796,7 +815,96 @@ export class EditorMouseController {
         this._startShiftKey = false;
         this._dragSectionRef = null;
         this._resizeContext = null;
+        this._initialDragState = null;
         this.clearNewSectionHover();
+    }
+
+    private createDragHistoryAction() {
+        if (!this._initialDragState || !this._dragSectionRef || !player.song) return;
+
+        const channels = player.song.channels;
+        const finalStates = this._initialDragState.map((initial) => {
+            // Find current position of each section
+            let currentChannelIndex = -1;
+            let currentSectionIndex = -1;
+            let currentStartingTick = initial.section.startingTick;
+
+            for (let ci = 0; ci < channels.length; ci++) {
+                const channel = channels[ci];
+                if (channel?.kind === 'note') {
+                    const sectionIndex = channel.sections.indexOf(initial.section);
+                    if (sectionIndex >= 0) {
+                        currentChannelIndex = ci;
+                        currentSectionIndex = sectionIndex;
+                        break;
+                    }
+                }
+            }
+
+            return {
+                ...initial,
+                finalChannelIndex: currentChannelIndex,
+                finalSectionIndex: currentSectionIndex,
+                finalStartingTick: currentStartingTick
+            };
+        });
+
+        // Group changes by type: position changes and tick changes
+        const positionChanges = finalStates.filter(
+            (state) => state.channelIndex !== state.finalChannelIndex
+        );
+        const tickChanges = finalStates.filter(
+            (state) => state.startingTick !== state.finalStartingTick
+        );
+
+        if (positionChanges.length === 0 && tickChanges.length === 0) return;
+
+        // Create a composite history action
+        const action = {
+            label: this._initialDragState.length === 1 ? 'Move section' : 'Move sections',
+            do: () => {
+                // Apply final state (already applied during drag, just refresh)
+                player.refreshIndexes();
+            },
+            undo: () => {
+                // Restore to initial state
+                const song = player.song;
+                if (!song) return;
+
+                // First, restore all sections to their original tick positions
+                for (const state of finalStates) {
+                    state.section.startingTick = state.startingTick;
+                }
+
+                // Then, move sections back to their original channels
+                for (const state of positionChanges) {
+                    // Remove from current position
+                    if (state.finalChannelIndex >= 0) {
+                        const currentChannel = song.channels[state.finalChannelIndex];
+                        if (currentChannel?.kind === 'note') {
+                            const idx = currentChannel.sections.indexOf(state.section);
+                            if (idx >= 0) {
+                                currentChannel.sections.splice(idx, 1);
+                            }
+                        }
+                    }
+
+                    // Add back to original position
+                    const originalChannel = song.channels[state.channelIndex];
+                    if (originalChannel?.kind === 'note') {
+                        const insertIndex = Math.min(
+                            state.sectionIndex,
+                            originalChannel.sections.length
+                        );
+                        originalChannel.sections.splice(insertIndex, 0, state.section);
+                    }
+                }
+
+                player.refreshIndexes();
+            }
+        };
+
+        historyManager.execute(action);
     }
 
     private createSectionAt(
@@ -840,15 +948,16 @@ export class EditorMouseController {
         };
 
         const insertIndex = channel.sections.findIndex((s) => s.startingTick > startingTick);
-        if (insertIndex >= 0) channel.sections.splice(insertIndex, 0, newSection);
-        else channel.sections.push(newSection);
+        const finalInsertIndex = insertIndex >= 0 ? insertIndex : channel.sections.length;
 
         song.length = Math.max(song.length ?? 0, newEnd);
-        player.refreshIndexes();
 
-        const finalIndex = channel.sections.indexOf(newSection);
-        if (finalIndex >= 0) {
-            editorState.setSelectedSections([{ channelIndex, sectionIndex: finalIndex }]);
+        // Use history-enabled method to add the section
+        player.addSection(channelIndex, newSection, finalInsertIndex);
+
+        const actualIndex = channel.sections.indexOf(newSection);
+        if (actualIndex >= 0) {
+            editorState.setSelectedSections([{ channelIndex, sectionIndex: actualIndex }]);
         }
     }
 
