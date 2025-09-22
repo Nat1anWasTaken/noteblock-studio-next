@@ -6,7 +6,7 @@
     import { pianoRollMouse } from '$lib/piano-roll-mouse.svelte';
     import { pianoRollState } from '$lib/piano-roll-state.svelte';
     import { player } from '$lib/playback.svelte';
-    import { onMount } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import PlayheadCursor from '../playhead-cursor.svelte';
     import RulerShell from '../ruler-shell.svelte';
     import SelectionRectangleOverlay from '../selection-rectangle-overlay.svelte';
@@ -86,6 +86,26 @@
         });
     }
 
+    let releasePianoRollScope: (() => void) | null = null;
+
+    $effect(() => {
+        if (pianoRollState.sheetOpen) {
+            if (!releasePianoRollScope) {
+                releasePianoRollScope = commandManager.enterScope('piano-roll');
+            }
+        } else if (releasePianoRollScope) {
+            releasePianoRollScope();
+            releasePianoRollScope = null;
+        }
+    });
+
+    onDestroy(() => {
+        if (releasePianoRollScope) {
+            releasePianoRollScope();
+            releasePianoRollScope = null;
+        }
+    });
+
     onMount(() => {
         if (typeof document === 'undefined') return;
 
@@ -95,13 +115,15 @@
                 id: 'piano-roll-delete-selected-notes',
                 title: 'Delete Selected Notes',
                 shortcut: 'Delete',
-                callback: () => pianoRollMouse.deleteSelectedNotes()
+                callback: () => pianoRollMouse.deleteSelectedNotes(),
+                scope: 'piano-roll'
             },
             {
                 id: 'piano-roll-backspace-selected-notes',
                 title: 'Delete Selected Notes',
                 shortcut: 'Backspace',
-                callback: () => pianoRollMouse.deleteSelectedNotes()
+                callback: () => pianoRollMouse.deleteSelectedNotes(),
+                scope: 'piano-roll'
             }
         ]);
 
