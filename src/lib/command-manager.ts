@@ -1,5 +1,19 @@
 type Platform = 'mac' | 'windows' | 'linux';
 
+const DEFAULT_SCOPE = 'global';
+
+type CommandScope = typeof DEFAULT_SCOPE | string;
+
+interface RegisteredCommand extends Command {
+    scope: CommandScope;
+    shortcut?: string;
+}
+
+interface ScopeLayer {
+    id: CommandScope;
+    exclusive: boolean;
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false;
     const tag = target.tagName;
@@ -45,11 +59,13 @@ export interface Command {
     callback: () => void;
     icon?: string; // TODO: Implement icon support
     shortcut?: string;
+    scope?: CommandScope;
 }
 
 export class CommandManager {
-    private commands = new Map<string, Command>();
-    private shortcuts = new Map<string, string>(); // shortcut -> commandId
+    private commands = new Map<string, RegisteredCommand>();
+    private scopeShortcuts = new Map<CommandScope, Map<string, string>>();
+    private activeScopes: ScopeLayer[] = [{ id: DEFAULT_SCOPE, exclusive: false }];
 
     /**
      * Register a new command
@@ -59,14 +75,22 @@ export class CommandManager {
             throw new Error(`Command with id "${command.id}" is already registered.`);
         }
 
-        this.commands.set(command.id, {
-            shortcut: command.shortcut && this.normalizeShortcut(command.shortcut),
-            ...command
-        });
+        const scope = command.scope ?? DEFAULT_SCOPE;
+        const normalizedShortcut = command.shortcut
+            ? this.normalizeShortcut(command.shortcut)
+            : undefined;
 
-        // Register shortcut if provided
-        if (command.shortcut) {
-            this.shortcuts.set(this.normalizeShortcut(command.shortcut), command.id);
+        const registered: RegisteredCommand = {
+            ...command,
+            scope,
+            shortcut: normalizedShortcut
+        };
+
+        this.commands.set(command.id, registered);
+
+        if (normalizedShortcut) {
+            const shortcutsForScope = this.getScopeShortcuts(scope);
+            shortcutsForScope.set(normalizedShortcut, command.id);
         }
     }
 
@@ -91,15 +115,22 @@ export class CommandManager {
 
         const shortcut = this.buildShortcutString(event);
 
-        if (this.shortcuts.has(shortcut)) {
-            const commandId = this.shortcuts.get(shortcut)!;
-            const command = this.commands.get(commandId);
+        for (let i = this.activeScopes.length - 1; i >= 0; i--) {
+            const layer = this.activeScopes[i];
+            const commandId = this.getScopeShortcuts(layer.id).get(shortcut);
 
-            if (command) {
-                event.preventDefault();
-                event.stopPropagation();
-                command.callback();
-                return true;
+            if (commandId) {
+                const command = this.commands.get(commandId);
+                if (command) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    command.callback();
+                    return true;
+                }
+            }
+
+            if (layer.exclusive) {
+                break;
             }
         }
 
@@ -140,8 +171,16 @@ export class CommandManager {
      */
     unregister(id: string): boolean {
         const command = this.commands.get(id);
-        if (command && command.shortcut) {
-            this.shortcuts.delete(this.normalizeShortcut(command.shortcut));
+        if (!command) {
+            return false;
+        }
+
+        if (command.shortcut) {
+            const scopeShortcuts = this.scopeShortcuts.get(command.scope);
+            scopeShortcuts?.delete(command.shortcut);
+            if (scopeShortcuts && scopeShortcuts.size === 0 && command.scope !== DEFAULT_SCOPE) {
+                this.scopeShortcuts.delete(command.scope);
+            }
         }
 
         return this.commands.delete(id);
@@ -193,6 +232,32 @@ export class CommandManager {
             .replace(/Cmd|Command/g, 'Mod') // Normalize Cmd/Command to Mod
             .replace(/Ctrl/g, 'Mod') // Normalize Ctrl to Mod
             .toUpperCase(); // Make case insensitive
+    }
+
+    private getScopeShortcuts(scope: CommandScope): Map<string, string> {
+        let shortcuts = this.scopeShortcuts.get(scope);
+        if (!shortcuts) {
+            shortcuts = new Map();
+            this.scopeShortcuts.set(scope, shortcuts);
+        }
+        return shortcuts;
+    }
+
+    /**
+     * Activate a scoped layer for keyboard shortcuts. The returned callback removes the scope.
+     */
+    enterScope(id: CommandScope, options?: { exclusive?: boolean }): () => void {
+        const layer: ScopeLayer = {
+            id,
+            exclusive: options?.exclusive ?? false
+        };
+        this.activeScopes.push(layer);
+        return () => {
+            const index = this.activeScopes.indexOf(layer);
+            if (index !== -1) {
+                this.activeScopes.splice(index, 1);
+            }
+        };
     }
 }
 

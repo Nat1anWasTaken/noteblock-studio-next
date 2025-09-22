@@ -101,7 +101,8 @@
                 callback: () => {
                     toggleMute();
                 },
-                shortcut: 'M'
+                shortcut: 'M',
+                scope: 'piano-roll'
             },
             {
                 id: 'toggle-solo',
@@ -109,7 +110,8 @@
                 callback: () => {
                     toggleSolo();
                 },
-                shortcut: 'S'
+                shortcut: 'S',
+                scope: 'piano-roll'
             },
             {
                 id: 'start-editing-section-name',
@@ -117,7 +119,8 @@
                 callback: () => {
                     startEditing();
                 },
-                shortcut: 'ENTER'
+                shortcut: 'ENTER',
+                scope: 'piano-roll'
             },
             {
                 id: 'piano-roll-normal-mode',
@@ -125,7 +128,8 @@
                 callback: () => {
                     pianoRollState.setPointerMode(PointerMode.Normal);
                 },
-                shortcut: '1'
+                shortcut: '1',
+                scope: 'piano-roll'
             },
             {
                 id: 'piano-roll-pen-mode',
@@ -133,7 +137,8 @@
                 callback: () => {
                     pianoRollState.setPointerMode('pen');
                 },
-                shortcut: '2'
+                shortcut: '2',
+                scope: 'piano-roll'
             }
         ]);
 

@@ -19,7 +19,11 @@ interface PianoRollState {
     keyRange: { min: number; max: number };
     keyHeight: number;
     pxPerTick: number;
-    sectionData: { section: NoteSection } | null;
+    sectionData: {
+        section: NoteSection;
+        channelIndex: number;
+        sectionIndex: number;
+    } | null;
     isMouseActive: boolean;
     selectNotes: (notes: Note[]) => void;
     clearSelection: () => void;
@@ -62,25 +66,16 @@ export class PianoRollMouseController {
         if (!this.pianoRollState) return;
         if (!this.pianoRollState.isMouseActive) return;
 
-        const section = this.pianoRollState.sectionData?.section;
-        if (!section) return;
-        const notes = section.notes;
-        if (!notes?.length || !this.pianoRollState.selectedNotes.length) return;
+        const context = this.pianoRollState.sectionData;
+        if (!context) return;
+        const selected = this.pianoRollState.selectedNotes;
+        if (!selected.length) return;
 
-        const toRemove = new Set(this.pianoRollState.selectedNotes);
-        let removed = false;
-        for (let index = notes.length - 1; index >= 0; index--) {
-            if (toRemove.has(notes[index]!)) {
-                notes.splice(index, 1);
-                removed = true;
-            }
-        }
+        const removed = player.removeNotes(context.channelIndex, context.sectionIndex, selected);
 
         if (!removed) return;
 
         this.pianoRollState.clearSelection();
-        this.sortSectionNotes(section);
-        this.refreshPlayer();
     }
 
     // Mouse controllers should be stateless - all state managed by pianoRollState
@@ -116,8 +111,8 @@ export class PianoRollMouseController {
             this.pianoRollState.selectionOverlayRect = null;
             this.dragContext = null;
 
-            const section = this.pianoRollState.sectionData?.section;
-            if (!section) return;
+            const context = this.pianoRollState.sectionData;
+            if (!context) return;
             const existing = this.findNoteAt(tick, key);
             if (existing) {
                 this.pianoRollState.selectNotes([existing]);
@@ -128,10 +123,10 @@ export class PianoRollMouseController {
                     velocity: DEFAULT_NOTE_VELOCITY,
                     pitch: DEFAULT_NOTE_PITCH
                 };
-                section.notes.push(newNote);
-                this.sortSectionNotes(section);
-                this.pianoRollState.selectNotes([newNote]);
-                this.refreshPlayer();
+                const created = player.addNote(context.channelIndex, context.sectionIndex, newNote);
+                if (created) {
+                    this.pianoRollState.selectNotes([created]);
+                }
             }
             // Don't capture pointer in pen mode to avoid interfering with note creation
         }
@@ -315,7 +310,7 @@ export class PianoRollMouseController {
 
     private finishPointerInteraction(event: PointerEvent) {
         if (!this.pianoRollState) return;
-        const section = this.pianoRollState.sectionData?.section;
+        const context = this.pianoRollState.sectionData;
 
         // In pen mode, just clean up any stale state and exit early
         if (this.pianoRollState.pointerMode === 'pen') {
@@ -327,9 +322,24 @@ export class PianoRollMouseController {
         }
 
         if (this.dragContext && this.dragContext.pointerId === event.pointerId) {
-            if (this.dragContext.moved && section) {
-                this.sortSectionNotes(section);
-                this.refreshPlayer();
+            if (this.dragContext.moved && context) {
+                const updates: Array<{
+                    note: Note;
+                    previousState: Partial<Note>;
+                    nextState: Partial<Note>;
+                }> = [];
+                for (const note of this.dragContext.notes) {
+                    const original = this.dragContext.original.get(note);
+                    if (!original) continue;
+                    updates.push({
+                        note,
+                        previousState: { tick: original.tick, key: original.key },
+                        nextState: { tick: note.tick, key: note.key }
+                    });
+                }
+                if (updates.length) {
+                    player.updateNotes(context.channelIndex, context.sectionIndex, updates);
+                }
             }
             this.dragContext = null;
         }
@@ -381,13 +391,6 @@ export class PianoRollMouseController {
         return Math.min(Math.max(0, snappedTick), maxTick);
     }
 
-    private sortSectionNotes(section: NoteSection) {
-        section.notes.sort((a, b) => {
-            if (a.tick !== b.tick) return a.tick - b.tick;
-            return a.key - b.key;
-        });
-    }
-
     private tickFromPointer(event: PointerEvent): number {
         if (!this.pianoRollState) return 0;
         const content = this.pianoRollState.gridContent;
@@ -427,10 +430,6 @@ export class PianoRollMouseController {
     }
 
     // Selection methods now handled by pianoRollState
-
-    private refreshPlayer() {
-        player.refreshIndexes();
-    }
 
     private updateSelectionOverlayRect() {
         this.pianoRollState?.updateSelectionOverlayRect();

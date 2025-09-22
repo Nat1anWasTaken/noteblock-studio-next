@@ -1,8 +1,9 @@
 <script lang="ts">
-    import * as Resizable from '$lib/components/ui/resizable';
     import { commandManager } from '$lib/command-manager';
+    import * as Resizable from '$lib/components/ui/resizable';
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
+    import { historyManager } from '$lib/history';
     import { player } from '$lib/playback.svelte';
     import { onMount } from 'svelte';
     import CommandPalette from './command-palette.svelte';
@@ -100,16 +101,7 @@
         if (editorState.selectedSections.length === 0) return;
 
         const selectionsToDelete = [...editorState.selectedSections];
-        selectionsToDelete
-            .sort((a, b) => b.channelIndex - a.channelIndex || b.sectionIndex - a.sectionIndex)
-            .forEach(({ channelIndex, sectionIndex }) => {
-                const channel = player.song?.channels[channelIndex];
-                if (channel && channel.kind === 'note') {
-                    channel.sections.splice(sectionIndex, 1);
-                }
-            });
-
-        player.refreshIndexes();
+        player.removeSections(selectionsToDelete);
         editorState.clearSelectedSections();
     }
 
@@ -128,6 +120,8 @@
                 shortcut: 'BACKSPACE'
             }
         ]);
+
+        historyManager.setContext({ player, editorState });
 
         return () => {
             commandManager.unregisterCommands([
