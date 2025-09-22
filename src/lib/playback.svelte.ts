@@ -28,6 +28,15 @@ import {
 } from './types';
 import { generateChannelId } from './utils';
 
+type HistoryCallOptions = {
+    skipHistory?: boolean;
+};
+
+type CreateNoteChannelOptions = HistoryCallOptions & {
+    channel?: NoteChannel;
+    index?: number;
+};
+
 /**
  * Loop behavior for playback.
  */
@@ -457,8 +466,24 @@ export class Player {
      * If a song is loaded, update the last tempo-change event's tempo (prefer the last one
      * at or before the current tick). Otherwise, just set the internal tempo.
      */
-    setTempo(tempo: number) {
+    setTempo(tempo: number, options?: HistoryCallOptions) {
         if (!(tempo > 0)) return;
+
+        if (options?.skipHistory) {
+            if (this.song) {
+                const change = this.findTempoChangeAtOrBeforeTick(this._currentTick);
+                if (change) {
+                    change.tempo = tempo;
+                } else {
+                    this.song.tempo = tempo;
+                }
+                this._tempo = tempo;
+                this.refreshIndexes();
+            } else {
+                this._tempo = tempo;
+            }
+            return;
+        }
 
         const oldTempo = this._tempo;
         const action = createSetTempoAction(tempo, oldTempo);
@@ -861,11 +886,24 @@ export class Player {
      * Update a note channel with partial data.
      * Updates the channel in place and refreshes indexes to keep player in sync.
      */
-    updateNoteChannel(index: number, updates: Partial<NoteChannel>) {
+    updateNoteChannel(index: number, updates: Partial<NoteChannel>, options?: HistoryCallOptions) {
         // TODO: fix the instrument latency when updating instrument in place
         if (!this.song) return;
         const channel = this.song.channels[index];
         if (!channel || channel.kind !== 'note') return;
+
+        if (options?.skipHistory) {
+            let mutated = false;
+            for (const key of Object.keys(updates) as (keyof NoteChannel)[]) {
+                if (!Object.prototype.hasOwnProperty.call(updates, key)) continue;
+                const value = updates[key];
+                if ((channel as any)[key] === value) continue;
+                (channel as any)[key] = value as NoteChannel[keyof NoteChannel];
+                mutated = true;
+            }
+            if (mutated) this.refreshIndexes();
+            return;
+        }
 
         // Capture previous state for undo
         const previousState: Partial<NoteChannel> = {};
@@ -883,12 +921,30 @@ export class Player {
      * Update a note section with partial data.
      * Updates the section in place and refreshes indexes to keep player in sync.
      */
-    updateNoteSection(channelIndex: number, sectionIndex: number, updates: Partial<NoteSection>) {
+    updateNoteSection(
+        channelIndex: number,
+        sectionIndex: number,
+        updates: Partial<NoteSection>,
+        options?: HistoryCallOptions
+    ) {
         if (!this.song) return;
         const channel = this.song.channels[channelIndex];
         if (!channel || channel.kind !== 'note') return;
         const section = channel.sections[sectionIndex];
         if (!section) return;
+
+        if (options?.skipHistory) {
+            let mutated = false;
+            for (const key of Object.keys(updates) as (keyof NoteSection)[]) {
+                if (!Object.prototype.hasOwnProperty.call(updates, key)) continue;
+                const value = updates[key];
+                if ((section as any)[key] === value) continue;
+                (section as any)[key] = value as NoteSection[keyof NoteSection];
+                mutated = true;
+            }
+            if (mutated) this.refreshIndexes();
+            return;
+        }
 
         // Capture previous state for undo
         const previousState: Partial<NoteSection> = {};
@@ -911,10 +967,23 @@ export class Player {
      * Update a tempo channel with partial data.
      * Updates the channel in place and refreshes indexes to keep player in sync.
      */
-    updateTempoChannel(index: number, updates: Partial<TempoChannel>) {
+    updateTempoChannel(index: number, updates: Partial<TempoChannel>, options?: HistoryCallOptions) {
         if (!this.song) return;
         const channel = this.song.channels[index];
         if (!channel || channel.kind !== 'tempo') return;
+
+        if (options?.skipHistory) {
+            let mutated = false;
+            for (const key of Object.keys(updates) as (keyof TempoChannel)[]) {
+                if (!Object.prototype.hasOwnProperty.call(updates, key)) continue;
+                const value = updates[key];
+                if ((channel as any)[key] === value) continue;
+                (channel as any)[key] = value as TempoChannel[keyof TempoChannel];
+                mutated = true;
+            }
+            if (mutated) this.refreshIndexes();
+            return;
+        }
 
         // Capture previous state for undo
         const previousState: Partial<TempoChannel> = {};
@@ -932,13 +1001,24 @@ export class Player {
      * Remove a channel by index.
      * Updates the song in place and refreshes indexes to keep player in sync.
      */
-    removeChannel(index: number) {
-        if (!this.song) return;
-        if (index < 0 || index >= this.song.channels.length) return;
+    removeChannel(index: number, options?: HistoryCallOptions): NoteChannel | TempoChannel | null {
+        if (!this.song) return null;
+        if (index < 0 || index >= this.song.channels.length) return null;
+
+        if (options?.skipHistory) {
+            const [removed] = this.song.channels.splice(index, 1);
+            if (removed) {
+                this.refreshIndexes();
+                return removed;
+            }
+            return null;
+        }
 
         const channel = this.song.channels[index];
+        if (!channel) return null;
         const action = createRemoveChannelAction(index, channel);
         historyManager.execute(action);
+        return channel;
     }
 
     /**
@@ -946,8 +1026,41 @@ export class Player {
      * @param channelData The data for creating the new channel
      * @returns The index of the created channel, or -1 if creation failed
      */
-    createNoteChannel(channelData: { name: string; instrument: Instrument }): number {
+    createNoteChannel(
+        channelData: { name: string; instrument: Instrument },
+        options?: CreateNoteChannelOptions
+    ): number {
         if (!this.song) return -1;
+
+        if (options?.skipHistory) {
+            let channel = options.channel ?? null;
+            if (!channel) {
+                channel = {
+                    kind: 'note',
+                    name: channelData.name,
+                    instrument: channelData.instrument,
+                    sections: [],
+                    pan: 0,
+                    isMuted: false,
+                    id: generateChannelId()
+                } satisfies NoteChannel;
+            } else if (!channel.id) {
+                channel.id = generateChannelId();
+            }
+
+            let insertIndex = options.index ?? this.song.channels.length;
+            insertIndex = Math.min(Math.max(insertIndex, 0), this.song.channels.length);
+
+            const existingIndex = this.song.channels.indexOf(channel);
+            if (existingIndex !== -1) {
+                this.song.channels.splice(existingIndex, 1);
+                if (existingIndex < insertIndex) insertIndex -= 1;
+            }
+
+            this.song.channels.splice(insertIndex, 0, channel);
+            this.refreshIndexes();
+            return insertIndex;
+        }
 
         const newIndex = this.song.channels.length;
         const action = createCreateNoteChannelAction(channelData, newIndex);
@@ -1181,6 +1294,14 @@ export class Player {
         } catch {
             return null;
         }
+    }
+
+    private findTempoChangeAtOrBeforeTick(tick: number): TempoChange | null {
+        for (let i = this._tempoChangeList.length - 1; i >= 0; i--) {
+            const change = this._tempoChangeList[i];
+            if (change.tick <= tick) return change;
+        }
+        return null;
     }
 
     private getTempoAtTick(tick: number): number {

@@ -118,10 +118,10 @@ export function createUpdateNoteChannelAction(
     return {
         label: 'Update channel',
         do(ctx) {
-            ctx.player.updateNoteChannel(channelIndex, updates);
+            ctx.player.updateNoteChannel(channelIndex, updates, { skipHistory: true });
         },
         undo(ctx) {
-            ctx.player.updateNoteChannel(channelIndex, previousState);
+            ctx.player.updateNoteChannel(channelIndex, previousState, { skipHistory: true });
         },
         canCoalesceWith(next) {
             return next.label === 'Update channel';
@@ -141,10 +141,12 @@ export function createUpdateNoteSectionAction(
     return {
         label: 'Update section',
         do(ctx) {
-            ctx.player.updateNoteSection(channelIndex, sectionIndex, updates);
+            ctx.player.updateNoteSection(channelIndex, sectionIndex, updates, { skipHistory: true });
         },
         undo(ctx) {
-            ctx.player.updateNoteSection(channelIndex, sectionIndex, previousState);
+            ctx.player.updateNoteSection(channelIndex, sectionIndex, previousState, {
+                skipHistory: true
+            });
         },
         canCoalesceWith(next) {
             return next.label === 'Update section';
@@ -163,10 +165,10 @@ export function createUpdateTempoChannelAction(
     return {
         label: 'Update tempo channel',
         do(ctx) {
-            ctx.player.updateTempoChannel(channelIndex, updates);
+            ctx.player.updateTempoChannel(channelIndex, updates, { skipHistory: true });
         },
         undo(ctx) {
-            ctx.player.updateTempoChannel(channelIndex, previousState);
+            ctx.player.updateTempoChannel(channelIndex, previousState, { skipHistory: true });
         },
         canCoalesceWith(next) {
             return next.label === 'Update tempo channel';
@@ -184,12 +186,23 @@ export function createRemoveChannelAction(
     return {
         label: `Remove ${removedChannel.kind} channel`,
         do(ctx) {
-            ctx.player.removeChannel(channelIndex);
+            const song = getSong(ctx.player);
+            const channels = song.channels;
+            if (!channels.length) return;
+            let targetIndex = channels.indexOf(removedChannel);
+            if (targetIndex === -1) targetIndex = channelIndex;
+            if (targetIndex < 0 || targetIndex >= channels.length) return;
+            channels.splice(targetIndex, 1);
+            ctx.player.refreshIndexes();
         },
         undo(ctx) {
             const song = getSong(ctx.player);
             // Re-insert the channel at its original position
-            song.channels.splice(channelIndex, 0, removedChannel);
+            const channels = song.channels;
+            const existingIndex = channels.indexOf(removedChannel);
+            if (existingIndex !== -1) channels.splice(existingIndex, 1);
+            const insertIndex = Math.min(Math.max(channelIndex, 0), channels.length);
+            channels.splice(insertIndex, 0, removedChannel);
             ctx.player.refreshIndexes();
         }
     };
@@ -202,13 +215,31 @@ export function createCreateNoteChannelAction(
     channelData: { name: string; instrument: Instrument },
     createdChannelIndex: number
 ): HistoryAction {
+    const channel: NoteChannel = {
+        kind: 'note',
+        name: channelData.name,
+        instrument: channelData.instrument,
+        sections: [],
+        pan: 0,
+        isMuted: false
+    };
+
     return {
         label: 'Create channel',
         do(ctx) {
-            ctx.player.createNoteChannel(channelData);
+            ctx.player.createNoteChannel(channelData, {
+                skipHistory: true,
+                channel,
+                index: createdChannelIndex
+            });
         },
         undo(ctx) {
-            ctx.player.removeChannel(createdChannelIndex);
+            const song = getSong(ctx.player);
+            let index = song.channels.indexOf(channel);
+            if (index === -1) index = createdChannelIndex;
+            if (index >= 0 && index < song.channels.length) {
+                ctx.player.removeChannel(index, { skipHistory: true });
+            }
         }
     };
 }
@@ -220,10 +251,10 @@ export function createSetTempoAction(newTempo: number, oldTempo: number): Histor
     return {
         label: 'Set tempo',
         do(ctx) {
-            ctx.player.setTempo(newTempo);
+            ctx.player.setTempo(newTempo, { skipHistory: true });
         },
         undo(ctx) {
-            ctx.player.setTempo(oldTempo);
+            ctx.player.setTempo(oldTempo, { skipHistory: true });
         },
         canCoalesceWith(next) {
             return next.label === 'Set tempo';
