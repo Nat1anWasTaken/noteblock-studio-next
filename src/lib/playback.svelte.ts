@@ -1,5 +1,16 @@
 import { browser } from '$app/environment';
 import {
+    createCreateNoteChannelAction,
+    createRemoveChannelAction,
+    createSetSoloAction,
+    createSetTempoAction,
+    createToggleMuteAction,
+    createUpdateNoteChannelAction,
+    createUpdateNoteSectionAction,
+    createUpdateTempoChannelAction,
+    historyManager
+} from './history';
+import {
     Instrument,
     type Note,
     type NoteChannel,
@@ -442,50 +453,9 @@ export class Player {
     setTempo(tempo: number) {
         if (!(tempo > 0)) return;
 
-        if (this.song && this._tempoChangeList.length > 0) {
-            // Find the last tempo change at or before the current tick
-            let idx = -1;
-            for (let i = 0; i < this._tempoChangeList.length; i++) {
-                const ch = this._tempoChangeList[i];
-                if (ch.tick <= this._currentTick) idx = i;
-                else break;
-            }
-            if (idx === -1) idx = this._tempoChangeList.length - 1; // fallback to last change in song
-
-            const target = this._tempoChangeList[idx];
-            if (target) {
-                // Update the change object
-                target.tempo = tempo;
-
-                // Mirror update into the map (same object instance, but keep map consistent)
-                const existing = this._tempoChanges.get(target.tick);
-                if (existing) existing.tempo = tempo;
-                this._tempoChanges.set(target.tick, target);
-
-                // Update the underlying song channel data
-                for (const ch of this.song.channels) {
-                    if (ch.kind !== 'tempo') continue;
-                    for (const t of ch.tempoChanges) {
-                        if (t.tick === target.tick) {
-                            t.tempo = tempo;
-                        }
-                    }
-                }
-
-                // Keep Song.tempo in sync if we edited the very first change at tick 0
-                if (target.tick === 0) this.song.tempo = tempo;
-
-                // If that change is currently active, also reflect immediately in the player
-                if (target.tick <= this._currentTick) this._tempo = tempo;
-
-                this.resyncSchedulerOnStateChange();
-                return;
-            }
-        }
-
-        // Fallback: no song or no tempo changes; set internal tempo directly
-        this._tempo = tempo;
-        this.resyncSchedulerOnStateChange();
+        const oldTempo = this._tempo;
+        const action = createSetTempoAction(tempo, oldTempo);
+        historyManager.execute(action);
     }
 
     /**
@@ -736,13 +706,10 @@ export class Player {
         if (!this.song) return;
         const ch = this.song.channels[index];
         if (!ch || ch.kind !== 'note') return;
-        ch.isMuted = !ch.isMuted;
-        // If we have a channelsById map, keep it in sync (the object is the same instance)
-        if ((ch as any).id) {
-            this._channelsById.set((ch as any).id as string, ch as NoteChannel);
-        }
-        // Resync scheduler so scheduled notes respect the new mute state.
-        this.resyncSchedulerOnStateChange();
+
+        const wasMuted = ch.isMuted;
+        const action = createToggleMuteAction(index, wasMuted);
+        historyManager.execute(action);
     }
 
     /**
@@ -762,23 +729,11 @@ export class Player {
             if (c.kind === 'note') noteChannels.push({ ch: c as NoteChannel, idx: i });
         }
 
-        const unmuted = noteChannels.filter((n) => !n.ch.isMuted);
-        const isAlreadySoloed = unmuted.length === 1 && unmuted[0].idx === index;
+        // Capture previous mute states
+        const previousMuteStates = noteChannels.map((n) => n.ch.isMuted);
 
-        if (isAlreadySoloed) {
-            for (const n of noteChannels) {
-                if (n.ch.isMuted) {
-                    this.setMute(n.idx);
-                }
-            }
-        } else {
-            for (const n of noteChannels) {
-                const shouldBeMuted = n.idx !== index;
-                if (n.ch.isMuted !== shouldBeMuted) {
-                    this.setMute(n.idx);
-                }
-            }
-        }
+        const action = createSetSoloAction(index, previousMuteStates);
+        historyManager.execute(action);
     }
 
     /**
@@ -791,16 +746,16 @@ export class Player {
         const channel = this.song.channels[index];
         if (!channel || channel.kind !== 'note') return;
 
-        // Apply updates to the channel
-        Object.assign(channel, updates);
-
-        // Keep channelsById map in sync if the channel has an id
-        if ((channel as any).id) {
-            this._channelsById.set((channel as any).id as string, channel as NoteChannel);
+        // Capture previous state for undo
+        const previousState: Partial<NoteChannel> = {};
+        for (const key of Object.keys(updates) as (keyof NoteChannel)[]) {
+            if (key in channel) {
+                (previousState as any)[key] = (channel as any)[key];
+            }
         }
 
-        // Refresh indexes to ensure player state is synchronized
-        this.refreshIndexes();
+        const action = createUpdateNoteChannelAction(index, updates, previousState);
+        historyManager.execute(action);
     }
 
     /**
@@ -814,11 +769,21 @@ export class Player {
         const section = channel.sections[sectionIndex];
         if (!section) return;
 
-        // Apply updates to the section
-        Object.assign(section, updates);
+        // Capture previous state for undo
+        const previousState: Partial<NoteSection> = {};
+        for (const key of Object.keys(updates) as (keyof NoteSection)[]) {
+            if (key in section) {
+                (previousState as any)[key] = (section as any)[key];
+            }
+        }
 
-        // Refresh indexes to ensure player state is synchronized
-        this.refreshIndexes();
+        const action = createUpdateNoteSectionAction(
+            channelIndex,
+            sectionIndex,
+            updates,
+            previousState
+        );
+        historyManager.execute(action);
     }
 
     /**
@@ -830,16 +795,16 @@ export class Player {
         const channel = this.song.channels[index];
         if (!channel || channel.kind !== 'tempo') return;
 
-        // Apply updates to the channel
-        Object.assign(channel, updates);
-
-        // Ensure tempo changes are at bar boundaries
-        for (const tempoChange of channel.tempoChanges) {
-            tempoChange.tick = this.snapTickToNearestBarStart(tempoChange.tick);
+        // Capture previous state for undo
+        const previousState: Partial<TempoChannel> = {};
+        for (const key of Object.keys(updates) as (keyof TempoChannel)[]) {
+            if (key in channel) {
+                (previousState as any)[key] = (channel as any)[key];
+            }
         }
 
-        // Refresh indexes to ensure player state is synchronized
-        this.refreshIndexes();
+        const action = createUpdateTempoChannelAction(index, updates, previousState);
+        historyManager.execute(action);
     }
 
     /**
@@ -851,17 +816,8 @@ export class Player {
         if (index < 0 || index >= this.song.channels.length) return;
 
         const channel = this.song.channels[index];
-
-        // Remove the channel from the song
-        this.song.channels.splice(index, 1);
-
-        // If removing a note channel, clean up the channelsById map
-        if (channel.kind === 'note' && (channel as any).id) {
-            this._channelsById.delete((channel as any).id as string);
-        }
-
-        // Refresh indexes to ensure player state is synchronized
-        this.refreshIndexes();
+        const action = createRemoveChannelAction(index, channel);
+        historyManager.execute(action);
     }
 
     /**
@@ -872,26 +828,11 @@ export class Player {
     createNoteChannel(channelData: { name: string; instrument: Instrument }): number {
         if (!this.song) return -1;
 
-        const newChannel: NoteChannel = {
-            kind: 'note',
-            name: channelData.name,
-            id: generateChannelId(),
-            sections: [],
-            pan: 0,
-            instrument: channelData.instrument,
-            isMuted: false
-        };
+        const newIndex = this.song.channels.length;
+        const action = createCreateNoteChannelAction(channelData, newIndex);
+        historyManager.execute(action);
 
-        // Add the channel to the song
-        this.song.channels.push(newChannel);
-        const newIndex = this.song.channels.length - 1;
-
-        // Update the channelsById map
-        this._channelsById.set(newChannel.id!, newChannel);
-
-        // Refresh indexes to ensure player state is synchronized
-        this.refreshIndexes();
-
+        // Return the index where the channel was created
         return newIndex;
     }
 

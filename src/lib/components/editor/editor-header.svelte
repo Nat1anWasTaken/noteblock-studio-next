@@ -9,8 +9,11 @@
         TooltipTrigger
     } from '$lib/components/ui/tooltip';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
+    import { historyManager } from '$lib/history';
     import { LoopMode, player } from '$lib/playback.svelte';
     import { cn } from '$lib/utils';
+    import Redo from '~icons/lucide/redo';
+    import Undo from '~icons/lucide/undo';
     import EditorTitle from './editor-title.svelte';
 
     import { onMount, type Snippet } from 'svelte';
@@ -170,6 +173,18 @@
                 title: 'Toggle Follow Playhead',
                 callback: toggleAutoScroll,
                 shortcut: 'F'
+            },
+            {
+                id: 'undo',
+                title: 'Undo',
+                callback: () => historyManager.undo(),
+                shortcut: 'MOD+Z'
+            },
+            {
+                id: 'redo',
+                title: 'Redo',
+                callback: () => historyManager.redo(),
+                shortcut: 'MOD+Shift+Z'
             }
         ]);
 
@@ -183,7 +198,9 @@
                 'editor-pointer-shears',
                 'editor-pointer-merge',
                 'toggle-metronome',
-                'toggle-auto-scroll'
+                'toggle-auto-scroll',
+                'undo',
+                'redo'
             ]);
         };
     });
@@ -411,9 +428,44 @@
         </TooltipProvider>
     </div>
 
-    <!-- Right: Placeholder actions (undo, help, more) -->
+    <!-- Right: Undo/Redo controls -->
     <div class="flex flex-1 items-center justify-end gap-1.5">
-        <div class="hidden text-sm text-muted-foreground/80 sm:block">Controls</div>
-        <div class="size-2 rounded-full bg-muted-foreground/30"></div>
+        <TooltipProvider>
+            {#snippet undoButton({ props }: { props: any })}
+                <Button
+                    {...props}
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Undo"
+                    disabled={!historyManager.canUndo}
+                    onclick={() => historyManager.undo()}
+                >
+                    <Undo class="size-5" />
+                </Button>
+            {/snippet}
+            {@render tooltipped({
+                label: 'Undo',
+                children: undoButton,
+                disableCloseOnTriggerClick: true
+            })}
+
+            {#snippet redoButton({ props }: { props: any })}
+                <Button
+                    {...props}
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Redo"
+                    disabled={!historyManager.canRedo}
+                    onclick={() => historyManager.redo()}
+                >
+                    <Redo class="size-5" />
+                </Button>
+            {/snippet}
+            {@render tooltipped({
+                label: 'Redo',
+                children: redoButton,
+                disableCloseOnTriggerClick: true
+            })}
+        </TooltipProvider>
     </div>
 </div>

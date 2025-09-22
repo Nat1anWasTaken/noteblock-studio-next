@@ -1,8 +1,9 @@
 <script lang="ts">
-    import * as Resizable from '$lib/components/ui/resizable';
     import { commandManager } from '$lib/command-manager';
+    import * as Resizable from '$lib/components/ui/resizable';
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
+    import { historyManager } from '$lib/history';
     import { player } from '$lib/playback.svelte';
     import { onMount } from 'svelte';
     import CommandPalette from './command-palette.svelte';
@@ -128,6 +129,8 @@
                 shortcut: 'BACKSPACE'
             }
         ]);
+
+        historyManager.setContext({ player, editorState });
 
         return () => {
             commandManager.unregisterCommands([
