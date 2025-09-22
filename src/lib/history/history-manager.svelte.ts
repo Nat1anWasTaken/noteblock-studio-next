@@ -49,7 +49,7 @@ export class HistoryManager {
     private activeTransaction: TransactionState | null = null;
 
     execute(action: HistoryAction, options: HistoryExecuteOptions = {}): HistoryEntry | null {
-        console.log('🔄 [EXECUTE] Starting action:', action.label, {
+        console.debug('🔄 [EXECUTE] Starting action:', action.label, {
             hasTransaction: !!this.activeTransaction,
             pastLength: this.past.length,
             futureLength: this.future.length,
@@ -69,9 +69,9 @@ export class HistoryManager {
         };
 
         try {
-            console.log('▶️ [EXECUTE] Calling action.do for:', action.label);
+            console.debug('▶️ [EXECUTE] Calling action.do for:', action.label);
             action.do(this.ctx);
-            console.log('✅ [EXECUTE] Successfully executed action.do for:', action.label);
+            console.debug('✅ [EXECUTE] Successfully executed action.do for:', action.label);
         } catch (error) {
             console.error('❌ [EXECUTE] Failed during action.do for:', action.label, error);
             throw error;
@@ -79,7 +79,7 @@ export class HistoryManager {
 
         // Ephemeral actions mutate state but do not create history entries.
         if (merged.isEphemeral) {
-            console.log(
+            console.debug(
                 '👻 [EXECUTE] Ephemeral action - no history entry created for:',
                 action.label
             );
@@ -93,7 +93,7 @@ export class HistoryManager {
         const clearedFuture = this.future.length;
         this.future = [];
         if (clearedFuture > 0) {
-            console.log(
+            console.debug(
                 '🗑️ [EXECUTE] Cleared',
                 clearedFuture,
                 'future entries for action:',
@@ -102,7 +102,7 @@ export class HistoryManager {
         }
 
         if (transaction) {
-            console.log('📦 [EXECUTE] Adding to transaction:', {
+            console.debug('📦 [EXECUTE] Adding to transaction:', {
                 actionLabel: action.label,
                 transactionSize: transaction.entries.length,
                 coalesceStrategy: merged.coalesceStrategy
@@ -110,12 +110,12 @@ export class HistoryManager {
             const coalesced = this.tryCoalesce(transaction.entries, entry, merged.coalesceStrategy);
             if (!coalesced) {
                 transaction.entries.push(entry);
-                console.log(
+                console.debug(
                     '➕ [EXECUTE] Added new entry to transaction. New size:',
                     transaction.entries.length
                 );
             } else {
-                console.log('🔗 [EXECUTE] Coalesced action in transaction for:', action.label);
+                console.debug('🔗 [EXECUTE] Coalesced action in transaction for:', action.label);
             }
             this.syncStacks();
             this.dispatchChange('execute');
@@ -125,19 +125,19 @@ export class HistoryManager {
         const coalesced = this.tryCoalesce(this.past, entry, merged.coalesceStrategy);
         if (!coalesced) {
             this.past.push(entry);
-            console.log(
+            console.debug(
                 '📈 [EXECUTE] Added to history stack. New length:',
                 this.past.length,
                 'Action:',
                 action.label
             );
         } else {
-            console.log('🔗 [EXECUTE] Coalesced with previous action:', action.label);
+            console.debug('🔗 [EXECUTE] Coalesced with previous action:', action.label);
         }
         this.updateLastLabel();
         this.syncStacks();
         this.dispatchChange('execute');
-        console.log('🏁 [EXECUTE] Completed action:', action.label, {
+        console.debug('🏁 [EXECUTE] Completed action:', action.label, {
             pastLength: this.past.length,
             canUndo: this.canUndo,
             canRedo: this.canRedo
@@ -146,7 +146,7 @@ export class HistoryManager {
     }
 
     undo(): HistoryEntry | null {
-        console.log('⬅️ [UNDO] Starting undo operation', {
+        console.debug('⬅️ [UNDO] Starting undo operation', {
             pastLength: this.past.length,
             futureLength: this.future.length,
             hasTransaction: !!this.activeTransaction
@@ -159,13 +159,13 @@ export class HistoryManager {
         }
         const entry = this.past.pop();
         if (!entry) {
-            console.log('🚫 [UNDO] No entries to undo');
+            console.debug('🚫 [UNDO] No entries to undo');
             return null;
         }
-        console.log('◀️ [UNDO] Undoing action:', entry.label);
+        console.debug('◀️ [UNDO] Undoing action:', entry.label);
         try {
             entry.action.undo(this.ctx);
-            console.log('✅ [UNDO] Successfully undid action:', entry.label);
+            console.debug('✅ [UNDO] Successfully undid action:', entry.label);
         } catch (error) {
             console.error('❌ [UNDO] Failed during action.undo for:', entry.label, error);
             throw error;
@@ -174,7 +174,7 @@ export class HistoryManager {
         this.updateLastLabel();
         this.syncStacks();
         this.dispatchChange('undo');
-        console.log('🏁 [UNDO] Completed undo of:', entry.label, {
+        console.debug('🏁 [UNDO] Completed undo of:', entry.label, {
             pastLength: this.past.length,
             futureLength: this.future.length
         });
@@ -182,7 +182,7 @@ export class HistoryManager {
     }
 
     redo(): HistoryEntry | null {
-        console.log('➡️ [REDO] Starting redo operation', {
+        console.debug('➡️ [REDO] Starting redo operation', {
             pastLength: this.past.length,
             futureLength: this.future.length,
             hasTransaction: !!this.activeTransaction
@@ -195,13 +195,13 @@ export class HistoryManager {
         }
         const entry = this.future.pop();
         if (!entry) {
-            console.log('🚫 [REDO] No entries to redo');
+            console.debug('🚫 [REDO] No entries to redo');
             return null;
         }
-        console.log('▶️ [REDO] Redoing action:', entry.label);
+        console.debug('▶️ [REDO] Redoing action:', entry.label);
         try {
             entry.action.do(this.ctx);
-            console.log('✅ [REDO] Successfully redid action:', entry.label);
+            console.debug('✅ [REDO] Successfully redid action:', entry.label);
         } catch (error) {
             console.error('❌ [REDO] Failed during action.do for:', entry.label, error);
             throw error;
@@ -210,7 +210,7 @@ export class HistoryManager {
         this.updateLastLabel();
         this.syncStacks();
         this.dispatchChange('redo');
-        console.log('🏁 [REDO] Completed redo of:', entry.label, {
+        console.debug('🏁 [REDO] Completed redo of:', entry.label, {
             pastLength: this.past.length,
             futureLength: this.future.length
         });
@@ -218,14 +218,14 @@ export class HistoryManager {
     }
 
     clear(reason = 'clear'): void {
-        console.log('🗑️ [CLEAR] Clearing history, reason:', reason, {
+        console.debug('🗑️ [CLEAR] Clearing history, reason:', reason, {
             pastLength: this.past.length,
             futureLength: this.future.length,
             hasActiveTransaction: !!this.activeTransaction
         });
         if (this.activeTransaction) {
             // Cancel without undo to avoid double undoing the callers' in-progress work.
-            console.log('⚠️ [CLEAR] Closing active transaction without undo');
+            console.debug('⚠️ [CLEAR] Closing active transaction without undo');
             this.activeTransaction.closed = true;
             this.activeTransaction = null;
         }
@@ -236,7 +236,7 @@ export class HistoryManager {
         this.lastLabel = null;
         this.syncStacks();
         this.dispatchChange(reason);
-        console.log('✅ [CLEAR] History cleared:', {
+        console.debug('✅ [CLEAR] History cleared:', {
             clearedPast,
             clearedFuture,
             reason
@@ -247,7 +247,7 @@ export class HistoryManager {
         label?: string,
         options: HistoryExecuteOptions = {}
     ): HistoryTransactionHandle {
-        console.log('📦 [TRANSACTION] Starting transaction:', label ?? 'Unnamed', {
+        console.debug('📦 [TRANSACTION] Starting transaction:', label ?? 'Unnamed', {
             options,
             currentPastLength: this.past.length
         });
@@ -263,7 +263,7 @@ export class HistoryManager {
             closed: false
         };
         this.activeTransaction = state;
-        console.log('✅ [TRANSACTION] Transaction created:', label ?? 'Unnamed');
+        console.debug('✅ [TRANSACTION] Transaction created:', label ?? 'Unnamed');
 
         return {
             add: (action, addOptions = {}) => {
@@ -274,15 +274,17 @@ export class HistoryManager {
                     );
                     return null;
                 }
-                console.log('➕ [TRANSACTION] Adding action to transaction:', action.label);
+                console.debug('➕ [TRANSACTION] Adding action to transaction:', action.label);
                 return this.execute(action, addOptions);
             },
             commit: (commitOptions = {}) => {
                 if (state.closed) {
-                    console.log('⚠️ [TRANSACTION] Attempted to commit already closed transaction');
+                    console.debug(
+                        '⚠️ [TRANSACTION] Attempted to commit already closed transaction'
+                    );
                     return;
                 }
-                console.log(
+                console.debug(
                     '💾 [TRANSACTION] Committing transaction with',
                     state.entries.length,
                     'entries'
@@ -293,10 +295,12 @@ export class HistoryManager {
             },
             cancel: () => {
                 if (state.closed) {
-                    console.log('⚠️ [TRANSACTION] Attempted to cancel already closed transaction');
+                    console.debug(
+                        '⚠️ [TRANSACTION] Attempted to cancel already closed transaction'
+                    );
                     return;
                 }
-                console.log(
+                console.debug(
                     '❌ [TRANSACTION] Cancelling transaction with',
                     state.entries.length,
                     'entries'
@@ -339,9 +343,9 @@ export class HistoryManager {
 
     private commitTransaction(state: TransactionState, commitOptions: HistoryExecuteOptions): void {
         const entries = state.entries;
-        console.log('💾 [TRANSACTION-COMMIT] Processing commit with', entries.length, 'entries');
+        console.debug('💾 [TRANSACTION-COMMIT] Processing commit with', entries.length, 'entries');
         if (!entries.length) {
-            console.log('🙅 [TRANSACTION-COMMIT] Empty transaction - nothing to commit');
+            console.debug('🙅 [TRANSACTION-COMMIT] Empty transaction - nothing to commit');
             this.syncStacks();
             this.dispatchChange('transaction-commit');
             return;
@@ -378,29 +382,33 @@ export class HistoryManager {
             suppressAutoscroll: merged.suppressAutoscroll
         };
 
-        console.log('🔗 [TRANSACTION-COMMIT] Creating composite action:', entry.label);
+        console.debug('🔗 [TRANSACTION-COMMIT] Creating composite action:', entry.label);
         const coalesced = this.tryCoalesce(this.past, entry, merged.coalesceStrategy);
         if (!coalesced) {
             this.past.push(entry);
-            console.log(
+            console.debug(
                 '📈 [TRANSACTION-COMMIT] Added composite action to history. New length:',
                 this.past.length
             );
         } else {
-            console.log('🔗 [TRANSACTION-COMMIT] Coalesced composite action with previous entry');
+            console.debug('🔗 [TRANSACTION-COMMIT] Coalesced composite action with previous entry');
         }
         this.updateLastLabel();
         this.syncStacks();
         this.dispatchChange('transaction-commit');
-        console.log('✅ [TRANSACTION-COMMIT] Transaction committed successfully');
+        console.debug('✅ [TRANSACTION-COMMIT] Transaction committed successfully');
     }
 
     private cancelTransaction(state: TransactionState): void {
         const entries = state.entries;
-        console.log('❌ [TRANSACTION-CANCEL] Undoing', entries.length, 'actions in reverse order');
+        console.debug(
+            '❌ [TRANSACTION-CANCEL] Undoing',
+            entries.length,
+            'actions in reverse order'
+        );
         for (let i = entries.length - 1; i >= 0; i--) {
             try {
-                console.log(
+                console.debug(
                     '↩️ [TRANSACTION-CANCEL] Undoing action',
                     i + 1,
                     'of',
@@ -421,7 +429,7 @@ export class HistoryManager {
         this.activeTransaction = null;
         this.syncStacks();
         this.dispatchChange('transaction-cancel');
-        console.log('✅ [TRANSACTION-CANCEL] Transaction cancelled successfully');
+        console.debug('✅ [TRANSACTION-CANCEL] Transaction cancelled successfully');
     }
 
     private tryCoalesce(
@@ -431,14 +439,14 @@ export class HistoryManager {
     ): HistoryEntry | null {
         if (!entry.coalesceKey || !stack.length) {
             if (!entry.coalesceKey) {
-                console.log('🔗 [COALESCE] No coalesce key for:', entry.label);
+                console.debug('🔗 [COALESCE] No coalesce key for:', entry.label);
             }
             return null;
         }
         const previous = stack[stack.length - 1];
         if (!previous || previous.coalesceKey !== entry.coalesceKey) {
             if (previous && previous.coalesceKey !== entry.coalesceKey) {
-                console.log(
+                console.debug(
                     '🔗 [COALESCE] Key mismatch for:',
                     entry.label,
                     'prev:',
@@ -450,7 +458,7 @@ export class HistoryManager {
             return null;
         }
 
-        console.log(
+        console.debug(
             '🔗 [COALESCE] Checking coalesce for:',
             entry.label,
             'with:',
@@ -461,27 +469,27 @@ export class HistoryManager {
         let shouldCoalesce = false;
         if (!strategy) {
             shouldCoalesce = previous.action.canCoalesceWith?.(entry.action) ?? false;
-            console.log('🔗 [COALESCE] Default strategy result:', shouldCoalesce);
+            console.debug('🔗 [COALESCE] Default strategy result:', shouldCoalesce);
         } else if (isReplaceStrategy(strategy)) {
             shouldCoalesce = true;
-            console.log('🔗 [COALESCE] Replace strategy - always coalesce');
+            console.debug('🔗 [COALESCE] Replace strategy - always coalesce');
         } else {
             shouldCoalesce = strategy(previous, entry);
-            console.log('🔗 [COALESCE] Custom strategy result:', shouldCoalesce);
+            console.debug('🔗 [COALESCE] Custom strategy result:', shouldCoalesce);
         }
 
         if (!shouldCoalesce) {
-            console.log('🚫 [COALESCE] Not coalescing:', entry.label);
+            console.debug('🚫 [COALESCE] Not coalescing:', entry.label);
             return null;
         }
 
         if (isReplaceStrategy(strategy)) {
-            console.log('🔄 [COALESCE] Replacing previous entry with:', entry.label);
+            console.debug('🔄 [COALESCE] Replacing previous entry with:', entry.label);
             stack[stack.length - 1] = entry;
             return entry;
         }
 
-        console.log(
+        console.debug(
             '🔗 [COALESCE] Merging with previous entry:',
             previous.label,
             '->',
@@ -498,7 +506,7 @@ export class HistoryManager {
         const oldLabel = this.lastLabel;
         this.lastLabel = last ? last.label : null;
         if (oldLabel !== this.lastLabel) {
-            console.log('🏷️ [LABEL] Last label changed from:', oldLabel, 'to:', this.lastLabel);
+            console.debug('🏷️ [LABEL] Last label changed from:', oldLabel, 'to:', this.lastLabel);
         }
     }
 
@@ -508,7 +516,7 @@ export class HistoryManager {
         this.canUndo = this.past.length > 0;
         this.canRedo = this.future.length > 0;
         if (oldCanUndo !== this.canUndo || oldCanRedo !== this.canRedo) {
-            console.log('🔄 [SYNC] Stack state changed:', {
+            console.debug('🔄 [SYNC] Stack state changed:', {
                 canUndo: `${oldCanUndo} -> ${this.canUndo}`,
                 canRedo: `${oldCanRedo} -> ${this.canRedo}`,
                 pastLength: this.past.length,
@@ -518,7 +526,7 @@ export class HistoryManager {
     }
 
     private dispatchChange(reason?: string): void {
-        console.log(`History changed: ${reason}`, {
+        console.debug(`History changed: ${reason}`, {
             canUndo: this.canUndo,
             canRedo: this.canRedo,
             lastLabel: this.lastLabel,
