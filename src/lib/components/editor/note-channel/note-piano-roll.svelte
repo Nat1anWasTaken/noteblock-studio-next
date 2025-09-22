@@ -114,16 +114,16 @@
             {
                 id: 'piano-roll-delete-selected-notes',
                 title: 'Delete Selected Notes',
-                shortcut: 'Delete',
+                shortcut: 'DELETE',
                 callback: () => pianoRollMouse.deleteSelectedNotes(),
                 scope: 'piano-roll'
             },
             {
                 id: 'piano-roll-backspace-selected-notes',
                 title: 'Delete Selected Notes',
-                shortcut: 'Backspace',
+                shortcut: 'BACKSPACE',
                 callback: () => pianoRollMouse.deleteSelectedNotes(),
-                scope: 'piano-roll'
+                scope: 'piano-roll',
             }
         ]);
 
