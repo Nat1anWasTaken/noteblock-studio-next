@@ -1,6 +1,48 @@
-import type { Instrument, NoteChannel, NoteSection, TempoChannel } from '../../types';
-import type { HistoryAction } from '../types';
+import type { Instrument, Note, NoteChannel, NoteSection, TempoChannel } from '../../types';
+import type { HistoryAction, HistoryActionContext } from '../types';
 import { getSong } from '../utils';
+
+function cloneNote(note: Note): Note {
+    return { ...note };
+}
+
+function sortSectionNotes(section: NoteSection): void {
+    section.notes.sort((a, b) => {
+        if (a.tick !== b.tick) return a.tick - b.tick;
+        return a.key - b.key;
+    });
+}
+
+function applyNoteState(target: Note, state: Partial<Note>): void {
+    for (const key of Object.keys(state) as (keyof Note)[]) {
+        const value = state[key];
+        if (typeof value === 'number') {
+            target[key] = value;
+        }
+    }
+}
+
+function getNoteSection(
+    ctx: HistoryActionContext,
+    channelIndex: number,
+    sectionIndex: number
+): NoteSection | null {
+    const song = getSong(ctx.player);
+    const channel = song.channels[channelIndex];
+    if (channel?.kind !== 'note') return null;
+    return channel.sections[sectionIndex] ?? null;
+}
+
+export interface NoteUpdateChange {
+    note: Note;
+    previousState: Partial<Note>;
+    nextState: Partial<Note>;
+}
+
+export interface NoteRemovalChange {
+    noteIndex: number;
+    noteSnapshot: Note;
+}
 
 /**
  * Action for toggling channel mute state
@@ -185,6 +227,196 @@ export function createSetTempoAction(newTempo: number, oldTempo: number): Histor
         },
         canCoalesceWith(next) {
             return next.label === 'Set tempo';
+        }
+    };
+}
+
+/**
+ * Action for adding a note to a section
+ */
+export function createAddNoteAction(
+    channelIndex: number,
+    sectionIndex: number,
+    note: Note,
+    insertIndex: number
+): HistoryAction {
+    return {
+        label: 'Add note',
+        do(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const section = channel.sections[sectionIndex];
+                if (section) {
+                    section.notes.splice(insertIndex, 0, note);
+                    sortSectionNotes(section);
+                    ctx.player.refreshIndexes();
+                }
+            }
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const section = channel.sections[sectionIndex];
+                if (section) {
+                    section.notes.splice(insertIndex, 1);
+                    ctx.player.refreshIndexes();
+                }
+            }
+        }
+    };
+}
+
+/**
+ * Action for removing a note from a section
+ */
+export function createRemoveNoteAction(
+    channelIndex: number,
+    sectionIndex: number,
+    noteIndex: number,
+    removedNote: Note
+): HistoryAction {
+    return {
+        label: 'Remove note',
+        do(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const section = channel.sections[sectionIndex];
+                if (section) {
+                    section.notes.splice(noteIndex, 1);
+                    ctx.player.refreshIndexes();
+                }
+            }
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind === 'note') {
+                const section = channel.sections[sectionIndex];
+                if (section) {
+                    section.notes.splice(noteIndex, 0, cloneNote(removedNote));
+                    sortSectionNotes(section);
+                    ctx.player.refreshIndexes();
+                }
+            }
+        }
+    };
+}
+
+/**
+ * Action for updating a note with partial data
+ */
+export function createUpdateNoteAction(
+    channelIndex: number,
+    sectionIndex: number,
+    note: Note,
+    nextState: Partial<Note>,
+    previousState: Partial<Note>
+): HistoryAction {
+    return {
+        label: 'Update note',
+        do(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+            if (!section.notes.includes(note)) return;
+            applyNoteState(note, nextState);
+            sortSectionNotes(section);
+            ctx.player.refreshIndexes();
+        },
+        undo(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+            if (!section.notes.includes(note)) return;
+            applyNoteState(note, previousState);
+            sortSectionNotes(section);
+            ctx.player.refreshIndexes();
+        },
+        canCoalesceWith(next) {
+            return next.label === 'Update note';
+        }
+    };
+}
+
+export function createUpdateNotesAction(
+    channelIndex: number,
+    sectionIndex: number,
+    changes: NoteUpdateChange[]
+): HistoryAction {
+    const label = changes.length === 1 ? 'Update note' : 'Update notes';
+    return {
+        label,
+        do(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+            let mutated = false;
+            for (const change of changes) {
+                if (!section.notes.includes(change.note)) continue;
+                applyNoteState(change.note, change.nextState);
+                mutated = true;
+            }
+            if (!mutated) return;
+            sortSectionNotes(section);
+            ctx.player.refreshIndexes();
+        },
+        undo(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+            let mutated = false;
+            for (const change of changes) {
+                if (!section.notes.includes(change.note)) continue;
+                applyNoteState(change.note, change.previousState);
+                mutated = true;
+            }
+            if (!mutated) return;
+            sortSectionNotes(section);
+            ctx.player.refreshIndexes();
+        },
+        canCoalesceWith(next) {
+            return next.label === label;
+        }
+    };
+}
+
+export function createRemoveNotesAction(
+    channelIndex: number,
+    sectionIndex: number,
+    removals: NoteRemovalChange[]
+): HistoryAction {
+    const label = removals.length === 1 ? 'Remove note' : 'Remove notes';
+    // Ensure we process removals from highest index to lowest when doing
+    const descending = [...removals].sort((a, b) => b.noteIndex - a.noteIndex);
+    const ascending = [...removals].sort((a, b) => a.noteIndex - b.noteIndex);
+    return {
+        label,
+        do(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+            let mutated = false;
+            for (const removal of descending) {
+                if (removal.noteIndex < 0 || removal.noteIndex >= section.notes.length) continue;
+                section.notes.splice(removal.noteIndex, 1);
+                mutated = true;
+            }
+            if (!mutated) return;
+            sortSectionNotes(section);
+            ctx.player.refreshIndexes();
+        },
+        undo(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+            let mutated = false;
+            for (const removal of ascending) {
+                section.notes.splice(removal.noteIndex, 0, cloneNote(removal.noteSnapshot));
+                mutated = true;
+            }
+            if (!mutated) return;
+            sortSectionNotes(section);
+            ctx.player.refreshIndexes();
+        },
+        canCoalesceWith(next) {
+            return next.label === label;
         }
     };
 }

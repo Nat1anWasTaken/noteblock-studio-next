@@ -79,7 +79,10 @@ export class HistoryManager {
 
         // Ephemeral actions mutate state but do not create history entries.
         if (merged.isEphemeral) {
-            console.log('👻 [EXECUTE] Ephemeral action - no history entry created for:', action.label);
+            console.log(
+                '👻 [EXECUTE] Ephemeral action - no history entry created for:',
+                action.label
+            );
             this.future = [];
             this.syncStacks();
             this.dispatchChange('execute');
@@ -90,7 +93,12 @@ export class HistoryManager {
         const clearedFuture = this.future.length;
         this.future = [];
         if (clearedFuture > 0) {
-            console.log('🗑️ [EXECUTE] Cleared', clearedFuture, 'future entries for action:', action.label);
+            console.log(
+                '🗑️ [EXECUTE] Cleared',
+                clearedFuture,
+                'future entries for action:',
+                action.label
+            );
         }
 
         if (transaction) {
@@ -102,7 +110,10 @@ export class HistoryManager {
             const coalesced = this.tryCoalesce(transaction.entries, entry, merged.coalesceStrategy);
             if (!coalesced) {
                 transaction.entries.push(entry);
-                console.log('➕ [EXECUTE] Added new entry to transaction. New size:', transaction.entries.length);
+                console.log(
+                    '➕ [EXECUTE] Added new entry to transaction. New size:',
+                    transaction.entries.length
+                );
             } else {
                 console.log('🔗 [EXECUTE] Coalesced action in transaction for:', action.label);
             }
@@ -114,7 +125,12 @@ export class HistoryManager {
         const coalesced = this.tryCoalesce(this.past, entry, merged.coalesceStrategy);
         if (!coalesced) {
             this.past.push(entry);
-            console.log('📈 [EXECUTE] Added to history stack. New length:', this.past.length, 'Action:', action.label);
+            console.log(
+                '📈 [EXECUTE] Added to history stack. New length:',
+                this.past.length,
+                'Action:',
+                action.label
+            );
         } else {
             console.log('🔗 [EXECUTE] Coalesced with previous action:', action.label);
         }
@@ -136,7 +152,9 @@ export class HistoryManager {
             hasTransaction: !!this.activeTransaction
         });
         if (this.activeTransaction) {
-            console.warn('⚠️ [UNDO] Cannot undo while a transaction is active. Call commit() or cancel() first.');
+            console.warn(
+                '⚠️ [UNDO] Cannot undo while a transaction is active. Call commit() or cancel() first.'
+            );
             return null;
         }
         const entry = this.past.pop();
@@ -170,7 +188,9 @@ export class HistoryManager {
             hasTransaction: !!this.activeTransaction
         });
         if (this.activeTransaction) {
-            console.warn('⚠️ [REDO] Cannot redo while a transaction is active. Call commit() or cancel() first.');
+            console.warn(
+                '⚠️ [REDO] Cannot redo while a transaction is active. Call commit() or cancel() first.'
+            );
             return null;
         }
         const entry = this.future.pop();
@@ -248,7 +268,10 @@ export class HistoryManager {
         return {
             add: (action, addOptions = {}) => {
                 if (state.closed) {
-                    console.warn('⚠️ [TRANSACTION] Attempted to add an action to a closed transaction:', action.label);
+                    console.warn(
+                        '⚠️ [TRANSACTION] Attempted to add an action to a closed transaction:',
+                        action.label
+                    );
                     return null;
                 }
                 console.log('➕ [TRANSACTION] Adding action to transaction:', action.label);
@@ -259,7 +282,11 @@ export class HistoryManager {
                     console.log('⚠️ [TRANSACTION] Attempted to commit already closed transaction');
                     return;
                 }
-                console.log('💾 [TRANSACTION] Committing transaction with', state.entries.length, 'entries');
+                console.log(
+                    '💾 [TRANSACTION] Committing transaction with',
+                    state.entries.length,
+                    'entries'
+                );
                 state.closed = true;
                 this.activeTransaction = null;
                 this.commitTransaction(state, commitOptions);
@@ -269,7 +296,11 @@ export class HistoryManager {
                     console.log('⚠️ [TRANSACTION] Attempted to cancel already closed transaction');
                     return;
                 }
-                console.log('❌ [TRANSACTION] Cancelling transaction with', state.entries.length, 'entries');
+                console.log(
+                    '❌ [TRANSACTION] Cancelling transaction with',
+                    state.entries.length,
+                    'entries'
+                );
                 state.closed = true;
                 this.cancelTransaction(state);
             },
@@ -351,7 +382,10 @@ export class HistoryManager {
         const coalesced = this.tryCoalesce(this.past, entry, merged.coalesceStrategy);
         if (!coalesced) {
             this.past.push(entry);
-            console.log('📈 [TRANSACTION-COMMIT] Added composite action to history. New length:', this.past.length);
+            console.log(
+                '📈 [TRANSACTION-COMMIT] Added composite action to history. New length:',
+                this.past.length
+            );
         } else {
             console.log('🔗 [TRANSACTION-COMMIT] Coalesced composite action with previous entry');
         }
@@ -366,10 +400,21 @@ export class HistoryManager {
         console.log('❌ [TRANSACTION-CANCEL] Undoing', entries.length, 'actions in reverse order');
         for (let i = entries.length - 1; i >= 0; i--) {
             try {
-                console.log('↩️ [TRANSACTION-CANCEL] Undoing action', i + 1, 'of', entries.length, ':', entries[i].label);
+                console.log(
+                    '↩️ [TRANSACTION-CANCEL] Undoing action',
+                    i + 1,
+                    'of',
+                    entries.length,
+                    ':',
+                    entries[i].label
+                );
                 entries[i].action.undo(this.ctx);
             } catch (error) {
-                console.error('❌ [TRANSACTION-CANCEL] Failed during action.undo for:', entries[i].label, error);
+                console.error(
+                    '❌ [TRANSACTION-CANCEL] Failed during action.undo for:',
+                    entries[i].label,
+                    error
+                );
                 throw error;
             }
         }
@@ -393,12 +438,26 @@ export class HistoryManager {
         const previous = stack[stack.length - 1];
         if (!previous || previous.coalesceKey !== entry.coalesceKey) {
             if (previous && previous.coalesceKey !== entry.coalesceKey) {
-                console.log('🔗 [COALESCE] Key mismatch for:', entry.label, 'prev:', previous.coalesceKey, 'current:', entry.coalesceKey);
+                console.log(
+                    '🔗 [COALESCE] Key mismatch for:',
+                    entry.label,
+                    'prev:',
+                    previous.coalesceKey,
+                    'current:',
+                    entry.coalesceKey
+                );
             }
             return null;
         }
 
-        console.log('🔗 [COALESCE] Checking coalesce for:', entry.label, 'with:', previous.label, 'strategy:', strategy);
+        console.log(
+            '🔗 [COALESCE] Checking coalesce for:',
+            entry.label,
+            'with:',
+            previous.label,
+            'strategy:',
+            strategy
+        );
         let shouldCoalesce = false;
         if (!strategy) {
             shouldCoalesce = previous.action.canCoalesceWith?.(entry.action) ?? false;
@@ -422,7 +481,12 @@ export class HistoryManager {
             return entry;
         }
 
-        console.log('🔗 [COALESCE] Merging with previous entry:', previous.label, '->', entry.label);
+        console.log(
+            '🔗 [COALESCE] Merging with previous entry:',
+            previous.label,
+            '->',
+            entry.label
+        );
         previous.label = entry.label;
         previous.timestamp = entry.timestamp;
         previous.suppressAutoscroll = entry.suppressAutoscroll;

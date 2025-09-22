@@ -1,14 +1,21 @@
 import { browser } from '$app/environment';
 import {
+    createAddNoteAction,
     createCreateNoteChannelAction,
     createRemoveChannelAction,
+    createRemoveNoteAction,
+    createRemoveNotesAction,
     createSetSoloAction,
     createSetTempoAction,
     createToggleMuteAction,
+    createUpdateNoteAction,
     createUpdateNoteChannelAction,
     createUpdateNoteSectionAction,
+    createUpdateNotesAction,
     createUpdateTempoChannelAction,
-    historyManager
+    historyManager,
+    type NoteRemovalChange,
+    type NoteUpdateChange
 } from './history';
 import {
     Instrument,
@@ -734,6 +741,120 @@ export class Player {
 
         const action = createSetSoloAction(index, previousMuteStates);
         historyManager.execute(action);
+    }
+
+    private getNoteSection(channelIndex: number, sectionIndex: number): NoteSection | null {
+        if (!this.song) return null;
+        const channel = this.song.channels[channelIndex];
+        if (!channel || channel.kind !== 'note') return null;
+        return channel.sections[sectionIndex] ?? null;
+    }
+
+    private static snapshotNote(note: Note): Note {
+        return { ...note };
+    }
+
+    private static findNoteInsertIndex(notes: Note[], note: Note): number {
+        for (let i = 0; i < notes.length; i++) {
+            const existing = notes[i]!;
+            if (existing.tick > note.tick) return i;
+            if (existing.tick === note.tick && existing.key > note.key) return i;
+        }
+        return notes.length;
+    }
+
+    addNote(channelIndex: number, sectionIndex: number, noteData: Note): Note | null {
+        const section = this.getNoteSection(channelIndex, sectionIndex);
+        if (!section) return null;
+        const note = Player.snapshotNote(noteData);
+        const insertIndex = Player.findNoteInsertIndex(section.notes, note);
+        const action = createAddNoteAction(channelIndex, sectionIndex, note, insertIndex);
+        historyManager.execute(action);
+        return note;
+    }
+
+    removeNotes(channelIndex: number, sectionIndex: number, notes: Note[]): boolean {
+        const section = this.getNoteSection(channelIndex, sectionIndex);
+        if (!section || !notes.length) return false;
+
+        const seen = new Set<Note>();
+        const removals: NoteRemovalChange[] = [];
+        for (const note of notes) {
+            if (seen.has(note)) continue;
+            const noteIndex = section.notes.indexOf(note);
+            if (noteIndex === -1) continue;
+            removals.push({
+                noteIndex,
+                noteSnapshot: Player.snapshotNote(note)
+            });
+            seen.add(note);
+        }
+
+        if (!removals.length) return false;
+
+        if (removals.length === 1) {
+            const removal = removals[0];
+            historyManager.execute(
+                createRemoveNoteAction(
+                    channelIndex,
+                    sectionIndex,
+                    removal.noteIndex,
+                    removal.noteSnapshot
+                )
+            );
+        } else {
+            historyManager.execute(createRemoveNotesAction(channelIndex, sectionIndex, removals));
+        }
+
+        return true;
+    }
+
+    updateNotes(channelIndex: number, sectionIndex: number, changes: NoteUpdateChange[]): boolean {
+        const section = this.getNoteSection(channelIndex, sectionIndex);
+        if (!section || !changes.length) return false;
+
+        const filtered = changes
+            .map((change) => {
+                const nextState: Partial<Note> = {};
+                const previousState: Partial<Note> = {};
+                let mutated = false;
+                for (const key of ['tick', 'key', 'velocity', 'pitch'] as (keyof Note)[]) {
+                    const nextValue = change.nextState[key];
+                    if (typeof nextValue !== 'number') continue;
+                    const prevRaw = change.previousState[key];
+                    const prevValue = typeof prevRaw === 'number' ? prevRaw : change.note[key];
+                    if (nextValue === prevValue) continue;
+                    nextState[key] = nextValue;
+                    previousState[key] = prevValue;
+                    mutated = true;
+                }
+                if (!mutated) return null;
+                return {
+                    note: change.note,
+                    nextState,
+                    previousState
+                } satisfies NoteUpdateChange;
+            })
+            .filter(Boolean) as NoteUpdateChange[];
+
+        if (!filtered.length) return false;
+
+        if (filtered.length === 1) {
+            const change = filtered[0];
+            historyManager.execute(
+                createUpdateNoteAction(
+                    channelIndex,
+                    sectionIndex,
+                    change.note,
+                    change.nextState,
+                    change.previousState
+                )
+            );
+        } else {
+            historyManager.execute(createUpdateNotesAction(channelIndex, sectionIndex, filtered));
+        }
+
+        return true;
     }
 
     /**
