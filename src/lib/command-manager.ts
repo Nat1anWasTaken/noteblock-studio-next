@@ -115,6 +115,8 @@ export class CommandManager {
 
         const shortcut = this.buildShortcutString(event);
 
+        console.log('Detected shortcut:', shortcut);
+
         for (let i = this.activeScopes.length - 1; i >= 0; i--) {
             const layer = this.activeScopes[i];
             const commandId = this.getScopeShortcuts(layer.id).get(shortcut);
