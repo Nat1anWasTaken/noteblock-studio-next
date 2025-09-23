@@ -215,7 +215,12 @@ export class PianoRollState {
     }
 
     keyRows = $derived.by(() => {
-        const rows: Array<{ key: number; label: string; isBlack: boolean; isMinecraftRange: boolean }> = [];
+        const rows: Array<{
+            key: number;
+            label: string;
+            isBlack: boolean;
+            isMinecraftRange: boolean;
+        }> = [];
         for (let key = this.keyRange.max; key >= this.keyRange.min; key--) {
             const info = this.keyNumberToInfo(key);
             rows.push({ key, ...info });

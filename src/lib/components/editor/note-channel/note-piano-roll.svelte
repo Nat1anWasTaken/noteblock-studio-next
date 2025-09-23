@@ -123,7 +123,7 @@
                 title: 'Delete Selected Notes',
                 shortcut: 'BACKSPACE',
                 callback: () => pianoRollMouse.deleteSelectedNotes(),
-                scope: 'piano-roll',
+                scope: 'piano-roll'
             }
         ]);
 
