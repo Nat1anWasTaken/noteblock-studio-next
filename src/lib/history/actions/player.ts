@@ -108,6 +108,38 @@ export function createSetSoloAction(
 }
 
 /**
+ * Action for clearing solo (unmute all note channels) and restoring previous states on undo
+ */
+export function createClearSoloAction(previousMuteStates: boolean[]): HistoryAction {
+    return {
+        label: 'Clear solo',
+        do(ctx) {
+            const song = getSong(ctx.player);
+            for (const channel of song.channels) {
+                if (channel?.kind === 'note') {
+                    channel.isMuted = false;
+                }
+            }
+            ctx.player.refreshIndexes();
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            let noteIdx = 0;
+            for (let i = 0; i < song.channels.length; i++) {
+                const channel = song.channels[i];
+                if (channel?.kind === 'note') {
+                    if (noteIdx < previousMuteStates.length) {
+                        channel.isMuted = previousMuteStates[noteIdx];
+                        noteIdx++;
+                    }
+                }
+            }
+            ctx.player.refreshIndexes();
+        }
+    };
+}
+
+/**
  * Action for updating a note channel with partial data
  */
 export function createUpdateNoteChannelAction(
