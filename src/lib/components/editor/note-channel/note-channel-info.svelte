@@ -3,6 +3,7 @@
     import InstrumentSelector from '$lib/components/editor/note-channel/instrument-selector.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
     import Input from '$lib/components/ui/input/input.svelte';
+    import { editorMouse } from '$lib/editor-mouse.svelte';
     import { player } from '$lib/playback.svelte';
     import type { NoteChannel } from '$lib/types';
     import { Instrument, INSTRUMENT_ICONS } from '$lib/types';
@@ -95,6 +96,7 @@
     <div
         class="flex w-full items-stretch border-b border-border text-sm"
         style={`min-height:${height}px; max-height:${height}px`}
+        onpointerdown={(e) => editorMouse.handleChannelPointerDown(index, e)}
     >
         <div class="flex w-10 flex-col items-center justify-center gap-1 border-r border-border/70">
             <div class="text-muted-foreground">{index + 1}</div>

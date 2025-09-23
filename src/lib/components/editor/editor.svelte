@@ -497,6 +497,48 @@
                 <!-- Single selection overlay spanning ruler and timeline, under cursor -->
                 <SelectionOverlay {gutterWidth} />
                 <PlayheadCursor {gutterWidth} />
+                {#if editorMouse.dragGhost}
+                    {#if channelInfosContainer}
+                        <!-- Use the real channel info component as the ghost (reduced opacity) -->
+                        <div
+                            class="pointer-events-none absolute z-40 w-[240px] opacity-80"
+                            style={`left:0px; top:${
+                                editorMouse.dragGhostClientY
+                                    ? editorMouse.dragGhostClientY -
+                                      channelInfosContainer.getBoundingClientRect().top +
+                                      'px'
+                                    : '-9999px'
+                            };`}
+                        >
+                            {#if editorMouse.dragGhostChannel && editorMouse.dragGhost.kind === 'note'}
+                                <NoteChannelInfo
+                                    channel={editorMouse.dragGhostChannel as any}
+                                    index={-1}
+                                    height={editorState.rowHeight}
+                                />
+                            {:else if editorMouse.dragGhostChannel}
+                                <TempoChannelInfo
+                                    channel={editorMouse.dragGhostChannel as any}
+                                    index={-1}
+                                    height={editorState.rowHeight}
+                                />
+                            {/if}
+                        </div>
+                    {/if}
+                {/if}
+
+                {#if editorMouse.dragTargetIndex !== null && channelInfosContainer}
+                    <!-- Target insertion border on the gutter (positioned relative to channel infos container) -->
+                    <div
+                        class="pointer-events-none absolute z-30"
+                        style={`left:0; width:${gutterWidth}px; top:${
+                            editorMouse.dragTargetIndex * editorState.rowHeight -
+                            editorState.rowHeight / 2
+                        }px;`}
+                    >
+                        <div class="h-0 border-t-2 border-dashed border-accent/90"></div>
+                    </div>
+                {/if}
             </div>
         </Resizable.Pane>
     </Resizable.PaneGroup>

@@ -12,6 +12,7 @@ export class EditorMouseController {
     // Section-specific flags
     isSelectingSections = $state(false); // 2D section selection (normal mode drag)
     isDraggingSection = $state(false); // dragging a single section to move it
+    isDraggingChannel = $state(false); // dragging an entire channel to reorder
     isResizingSection = $state(false); // resizing a section's duration via right handle
 
     // Shears-mode hover state: { channelIndex, sectionIndex, tick } when hovering a section
@@ -23,12 +24,22 @@ export class EditorMouseController {
         null
     );
 
+    // Channel-drag ghost/target for UI feedback
+    dragGhostClientY = $state<number | null>(null);
+    dragTargetIndex = $state<number | null>(null);
+    dragGhost = $state<{ name?: string; instrument?: number; kind?: string } | null>(null);
+    // full channel reference for rendering the actual component as ghost
+    dragGhostChannel = $state<any | null>(null);
+
     // Context captured on pointerdown
     private _contentEl: HTMLElement | null = null;
     private _startTick = 0;
     private _startX = 0;
     private _startY = 0;
     private _startChannelIndex: number | null = null;
+    // Channel drag context
+    private _draggedChannelRef: any = null;
+    private _channelOriginalIndex: number | null = null;
     private _startShiftKey = false;
     private _moved = false;
 
@@ -253,6 +264,41 @@ export class EditorMouseController {
             section: item.section,
             startingTick: item.section.startingTick
         }));
+    };
+
+    // --- Channel reorder: pointer down on gutter to begin drag ---
+    handleChannelPointerDown = (channelIndex: number, ev: PointerEvent) => {
+        console.log('handle channel pointer down');
+        if (ev.button !== 0) return;
+        if (editorState.pointerMode !== PointerMode.Normal) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        const song = player.song;
+        if (!song) return;
+
+        this.isDraggingChannel = true;
+        this._startY = ev.clientY;
+        this._startX = ev.clientX;
+        this._moved = false;
+        this._channelOriginalIndex = channelIndex;
+        this._startChannelIndex = channelIndex;
+
+        // Ensure window move handler sees a content element so dragging logic runs
+        this._contentEl = document.querySelector('[data-editor-content]') as HTMLElement | null;
+
+        // Capture a reference to the channel object being dragged
+        this._draggedChannelRef = song.channels[channelIndex];
+
+        // Setup drag ghost info for UI (include kind so UI can render correct component)
+        const ch = this._draggedChannelRef as any;
+        this.dragGhost = { name: ch?.name, instrument: ch?.instrument, kind: ch?.kind };
+        this.dragGhostChannel = ch;
+        this.dragGhostClientY = ev.clientY;
+        this.dragTargetIndex = channelIndex;
+
+        // Clear selection to avoid conflicts while dragging
+        editorState.clearSelectedSections();
     };
 
     handleTimelineBlankPointerMove = (contentEl: HTMLElement, ev: PointerEvent) => {
@@ -737,6 +783,32 @@ export class EditorMouseController {
             // Notify player indexes updated (live)
             player.refreshIndexes();
             this._moved = true;
+        } else if (this.isDraggingChannel && this._draggedChannelRef) {
+            const song = player.song;
+            const content = this._contentEl;
+            if (!song || !content) return;
+
+            const rect = content.getBoundingClientRect();
+            const relY = e.clientY - rect.top;
+            let destIndex = Math.floor(relY / editorState.rowHeight);
+            destIndex = Math.min(Math.max(0, destIndex), song.channels.length - 1);
+
+            // Update ghost UI position and target index so overlay follows mouse
+            this.dragGhostClientY = e.clientY;
+            this.dragTargetIndex = destIndex;
+
+            const currentIndex = song.channels.indexOf(this._draggedChannelRef);
+            if (currentIndex === -1) return;
+
+            if (destIndex !== currentIndex) {
+                // Remove at current index and insert at destIndex
+                const ch = song.channels.splice(currentIndex, 1)[0];
+                // When removing an item earlier than destIndex, the destIndex shifts down by 1
+                const insertAt = destIndex > currentIndex ? destIndex : destIndex;
+                song.channels.splice(insertAt, 0, ch);
+                player.refreshIndexes();
+                this._moved = true;
+            }
         }
     };
 
@@ -798,6 +870,46 @@ export class EditorMouseController {
                 ]);
             }
             player.refreshIndexes();
+        } else if (this.isDraggingChannel) {
+            // Finalize channel drag: create history action if moved
+            const song = player.song;
+            if (this._moved && song && this._draggedChannelRef) {
+                const finalIndex = song.channels.indexOf(this._draggedChannelRef);
+                const originalIndex = this._startChannelIndex ?? this._channelOriginalIndex ?? -1;
+
+                const removedChannel = this._draggedChannelRef;
+
+                const action = {
+                    label: 'Move channel',
+                    do: (ctx: any) => {
+                        const s = ctx.player.song;
+                        if (!s) return;
+                        // remove any existing instances of removedChannel
+                        const existing = s.channels.indexOf(removedChannel);
+                        if (existing !== -1) s.channels.splice(existing, 1);
+                        const insertAt = Math.min(Math.max(finalIndex, 0), s.channels.length);
+                        s.channels.splice(insertAt, 0, removedChannel);
+                        ctx.player.refreshIndexes();
+                    },
+                    undo: (ctx: any) => {
+                        const s = ctx.player.song;
+                        if (!s) return;
+                        const existing = s.channels.indexOf(removedChannel);
+                        if (existing !== -1) s.channels.splice(existing, 1);
+                        const insertAt = Math.min(Math.max(originalIndex, 0), s.channels.length);
+                        s.channels.splice(insertAt, 0, removedChannel);
+                        ctx.player.refreshIndexes();
+                    }
+                };
+
+                historyManager.execute(action);
+            }
+            player.refreshIndexes();
+            // clear ghost/target UI state
+            this.dragGhost = null;
+            this.dragGhostClientY = null;
+            this.dragTargetIndex = null;
+            this.dragGhostChannel = null;
         }
         this.reset();
     };
@@ -811,6 +923,7 @@ export class EditorMouseController {
         this.isScrubbing = false;
         this.isSelectingSections = false;
         this.isDraggingSection = false;
+        this.isDraggingChannel = false;
         this.isResizingSection = false;
         this._contentEl = null;
         this._moved = false;
@@ -822,7 +935,13 @@ export class EditorMouseController {
         this._dragSectionRef = null;
         this._resizeContext = null;
         this._initialDragState = null;
+        this._draggedChannelRef = null;
+        this._channelOriginalIndex = null;
         this.clearNewSectionHover();
+        this.dragGhost = null;
+        this.dragGhostClientY = null;
+        this.dragTargetIndex = null;
+        this.dragGhostChannel = null;
     }
 
     private createDragHistoryAction() {
