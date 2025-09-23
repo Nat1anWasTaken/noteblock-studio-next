@@ -129,16 +129,10 @@
     onMount(() => {
         commandManager.registerCommands([
             {
-                id: 'save',
-                title: 'Save',
-                callback: handleSave,
-                shortcut: 'MOD+S'
-            },
-            {
                 id: 'save-as',
                 title: 'Save As',
                 callback: handleSaveAs,
-                shortcut: 'MOD+SHIFT+S'
+                shortcut: 'MOD+S'
             },
             {
                 id: 'export-nbs',
