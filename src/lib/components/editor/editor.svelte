@@ -232,7 +232,9 @@
         editorState.setSelectedSections(allSections);
 
         if (allSections.length > 0) {
-            toast.success(`Selected ${allSections.length} section${allSections.length === 1 ? '' : 's'}`);
+            toast.success(
+                `Selected ${allSections.length} section${allSections.length === 1 ? '' : 's'}`
+            );
         }
     }
 
@@ -297,6 +299,12 @@
                 title: 'Select All Sections',
                 callback: selectAllSections,
                 shortcut: 'MOD+A'
+            },
+            {
+                id: 'deselect-all-sections',
+                title: 'Deselect All Sections',
+                callback: () => editorState.clearSelectedSections(),
+                shortcut: 'ESCAPE'
             }
         ]);
 
@@ -313,7 +321,8 @@
                 'zoom-in-numpad',
                 'zoom-out',
                 'zoom-out-numpad',
-                'select-all-sections'
+                'select-all-sections',
+                'deselect-all-sections'
             ]);
         };
     });
