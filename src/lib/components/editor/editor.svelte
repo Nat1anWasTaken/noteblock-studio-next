@@ -249,6 +249,30 @@
                 title: 'Paste Sections',
                 callback: pasteSections,
                 shortcut: 'MOD+V'
+            },
+            {
+                id: 'zoom-in',
+                title: 'Zoom In',
+                callback: () => editorState.zoomIn(),
+                shortcut: 'MOD+='
+            },
+            {
+                id: 'zoom-in-numpad',
+                title: 'Zoom In (Numpad)',
+                callback: () => editorState.zoomIn(),
+                shortcut: 'MOD+ADD'
+            },
+            {
+                id: 'zoom-out',
+                title: 'Zoom Out',
+                callback: () => editorState.zoomOut(),
+                shortcut: 'MOD+-'
+            },
+            {
+                id: 'zoom-out-numpad',
+                title: 'Zoom Out (Numpad)',
+                callback: () => editorState.zoomOut(),
+                shortcut: 'MOD+SUBTRACT'
             }
         ]);
 
@@ -260,7 +284,11 @@
                 'delete-selected-sections-backspace',
                 'copy-selected-sections',
                 'cut-selected-sections',
-                'paste-sections'
+                'paste-sections',
+                'zoom-in',
+                'zoom-in-numpad',
+                'zoom-out',
+                'zoom-out-numpad'
             ]);
         };
     });
