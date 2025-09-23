@@ -12,6 +12,9 @@
         beatsPerBar?: number;
         pxPerBeat?: number;
         startBar?: number;
+        ticksPerBeat?: number;
+        pxPerTick?: number;
+        showTickLines?: boolean;
     }
 
     let {
@@ -24,7 +27,10 @@
         totalBars: totalBarsProp,
         beatsPerBar: beatsPerBarProp,
         pxPerBeat: pxPerBeatProp,
-        startBar = 0
+        startBar = 0,
+        ticksPerBeat: ticksPerBeatProp,
+        pxPerTick: pxPerTickProp,
+        showTickLines = false
     }: Props = $props();
 
     const contentWidth = $derived(contentWidthProp ?? editorState.contentWidth);
@@ -33,6 +39,10 @@
     const totalBars = $derived(Math.max(1, Math.round(totalBarsProp ?? editorState.totalBars)));
     const beatsPerBar = $derived(Math.max(1, beatsPerBarProp ?? editorState.beatsPerBar));
     const pxPerBeat = $derived(Math.max(1, pxPerBeatProp ?? editorState.pxPerBeat));
+    const ticksPerBeat = $derived(Math.max(1, ticksPerBeatProp ?? editorState.ticksPerBeat));
+    const pxPerTick = $derived(
+        Math.max(0.1, pxPerTickProp ?? editorState.pxPerBeat / editorState.ticksPerBeat)
+    );
 
     const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 </script>
@@ -64,6 +74,16 @@
                             class="absolute inset-y-0 border-l border-border/80"
                             style={`left:${beatIdx * pxPerBeat}px`}
                         ></div>
+                    {/if}
+                    {#if showTickLines && ticksPerBeat > 1}
+                        {#each range(ticksPerBeat) as tickIdx}
+                            {#if tickIdx > 0}
+                                <div
+                                    class="absolute inset-y-0 border-l border-border/40"
+                                    style={`left:${beatIdx * pxPerBeat + tickIdx * pxPerTick}px`}
+                                ></div>
+                            {/if}
+                        {/each}
                     {/if}
                 {/each}
             </div>
