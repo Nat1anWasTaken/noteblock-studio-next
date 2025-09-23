@@ -200,7 +200,7 @@
                     <RulerShell
                         class="items-center border-b border-border bg-secondary/40 text-sm"
                         gutterWidth={96}
-                        contentWidth={pianoRollState.contentWidth}
+                        contentWidth={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}
                         scrollLeft={pianoRollState.gridScrollLeft}
                         pointerDownHandler={(container, event) => {
                             const relativeTick = editorMouse.tickFromClientX(
@@ -268,7 +268,7 @@
                                 <div
                                     bind:this={pianoRollState.gridContent}
                                     class="relative"
-                                    style={`width:${pianoRollState.contentWidth}px; height:${pianoRollState.gridHeight}px;`}
+                                    style={`width:${Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}px; height:${pianoRollState.gridHeight}px;`}
                                     onpointerdown={pianoRollMouse.handleBackgroundPointerDown}
                                     onpointermove={pianoRollMouse.handleGridPointerMove}
                                     onpointerup={pianoRollMouse.handleGridPointerUp}
