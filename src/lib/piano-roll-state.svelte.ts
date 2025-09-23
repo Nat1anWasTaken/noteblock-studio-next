@@ -84,8 +84,8 @@ export class PianoRollState {
         if (!section) return 0;
         const pxTick = this.pxPerTick > 0 ? this.pxPerTick : 1;
         const lengthPx = section.length * pxTick;
-        const minWidth = Math.max(640, this.beatsPerBar * this.ticksPerBeat * pxTick);
-        return Math.max(minWidth, Math.ceil(lengthPx));
+        // Use section length directly, with a small minimum for usability
+        return Math.max(320, Math.ceil(lengthPx));
     });
 
     barWidth = $derived(Math.max(1, editorState.barWidth));
