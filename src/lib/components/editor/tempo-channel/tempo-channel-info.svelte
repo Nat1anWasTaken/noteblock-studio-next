@@ -1,6 +1,7 @@
 <script lang="ts">
     import ChannelInfoContextMenu from '$lib/components/editor/channel-info-context-menu.svelte';
     import Input from '$lib/components/ui/input/input.svelte';
+    import { editorMouse } from '$lib/editor-mouse.svelte';
     import { player } from '$lib/playback.svelte';
     import type { TempoChannel } from '$lib/types';
     import { tick } from 'svelte';
@@ -65,6 +66,7 @@
     <div
         class="flex w-full items-stretch border-b border-border text-sm"
         style={`min-height:${height}px; max-height:${height}px`}
+        onpointerdown={(e) => editorMouse.handleChannelPointerDown(index, e)}
     >
         <div class="flex w-10 flex-col items-center justify-center gap-1 border-r border-border/70">
             <div class="text-muted-foreground">{index + 1}</div>
