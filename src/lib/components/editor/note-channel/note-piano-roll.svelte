@@ -196,9 +196,9 @@
                     sectionBeatLength={pianoRollState.sectionBeatLength}
                 />
 
-                <div class="flex flex-1 flex-col overflow-hidden">
+                <div class="relative flex flex-1 flex-col overflow-hidden">
                     <RulerShell
-                        class="items-center border-b border-border bg-secondary/40 text-sm"
+                        class="items-center border-b-4 border-border bg-secondary/20 text-sm"
                         gutterWidth={96}
                         contentWidth={Math.ceil(
                             pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
@@ -333,19 +333,18 @@
                                     scrollTop={pianoRollState.gridScrollTop}
                                 />
                             {/if}
-                            <PlayheadCursor
-                                gutterWidth={0}
-                                class="z-40"
-                                scrollLeft={pianoRollState.gridScrollLeft}
-                                pxPerTick={pianoRollState.pxPerTick > 0
-                                    ? pianoRollState.pxPerTick
-                                    : 1}
-                                currentTick={pianoRollState.cursorTick}
-                                tickOffset={pianoRollState.sectionStartTick}
-                                visible={pianoRollState.cursorVisible}
-                            />
                         </div>
                     </div>
+                    <!-- Playhead cursor that spans both ruler and grid areas -->
+                    <PlayheadCursor
+                        gutterWidth={96}
+                        class="z-40"
+                        scrollLeft={pianoRollState.gridScrollLeft}
+                        pxPerTick={pianoRollState.pxPerTick > 0 ? pianoRollState.pxPerTick : 1}
+                        currentTick={pianoRollState.cursorTick}
+                        tickOffset={pianoRollState.sectionStartTick}
+                        visible={pianoRollState.cursorVisible}
+                    />
                 </div>
             </div>
         {/if}
