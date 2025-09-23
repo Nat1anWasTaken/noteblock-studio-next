@@ -10,22 +10,9 @@ export type PianoRollContext = {
     sectionIndex: number;
 };
 
-const DEFAULT_KEY_RANGE: KeyRange = { min: 33, max: 57 };
+const FULL_MIDI_RANGE: KeyRange = { min: 0, max: 87 };
+const MINECRAFT_RANGE = { min: 33, max: 57 };
 const NOTE_SPAN = 1;
-
-function computeKeyRange(notes: Note[] | undefined): KeyRange {
-    if (!notes || notes.length === 0) return DEFAULT_KEY_RANGE;
-    let min = Math.min(...notes.map((n) => n.key));
-    let max = Math.max(...notes.map((n) => n.key));
-    min = Math.max(0, min - 2);
-    max = Math.min(87, max + 2);
-    if (max - min < 12) {
-        const pad = Math.ceil((12 - (max - min)) / 2);
-        min = Math.max(0, min - pad);
-        max = Math.min(87, max + pad);
-    }
-    return { min, max };
-}
 
 export class PianoRollState {
     sheetOpen = $state(false);
@@ -88,7 +75,7 @@ export class PianoRollState {
         editorState.ticksPerBeat > 0 ? editorState.pxPerBeat / editorState.ticksPerBeat : 0
     );
 
-    keyRange = $derived.by<KeyRange>(() => computeKeyRange(this.sectionData?.section?.notes));
+    keyRange = FULL_MIDI_RANGE;
     keyCount = $derived.by(() => this.keyRange.max - this.keyRange.min + 1);
     gridHeight = $derived(Math.max(1, this.keyCount) * this.keyHeight);
 
@@ -223,11 +210,12 @@ export class PianoRollState {
         const noteName = names[key % 12];
         const octave = Math.floor((key + 9) / 12);
         const isBlack = noteName.includes('#');
-        return { label: `${noteName}${octave}`, isBlack };
+        const isMinecraftRange = key >= MINECRAFT_RANGE.min && key <= MINECRAFT_RANGE.max;
+        return { label: `${noteName}${octave}`, isBlack, isMinecraftRange };
     }
 
     keyRows = $derived.by(() => {
-        const rows: Array<{ key: number; label: string; isBlack: boolean }> = [];
+        const rows: Array<{ key: number; label: string; isBlack: boolean; isMinecraftRange: boolean }> = [];
         for (let key = this.keyRange.max; key >= this.keyRange.min; key--) {
             const info = this.keyNumberToInfo(key);
             rows.push({ key, ...info });
