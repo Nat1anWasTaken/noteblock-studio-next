@@ -188,23 +188,75 @@
             targetChannelIndex = firstNoteChannelIndex;
         }
 
-        // If we have a selection, try to paste to the selected channel
+        // If we have a selection, try to paste to the selected channel (but ensure it's a note channel)
         if (editorState.selectedSections.length > 0) {
-            targetChannelIndex = editorState.selectedSections[0].channelIndex;
+            const selIdx = editorState.selectedSections[0].channelIndex;
+            if (channels[selIdx] && channels[selIdx].kind === 'note') {
+                targetChannelIndex = selIdx;
+            } else {
+                // find nearest note channel to the selected index
+                const noteIndices = channels
+                    .map((c, i) => (c.kind === 'note' ? i : -1))
+                    .filter((i) => i >= 0);
+                if (noteIndices.length > 0) {
+                    let nearest = noteIndices[0];
+                    let bestDist = Math.abs(nearest - selIdx);
+                    for (const ni of noteIndices) {
+                        const d = Math.abs(ni - selIdx);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            nearest = ni;
+                        }
+                    }
+                    targetChannelIndex = nearest;
+                }
+            }
         }
 
-        const targetChannel = channels[targetChannelIndex];
-        if (!targetChannel || targetChannel.kind !== 'note') return;
+        // Build a list of available note channel global indices for fallback mapping
+        const noteChannelIndices = channels
+            .map((c, i) => (c.kind === 'note' ? i : -1))
+            .filter((i) => i >= 0);
 
-        // Prepare sections for batch addition
-        const sectionsToAdd = clipboardSections.map((item) => ({
-            channelIndex: targetChannelIndex,
-            section: {
-                ...item.section,
-                startingTick: Math.max(0, item.section.startingTick + offsetTick),
-                name: `${item.section.name} (Copy)`
-            } as NoteSection
-        }));
+        if (noteChannelIndices.length === 0) return; // nothing to paste into
+
+        // Use the earliest original channel as the base so we preserve relative channel offsets
+        const baseOriginalChannelIndex = Math.min(
+            ...clipboardSections.map((s) => s.originalChannelIndex)
+        );
+
+        // Prepare sections for batch addition, preserving relative channel offsets
+        const sectionsToAdd = clipboardSections.map((item) => {
+            const relativeChannelOffset = item.originalChannelIndex - baseOriginalChannelIndex;
+            let desiredIndex = targetChannelIndex + relativeChannelOffset;
+
+            // clamp desiredIndex to valid range
+            desiredIndex = Math.max(0, Math.min(desiredIndex, channels.length - 1));
+
+            // If the desired channel is not a note channel, map to the nearest note channel
+            if (!channels[desiredIndex] || channels[desiredIndex].kind !== 'note') {
+                // find nearest note channel by global index
+                let nearest = noteChannelIndices[0];
+                let bestDist = Math.abs(nearest - desiredIndex);
+                for (const ni of noteChannelIndices) {
+                    const d = Math.abs(ni - desiredIndex);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        nearest = ni;
+                    }
+                }
+                desiredIndex = nearest;
+            }
+
+            return {
+                channelIndex: desiredIndex,
+                section: {
+                    ...item.section,
+                    startingTick: Math.max(0, item.section.startingTick + offsetTick),
+                    name: `${item.section.name} (Copy)`
+                } as NoteSection
+            };
+        });
 
         // Use the batch addSections method for optimal performance and single history entry
         const success = player.addSections(sectionsToAdd);
