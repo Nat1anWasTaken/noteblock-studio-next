@@ -1,7 +1,9 @@
 import { browser } from '$app/environment';
 import {
     createAddNoteAction,
+    createAddNotesAction,
     createAddSectionAction,
+    createAddSectionsAction,
     createCreateNoteChannelAction,
     createMoveSectionAction,
     createRemoveChannelAction,
@@ -802,6 +804,36 @@ export class Player {
         return note;
     }
 
+    /**
+     * Add multiple notes to a section in a single operation.
+     */
+    addNotes(
+        channelIndex: number,
+        sectionIndex: number,
+        notesToAdd: Note[],
+        options?: HistoryCallOptions
+    ): boolean {
+        const section = this.getNoteSection(channelIndex, sectionIndex);
+        if (!section || notesToAdd.length === 0) return false;
+
+        if (options?.skipHistory) {
+            for (const noteData of notesToAdd) {
+                const note = Player.snapshotNote(noteData);
+                section.notes.push(note);
+            }
+            // Sort notes by tick, then by key
+            section.notes.sort((a, b) => {
+                if (a.tick !== b.tick) return a.tick - b.tick;
+                return a.key - b.key;
+            });
+            return true;
+        }
+
+        const action = createAddNotesAction(channelIndex, sectionIndex, notesToAdd);
+        historyManager.execute(action);
+        return true;
+    }
+
     removeNotes(channelIndex: number, sectionIndex: number, notes: Note[]): boolean {
         const section = this.getNoteSection(channelIndex, sectionIndex);
         if (!section || !notes.length) return false;
@@ -1118,6 +1150,52 @@ export class Player {
         // Ensure at least 16 bars after the new section end
         const endTick = (section.startingTick ?? 0) + (section.length ?? 0);
         this.ensureTrailingBarsAfterTick(endTick, 16);
+        return true;
+    }
+
+    /**
+     * Add multiple sections to channels in a single operation.
+     */
+    addSections(
+        sectionsToAdd: Array<{
+            channelIndex: number;
+            section: NoteSection;
+            insertIndex?: number;
+        }>,
+        options?: HistoryCallOptions
+    ): boolean {
+        if (!this.song || sectionsToAdd.length === 0) return false;
+
+        // Validate all channels exist and are note channels
+        for (const addition of sectionsToAdd) {
+            const channel = this.song.channels[addition.channelIndex];
+            if (!channel || channel.kind !== 'note') return false;
+        }
+
+        if (options?.skipHistory) {
+            for (const addition of sectionsToAdd) {
+                const channel = this.song.channels[addition.channelIndex];
+                if (channel?.kind === 'note') {
+                    const insertIndex = addition.insertIndex ?? channel.sections.length;
+                    const clampedIndex = Math.min(
+                        Math.max(insertIndex, 0),
+                        channel.sections.length
+                    );
+
+                    channel.sections.splice(clampedIndex, 0, addition.section);
+
+                    // Ensure at least 16 bars after the new section end
+                    const endTick =
+                        (addition.section.startingTick ?? 0) + (addition.section.length ?? 0);
+                    this.ensureTrailingBarsAfterTick(endTick, 16);
+                }
+            }
+            this.refreshIndexes();
+            return true;
+        }
+
+        const action = createAddSectionsAction(sectionsToAdd);
+        historyManager.execute(action);
         return true;
     }
 

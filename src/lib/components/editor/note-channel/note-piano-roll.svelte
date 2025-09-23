@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { clipboard } from '$lib/clipboard.svelte';
     import { commandManager } from '$lib/command-manager';
     import * as Sheet from '$lib/components/ui/sheet';
     import { editorMouse } from '$lib/editor-mouse.svelte';
@@ -6,7 +7,9 @@
     import { pianoRollMouse } from '$lib/piano-roll-mouse.svelte';
     import { pianoRollState } from '$lib/piano-roll-state.svelte';
     import { player } from '$lib/playback.svelte';
+    import type { Note } from '$lib/types';
     import { onDestroy, onMount } from 'svelte';
+    import { toast } from 'svelte-sonner';
     import PlayheadCursor from '../playhead-cursor.svelte';
     import RulerShell from '../ruler-shell.svelte';
     import SelectionRectangleOverlay from '../selection-rectangle-overlay.svelte';
@@ -106,6 +109,69 @@
         }
     });
 
+    function copySelectedNotes() {
+        if (pianoRollState.selectedNotes.length === 0) return;
+        if (!pianoRollState.sectionData) return;
+
+        const notesData = pianoRollState.selectedNotes.map((note) => ({
+            note: { ...note },
+            channelIndex: pianoRollState.sectionData!.channelIndex,
+            sectionIndex: pianoRollState.sectionData!.sectionIndex
+        }));
+
+        clipboard.copyNotes(notesData);
+        toast.success(`Copied ${notesData.length} note${notesData.length === 1 ? '' : 's'}`);
+    }
+
+    function cutSelectedNotes() {
+        if (pianoRollState.selectedNotes.length === 0) return;
+        if (!pianoRollState.sectionData) return;
+
+        const notesData = pianoRollState.selectedNotes.map((note) => ({
+            note: { ...note },
+            channelIndex: pianoRollState.sectionData!.channelIndex,
+            sectionIndex: pianoRollState.sectionData!.sectionIndex
+        }));
+
+        clipboard.cutNotes(notesData);
+        // Delete the selected notes after cutting
+        pianoRollMouse.deleteSelectedNotes();
+        toast.success(`Cut ${notesData.length} note${notesData.length === 1 ? '' : 's'}`);
+    }
+
+    function pasteNotes() {
+        const clipboardNotes = clipboard.getNotes();
+        if (!clipboardNotes || clipboardNotes.length === 0) return;
+        if (!pianoRollState.sectionData) return;
+
+        const { channelIndex, sectionIndex } = pianoRollState.sectionData;
+
+        // Find the earliest tick among clipboard notes to calculate offset
+        const earliestTick = Math.min(...clipboardNotes.map((item) => item.note.tick));
+
+        // Use current playhead position (relative to section start) or 0 if playhead is outside section
+        const sectionStartTick = pianoRollState.sectionData.section.startingTick;
+        const currentRelativeTick = Math.max(0, player.currentTick - sectionStartTick);
+        const offsetTick = currentRelativeTick - earliestTick;
+
+        // Create new notes with adjusted timing
+        const newNotes: Note[] = clipboardNotes.map((item) => ({
+            ...item.note,
+            tick: Math.max(0, item.note.tick + offsetTick)
+        }));
+
+        // Use the batch addNotes method for optimal performance and single history entry
+        const success = player.addNotes(channelIndex, sectionIndex, newNotes);
+
+        if (success) {
+            toast.success(
+                `Pasted ${clipboardNotes.length} note${clipboardNotes.length === 1 ? '' : 's'}`
+            );
+        } else {
+            toast.error('Failed to paste notes');
+        }
+    }
+
     onMount(() => {
         if (typeof document === 'undefined') return;
 
@@ -124,6 +190,27 @@
                 shortcut: 'BACKSPACE',
                 callback: () => pianoRollMouse.deleteSelectedNotes(),
                 scope: 'piano-roll'
+            },
+            {
+                id: 'piano-roll-copy-selected-notes',
+                title: 'Copy Selected Notes',
+                shortcut: 'MOD+C',
+                callback: copySelectedNotes,
+                scope: 'piano-roll'
+            },
+            {
+                id: 'piano-roll-cut-selected-notes',
+                title: 'Cut Selected Notes',
+                shortcut: 'MOD+X',
+                callback: cutSelectedNotes,
+                scope: 'piano-roll'
+            },
+            {
+                id: 'piano-roll-paste-notes',
+                title: 'Paste Notes',
+                shortcut: 'MOD+V',
+                callback: pasteNotes,
+                scope: 'piano-roll'
             }
         ]);
 
@@ -134,7 +221,10 @@
             // Clean up commands
             commandManager.unregisterCommands([
                 'piano-roll-delete-selected-notes',
-                'piano-roll-backspace-selected-notes'
+                'piano-roll-backspace-selected-notes',
+                'piano-roll-copy-selected-notes',
+                'piano-roll-cut-selected-notes',
+                'piano-roll-paste-notes'
             ]);
 
             document.removeEventListener('noteplayed', handleNotePlayed as EventListener);

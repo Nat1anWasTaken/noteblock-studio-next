@@ -1,11 +1,14 @@
 <script lang="ts">
+    import { clipboard } from '$lib/clipboard.svelte';
     import { commandManager } from '$lib/command-manager';
     import * as Resizable from '$lib/components/ui/resizable';
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { historyManager } from '$lib/history';
     import { player } from '$lib/playback.svelte';
+    import type { NoteSection } from '$lib/types';
     import { onMount } from 'svelte';
+    import { toast } from 'svelte-sonner';
     import CommandPalette from './command-palette.svelte';
     import EditorHeader from './editor-header.svelte';
     import MouseWindowEvents from './mouse-window-events.svelte';
@@ -105,6 +108,116 @@
         editorState.clearSelectedSections();
     }
 
+    function copySelectedSections() {
+        if (editorState.selectedSections.length === 0) return;
+
+        const sectionsData = editorState.selectedSections
+            .map((selection) => {
+                const channel = channels[selection.channelIndex];
+                if (channel?.kind === 'note') {
+                    const section = channel.sections[selection.sectionIndex];
+                    if (section) {
+                        return {
+                            section,
+                            channelIndex: selection.channelIndex,
+                            sectionIndex: selection.sectionIndex
+                        };
+                    }
+                }
+                return null;
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null);
+
+        if (sectionsData.length > 0) {
+            clipboard.copySections(sectionsData);
+            toast.success(
+                `Copied ${sectionsData.length} section${sectionsData.length === 1 ? '' : 's'}`
+            );
+        }
+    }
+
+    function cutSelectedSections() {
+        if (editorState.selectedSections.length === 0) return;
+
+        const sectionsData = editorState.selectedSections
+            .map((selection) => {
+                const channel = channels[selection.channelIndex];
+                if (channel?.kind === 'note') {
+                    const section = channel.sections[selection.sectionIndex];
+                    if (section) {
+                        return {
+                            section,
+                            channelIndex: selection.channelIndex,
+                            sectionIndex: selection.sectionIndex
+                        };
+                    }
+                }
+                return null;
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null);
+
+        if (sectionsData.length > 0) {
+            clipboard.cutSections(sectionsData);
+            // Remove the sections after cutting
+            const selectionsToDelete = [...editorState.selectedSections];
+            player.removeSections(selectionsToDelete);
+            editorState.clearSelectedSections();
+            toast.success(
+                `Cut ${sectionsData.length} section${sectionsData.length === 1 ? '' : 's'}`
+            );
+        }
+    }
+
+    function pasteSections() {
+        const clipboardSections = clipboard.getSections();
+        if (!clipboardSections || clipboardSections.length === 0) return;
+
+        // Get current playhead position for smart pasting
+        const currentTick = player.currentTick;
+
+        // Find the earliest start tick among clipboard sections to calculate offset
+        const earliestStartTick = Math.min(
+            ...clipboardSections.map((item) => item.section.startingTick)
+        );
+        const offsetTick = currentTick - earliestStartTick;
+
+        // Try to paste to the first available note channel, or the channel where sections were copied from
+        let targetChannelIndex = 0;
+        const firstNoteChannelIndex = channels.findIndex((ch) => ch.kind === 'note');
+        if (firstNoteChannelIndex >= 0) {
+            targetChannelIndex = firstNoteChannelIndex;
+        }
+
+        // If we have a selection, try to paste to the selected channel
+        if (editorState.selectedSections.length > 0) {
+            targetChannelIndex = editorState.selectedSections[0].channelIndex;
+        }
+
+        const targetChannel = channels[targetChannelIndex];
+        if (!targetChannel || targetChannel.kind !== 'note') return;
+
+        // Prepare sections for batch addition
+        const sectionsToAdd = clipboardSections.map((item) => ({
+            channelIndex: targetChannelIndex,
+            section: {
+                ...item.section,
+                startingTick: Math.max(0, item.section.startingTick + offsetTick),
+                name: `${item.section.name} (Copy)`
+            } as NoteSection
+        }));
+
+        // Use the batch addSections method for optimal performance and single history entry
+        const success = player.addSections(sectionsToAdd);
+
+        if (success) {
+            toast.success(
+                `Pasted ${clipboardSections.length} section${clipboardSections.length === 1 ? '' : 's'}`
+            );
+        } else {
+            toast.error('Failed to paste sections');
+        }
+    }
+
     onMount(() => {
         commandManager.registerCommands([
             {
@@ -118,6 +231,24 @@
                 title: 'Delete Selected Sections (Backspace)',
                 callback: deleteSelectedSections,
                 shortcut: 'BACKSPACE'
+            },
+            {
+                id: 'copy-selected-sections',
+                title: 'Copy Selected Sections',
+                callback: copySelectedSections,
+                shortcut: 'MOD+C'
+            },
+            {
+                id: 'cut-selected-sections',
+                title: 'Cut Selected Sections',
+                callback: cutSelectedSections,
+                shortcut: 'MOD+X'
+            },
+            {
+                id: 'paste-sections',
+                title: 'Paste Sections',
+                callback: pasteSections,
+                shortcut: 'MOD+V'
             }
         ]);
 
@@ -126,7 +257,10 @@
         return () => {
             commandManager.unregisterCommands([
                 'delete-selected-sections',
-                'delete-selected-sections-backspace'
+                'delete-selected-sections-backspace',
+                'copy-selected-sections',
+                'cut-selected-sections',
+                'paste-sections'
             ]);
         };
     });
