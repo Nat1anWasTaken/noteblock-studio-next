@@ -567,6 +567,146 @@ export function createRemoveSectionsAction(
 }
 
 /**
+ * Action for adding multiple sections to channels
+ */
+export function createAddSectionsAction(
+    sectionsToAdd: Array<{
+        channelIndex: number;
+        section: NoteSection;
+        insertIndex?: number;
+    }>
+): HistoryAction {
+    const label = sectionsToAdd.length === 1 ? 'Add section' : 'Add sections';
+
+    return {
+        label,
+        do(ctx) {
+            const song = getSong(ctx.player);
+            const addedSections: Array<{
+                channelIndex: number;
+                sectionIndex: number;
+                section: NoteSection;
+            }> = [];
+
+            for (const addition of sectionsToAdd) {
+                const channel = song.channels[addition.channelIndex];
+                if (channel?.kind === 'note') {
+                    const insertIndex = addition.insertIndex ?? channel.sections.length;
+                    const clampedIndex = Math.min(
+                        Math.max(insertIndex, 0),
+                        channel.sections.length
+                    );
+
+                    channel.sections.splice(clampedIndex, 0, addition.section);
+                    addedSections.push({
+                        channelIndex: addition.channelIndex,
+                        sectionIndex: clampedIndex,
+                        section: addition.section
+                    });
+
+                    // Ensure at least 16 bars after the new section end
+                    const endTick =
+                        (addition.section.startingTick ?? 0) + (addition.section.length ?? 0);
+                    ctx.player.ensureTrailingBarsAfterTick(endTick, 16);
+                }
+            }
+
+            ctx.player.refreshIndexes();
+            // Store the actual indices for undo
+            (this as any)._addedSections = addedSections;
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            const addedSections = (this as any)._addedSections as Array<{
+                channelIndex: number;
+                sectionIndex: number;
+                section: NoteSection;
+            }>;
+
+            if (!addedSections) return;
+
+            // Sort by channel index descending, then section index descending
+            // This ensures we remove from the end first to avoid index shifting
+            const sortedRemovals = [...addedSections].sort((a, b) => {
+                if (a.channelIndex !== b.channelIndex) {
+                    return b.channelIndex - a.channelIndex;
+                }
+                return b.sectionIndex - a.sectionIndex;
+            });
+
+            for (const removal of sortedRemovals) {
+                const channel = song.channels[removal.channelIndex];
+                if (channel?.kind === 'note' && channel.sections[removal.sectionIndex]) {
+                    channel.sections.splice(removal.sectionIndex, 1);
+                }
+            }
+            ctx.player.refreshIndexes();
+        }
+    };
+}
+
+/**
+ * Action for adding multiple notes to a section
+ */
+export function createAddNotesAction(
+    channelIndex: number,
+    sectionIndex: number,
+    notesToAdd: Note[]
+): HistoryAction {
+    const label = notesToAdd.length === 1 ? 'Add note' : 'Add notes';
+
+    return {
+        label,
+        do(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+
+            const addedNotesWithIndices: Array<{ note: Note; insertIndex: number }> = [];
+
+            for (const noteToAdd of notesToAdd) {
+                const note = cloneNote(noteToAdd);
+                // Find the correct insertion index to maintain sorted order
+                const insertIndex = findNoteInsertIndex(section.notes, note);
+                section.notes.splice(insertIndex, 0, note);
+                addedNotesWithIndices.push({ note, insertIndex });
+            }
+
+            sortSectionNotes(section);
+            // Store the added notes with their indices for undo
+            (this as any)._addedNotes = addedNotesWithIndices;
+        },
+        undo(ctx) {
+            const section = getNoteSection(ctx, channelIndex, sectionIndex);
+            if (!section) return;
+
+            const addedNotes = (this as any)._addedNotes as Array<{
+                note: Note;
+                insertIndex: number;
+            }>;
+            if (!addedNotes) return;
+
+            // Sort by insertion index descending to avoid index shifting when removing
+            const sortedByIndex = [...addedNotes].sort((a, b) => b.insertIndex - a.insertIndex);
+
+            for (const { insertIndex } of sortedByIndex) {
+                if (insertIndex >= 0 && insertIndex < section.notes.length) {
+                    section.notes.splice(insertIndex, 1);
+                }
+            }
+        }
+    };
+}
+
+// Helper function to find note insertion index (similar to Player.findNoteInsertIndex)
+function findNoteInsertIndex(notes: Note[], note: Note): number {
+    for (let i = 0; i < notes.length; i++) {
+        if (notes[i].tick > note.tick) return i;
+        if (notes[i].tick === note.tick && notes[i].key >= note.key) return i;
+    }
+    return notes.length;
+}
+
+/**
  * Action for moving a section within a channel
  */
 export function createMoveSectionAction(
