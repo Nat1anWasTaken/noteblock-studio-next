@@ -12,6 +12,7 @@ import {
     createRemoveSectionAction,
     createRemoveSectionsAction,
     createSetSoloAction,
+    createClearSoloAction,
     createSetTempoAction,
     createToggleMuteAction,
     createUpdateNoteAction,
@@ -767,9 +768,19 @@ export class Player {
             if (c.kind === 'note') noteChannels.push({ ch: c as NoteChannel, idx: i });
         }
 
-        // Capture previous mute states
-        const previousMuteStates = noteChannels.map((n) => n.ch.isMuted);
+        // If the target is already the only unmuted note channel, clear the solo
+        const unmuted = noteChannels.filter((n) => !n.ch.isMuted);
+        if (unmuted.length === 1 && unmuted[0].idx === index) {
+            // Clear solo: unmute all note channels in a single history action
+            const previousMuteStates = noteChannels.map((n) => n.ch.isMuted);
+            const action = createClearSoloAction(previousMuteStates);
+            historyManager.execute(action);
+            return;
+        }
 
+        // Otherwise, perform a single history action that mutes all others
+        // and unmutes the target, capturing previous mute states for undo.
+        const previousMuteStates = noteChannels.map((n) => n.ch.isMuted);
         const action = createSetSoloAction(index, previousMuteStates);
         historyManager.execute(action);
     }
