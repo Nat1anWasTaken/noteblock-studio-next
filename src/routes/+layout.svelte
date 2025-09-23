@@ -34,7 +34,7 @@
         name="twitter:description"
         content="A modern, web-based music editor for Minecraft Note Block musics."
     />
-    <meta name="twitter:url" content="https://noteblock-studio-next.vercel.app" />
+    <meta name="twitter:url" content="https://ns.nath.tw" />
     <meta name="twitter:site" content="@noteblock-studio-next" />
 </svelte:head>
 
