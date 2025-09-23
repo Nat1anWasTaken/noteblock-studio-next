@@ -1,9 +1,10 @@
-<script>
+<script lang="ts">
     import { goto } from '$app/navigation';
     import Button from '$lib/components/ui/button/button.svelte';
     import { readSongFromNbxFile } from '$lib/files';
     import { convertNbsSong } from '$lib/nbs';
     import { player } from '$lib/playback.svelte';
+    import type { Song, TempoChannel } from '$lib/types';
     import { fromArrayBuffer } from '@nbsjs/core';
     import { toast } from 'svelte-sonner';
     import CirclePlus from '~icons/lucide/circle-plus';
@@ -92,6 +93,44 @@
             toast.error('Failed to import NBX file. Please check the file format.');
         }
     }
+
+    function handleCreateEmpty() {
+        try {
+            // Create an empty song with a tempo channel
+            const tempoChannel: TempoChannel = {
+                kind: 'tempo',
+                name: 'Tempo',
+                tempoChanges: [
+                    {
+                        tick: 0,
+                        tempo: 20,
+                        ticksPerBeat: 10,
+                        beatsPerBar: 4
+                    }
+                ]
+            };
+
+            const emptySong: Song = {
+                length: 0,
+                tempo: 20,
+                channels: [tempoChannel],
+                name: 'Untitled Song',
+                author: '',
+                description: ''
+            };
+
+            // Set the song in the player
+            player.setSong(emptySong);
+
+            toast.success('Created new empty song!');
+
+            // Navigate to the edit page
+            goto('/edit');
+        } catch (error) {
+            console.error('Failed to create empty song:', error);
+            toast.error('Failed to create empty song.');
+        }
+    }
 </script>
 
 <main class="flex min-h-screen flex-col items-center justify-center gap-2 p-24">
@@ -100,7 +139,7 @@
         <Button
             variant="outline"
             class="flex h-32 w-32 flex-1 shrink flex-col items-center justify-center text-wrap text-muted-foreground"
-            onclick={() => toast.info('Feature not implemented yet!')}
+            onclick={handleCreateEmpty}
         >
             <CirclePlus />
             Create a Empty
