@@ -217,10 +217,10 @@
                         <TimelineGrid
                             class="z-0"
                             gutterWidth={0}
-                            contentWidth={pianoRollState.contentWidth}
+                            contentWidth={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}
                             scrollLeft={0}
                             barWidth={pianoRollState.barWidth}
-                            totalBars={pianoRollState.totalBars}
+                            totalBars={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar)}
                             beatsPerBar={pianoRollState.beatsPerBar}
                             pxPerBeat={editorState.pxPerBeat}
                             startBar={pianoRollState.sectionStartBar}
@@ -277,10 +277,10 @@
                                     <TimelineGrid
                                         gutterWidth={0}
                                         class="z-10"
-                                        contentWidth={pianoRollState.contentWidth}
+                                        contentWidth={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}
                                         scrollLeft={0}
                                         barWidth={pianoRollState.barWidth}
-                                        totalBars={pianoRollState.totalBars}
+                                        totalBars={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar)}
                                         beatsPerBar={pianoRollState.beatsPerBar}
                                         pxPerBeat={editorState.pxPerBeat}
                                         startBar={pianoRollState.sectionStartBar}
