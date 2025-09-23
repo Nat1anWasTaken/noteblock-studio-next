@@ -946,7 +946,11 @@ export class Player {
                 (section as any)[key] = value as NoteSection[keyof NoteSection];
                 mutated = true;
             }
-            if (mutated) this.refreshIndexes();
+            if (mutated) {
+                const endTick = (section.startingTick ?? 0) + (section.length ?? 0);
+                this.ensureTrailingBarsAfterTick(endTick, 16);
+                this.refreshIndexes();
+            }
             return;
         }
 
@@ -965,6 +969,12 @@ export class Player {
             previousState
         );
         historyManager.execute(action);
+        // After update, ensure trailing bars after section end (handles resize/move)
+        const updated = channel.sections[sectionIndex];
+        if (updated) {
+            const endTick = (updated.startingTick ?? 0) + (updated.length ?? 0);
+            this.ensureTrailingBarsAfterTick(endTick, 16);
+        }
     }
 
     /**
@@ -1096,12 +1106,18 @@ export class Player {
 
         if (options?.skipHistory) {
             channel.sections.splice(clampedIndex, 0, section);
+            // Ensure at least 16 bars after the new section end
+            const endTick = (section.startingTick ?? 0) + (section.length ?? 0);
+            this.ensureTrailingBarsAfterTick(endTick, 16);
             this.refreshIndexes();
             return true;
         }
 
         const action = createAddSectionAction(channelIndex, section, clampedIndex);
         historyManager.execute(action);
+        // Ensure at least 16 bars after the new section end
+        const endTick = (section.startingTick ?? 0) + (section.length ?? 0);
+        this.ensureTrailingBarsAfterTick(endTick, 16);
         return true;
     }
 
@@ -1720,6 +1736,21 @@ export class Player {
         // If requesting a bar beyond the song, clamp to end
         const endTick = this.song?.length ?? bar * this._beatsPerBar * this._ticksPerBeat;
         return { tick: endTick };
+    }
+
+    /**
+     * Ensure the song length provides at least `minBars` after `referenceTick`.
+     * Uses the local time signature at that tick to compute bar size.
+     */
+    ensureTrailingBarsAfterTick(referenceTick: number, minBars = 16) {
+        const song = this.song;
+        if (!song) return;
+        const seg = this.getSegmentAtTick(referenceTick);
+        const tpb = seg?.tpb ?? this._ticksPerBeat;
+        const bpb = seg?.bpb ?? this._beatsPerBar;
+        const ticksPerBar = Math.max(1, tpb * bpb);
+        const required = Math.max(0, referenceTick | 0) + Math.max(0, minBars | 0) * ticksPerBar;
+        if (song.length < required) song.length = required;
     }
 
     private stopInternal() {

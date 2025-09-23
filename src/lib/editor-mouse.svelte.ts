@@ -728,6 +728,12 @@ export class EditorMouseController {
                 }
             }
 
+            // Ensure song length accommodates moved sections
+            for (const m of moves) {
+                const endTick = m.newStart + (m.item.section.length ?? 0);
+                player.ensureTrailingBarsAfterTick(endTick, 16);
+            }
+
             // Notify player indexes updated (live)
             player.refreshIndexes();
             this._moved = true;
