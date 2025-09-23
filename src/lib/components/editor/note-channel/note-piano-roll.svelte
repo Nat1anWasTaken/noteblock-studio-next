@@ -182,9 +182,7 @@
         const success = player.addNotes(channelIndex, sectionIndex, validNotes);
 
         if (success) {
-            toast.success(
-                `Pasted ${validNotes.length} note${validNotes.length === 1 ? '' : 's'}`
-            );
+            toast.success(`Pasted ${validNotes.length} note${validNotes.length === 1 ? '' : 's'}`);
         } else {
             toast.error('Failed to paste notes');
         }
