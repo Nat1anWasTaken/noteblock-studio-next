@@ -200,7 +200,9 @@
                     <RulerShell
                         class="items-center border-b border-border bg-secondary/40 text-sm"
                         gutterWidth={96}
-                        contentWidth={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}
+                        contentWidth={Math.ceil(
+                            pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
+                        ) * pianoRollState.barWidth}
                         scrollLeft={pianoRollState.gridScrollLeft}
                         pointerDownHandler={(container, event) => {
                             const relativeTick = editorMouse.tickFromClientX(
@@ -217,10 +219,14 @@
                         <TimelineGrid
                             class="z-0"
                             gutterWidth={0}
-                            contentWidth={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}
+                            contentWidth={Math.ceil(
+                                pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
+                            ) * pianoRollState.barWidth}
                             scrollLeft={0}
                             barWidth={pianoRollState.barWidth}
-                            totalBars={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar)}
+                            totalBars={Math.ceil(
+                                pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
+                            )}
                             beatsPerBar={pianoRollState.beatsPerBar}
                             pxPerBeat={editorState.pxPerBeat}
                             startBar={pianoRollState.sectionStartBar}
@@ -249,7 +255,7 @@
                                 >
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
                                             style={`height:${pianoRollState.keyHeight}px;`}
                                         >
                                             {row.label}
@@ -277,10 +283,16 @@
                                     <TimelineGrid
                                         gutterWidth={0}
                                         class="z-10"
-                                        contentWidth={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}
+                                        contentWidth={Math.ceil(
+                                            pianoRollState.sectionBeatLength /
+                                                pianoRollState.beatsPerBar
+                                        ) * pianoRollState.barWidth}
                                         scrollLeft={0}
                                         barWidth={pianoRollState.barWidth}
-                                        totalBars={Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar)}
+                                        totalBars={Math.ceil(
+                                            pianoRollState.sectionBeatLength /
+                                                pianoRollState.beatsPerBar
+                                        )}
                                         beatsPerBar={pianoRollState.beatsPerBar}
                                         pxPerBeat={editorState.pxPerBeat}
                                         startBar={pianoRollState.sectionStartBar}
@@ -291,7 +303,7 @@
 
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                            class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
                                             style={`top:${index * pianoRollState.keyHeight}px; height:${pianoRollState.keyHeight}px;`}
                                         ></div>
                                     {/each}
