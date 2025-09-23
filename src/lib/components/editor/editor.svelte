@@ -218,6 +218,24 @@
         }
     }
 
+    function selectAllSections() {
+        const allSections: { channelIndex: number; sectionIndex: number }[] = [];
+
+        channels.forEach((channel, channelIndex) => {
+            if (channel.kind === 'note') {
+                channel.sections.forEach((_, sectionIndex) => {
+                    allSections.push({ channelIndex, sectionIndex });
+                });
+            }
+        });
+
+        editorState.setSelectedSections(allSections);
+
+        if (allSections.length > 0) {
+            toast.success(`Selected ${allSections.length} section${allSections.length === 1 ? '' : 's'}`);
+        }
+    }
+
     onMount(() => {
         commandManager.registerCommands([
             {
@@ -273,6 +291,12 @@
                 title: 'Zoom Out (Numpad)',
                 callback: () => editorState.zoomOut(),
                 shortcut: 'MOD+SUBTRACT'
+            },
+            {
+                id: 'select-all-sections',
+                title: 'Select All Sections',
+                callback: selectAllSections,
+                shortcut: 'MOD+A'
             }
         ]);
 
@@ -288,7 +312,8 @@
                 'zoom-in',
                 'zoom-in-numpad',
                 'zoom-out',
-                'zoom-out-numpad'
+                'zoom-out-numpad',
+                'select-all-sections'
             ]);
         };
     });

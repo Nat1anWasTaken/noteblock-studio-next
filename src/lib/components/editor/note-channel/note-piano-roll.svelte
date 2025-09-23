@@ -188,6 +188,17 @@
         }
     }
 
+    function selectAllNotes() {
+        if (!pianoRollState.sectionData) return;
+
+        const allNotes = pianoRollState.sectionData.section.notes ?? [];
+        pianoRollState.selectNotes(allNotes);
+
+        if (allNotes.length > 0) {
+            toast.success(`Selected ${allNotes.length} note${allNotes.length === 1 ? '' : 's'}`);
+        }
+    }
+
     onMount(() => {
         if (typeof document === 'undefined') return;
 
@@ -227,6 +238,13 @@
                 shortcut: 'MOD+V',
                 callback: pasteNotes,
                 scope: 'piano-roll'
+            },
+            {
+                id: 'piano-roll-select-all-notes',
+                title: 'Select All Notes',
+                shortcut: 'MOD+A',
+                callback: selectAllNotes,
+                scope: 'piano-roll'
             }
         ]);
 
@@ -240,7 +258,8 @@
                 'piano-roll-backspace-selected-notes',
                 'piano-roll-copy-selected-notes',
                 'piano-roll-cut-selected-notes',
-                'piano-roll-paste-notes'
+                'piano-roll-paste-notes',
+                'piano-roll-select-all-notes'
             ]);
 
             document.removeEventListener('noteplayed', handleNotePlayed as EventListener);
