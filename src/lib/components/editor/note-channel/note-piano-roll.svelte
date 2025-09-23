@@ -234,7 +234,7 @@
                     <div class="flex flex-1 overflow-hidden">
                         <div class="flex w-24 flex-col border-r border-border/50 bg-muted/40">
                             <div
-                                class="scrollbar-fade flex-1 overflow-auto"
+                                class="scrollbar-hidden flex-1 overflow-auto"
                                 bind:this={pianoRollState.keysScroller}
                                 onwheel={(event) => {
                                     const grid = pianoRollState.gridScroller;
@@ -356,6 +356,15 @@
 
     .scrollbar-fade {
         scrollbar-width: thin;
+    }
+
+    .scrollbar-hidden::-webkit-scrollbar {
+        display: none;
+    }
+
+    .scrollbar-hidden {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
 
     /* Fade-on-end highlight behavior:
