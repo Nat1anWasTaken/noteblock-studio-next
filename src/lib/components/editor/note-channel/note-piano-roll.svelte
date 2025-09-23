@@ -123,7 +123,7 @@
                 title: 'Delete Selected Notes',
                 shortcut: 'BACKSPACE',
                 callback: () => pianoRollMouse.deleteSelectedNotes(),
-                scope: 'piano-roll',
+                scope: 'piano-roll'
             }
         ]);
 
@@ -224,6 +224,9 @@
                             beatsPerBar={pianoRollState.beatsPerBar}
                             pxPerBeat={editorState.pxPerBeat}
                             startBar={pianoRollState.sectionStartBar}
+                            ticksPerBeat={pianoRollState.ticksPerBeat}
+                            pxPerTick={pianoRollState.pxPerTick}
+                            showTickLines={true}
                             showLabels
                         />
                     </RulerShell>
@@ -246,7 +249,7 @@
                                 >
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
                                             style={`height:${pianoRollState.keyHeight}px;`}
                                         >
                                             {row.label}
@@ -281,11 +284,14 @@
                                         beatsPerBar={pianoRollState.beatsPerBar}
                                         pxPerBeat={editorState.pxPerBeat}
                                         startBar={pianoRollState.sectionStartBar}
+                                        ticksPerBeat={pianoRollState.ticksPerBeat}
+                                        pxPerTick={pianoRollState.pxPerTick}
+                                        showTickLines={true}
                                     />
 
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                            class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
                                             style={`top:${index * pianoRollState.keyHeight}px; height:${pianoRollState.keyHeight}px;`}
                                         ></div>
                                     {/each}
