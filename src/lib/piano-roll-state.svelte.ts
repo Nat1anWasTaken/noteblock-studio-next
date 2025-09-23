@@ -11,7 +11,7 @@ export type PianoRollContext = {
 };
 
 const FULL_MIDI_RANGE: KeyRange = { min: 0, max: 87 };
-const MINECRAFT_RANGE = { min: 33, max: 57 };
+const MINECRAFT_RANGE = { min: 21, max: 45 };
 const NOTE_SPAN = 1;
 
 export class PianoRollState {
