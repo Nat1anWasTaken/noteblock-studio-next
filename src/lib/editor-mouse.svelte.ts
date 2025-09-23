@@ -797,16 +797,9 @@ export class EditorMouseController {
             this.dragGhostClientY = e.clientY;
             this.dragTargetIndex = destIndex;
 
-            const currentIndex = song.channels.indexOf(this._draggedChannelRef);
-            if (currentIndex === -1) return;
-
-            if (destIndex !== currentIndex) {
-                // Remove at current index and insert at destIndex
-                const ch = song.channels.splice(currentIndex, 1)[0];
-                // When removing an item earlier than destIndex, the destIndex shifts down by 1
-                const insertAt = destIndex > currentIndex ? destIndex : destIndex;
-                song.channels.splice(insertAt, 0, ch);
-                player.refreshIndexes();
+            // Mark as moved when the target differs from the original start index
+            const startIndex = this._startChannelIndex ?? this._channelOriginalIndex ?? null;
+            if (startIndex !== null && destIndex !== startIndex) {
                 this._moved = true;
             }
         }
@@ -871,20 +864,26 @@ export class EditorMouseController {
             }
             player.refreshIndexes();
         } else if (this.isDraggingChannel) {
-            // Finalize channel drag: create history action if moved
+            // Finalize channel drag: apply move at drop time using dragTargetIndex
             const song = player.song;
-            if (this._moved && song && this._draggedChannelRef) {
-                const finalIndex = song.channels.indexOf(this._draggedChannelRef);
-                const originalIndex = this._startChannelIndex ?? this._channelOriginalIndex ?? -1;
-
+            if (song && this._draggedChannelRef && this._moved) {
                 const removedChannel = this._draggedChannelRef;
+
+                // Prefer the UI-computed target; fall back to start/index lookups
+                const rawTarget =
+                    this.dragTargetIndex ?? this._startChannelIndex ?? this._channelOriginalIndex;
+                // Clamp into valid bounds [0, channels.length - 1]
+                const finalIndex = Math.min(Math.max(0, rawTarget ?? 0), song.channels.length - 1);
+                const originalIndex =
+                    this._startChannelIndex ??
+                    this._channelOriginalIndex ??
+                    song.channels.indexOf(removedChannel);
 
                 const action = {
                     label: 'Move channel',
                     do: (ctx: any) => {
                         const s = ctx.player.song;
                         if (!s) return;
-                        // remove any existing instances of removedChannel
                         const existing = s.channels.indexOf(removedChannel);
                         if (existing !== -1) s.channels.splice(existing, 1);
                         const insertAt = Math.min(Math.max(finalIndex, 0), s.channels.length);
@@ -896,7 +895,10 @@ export class EditorMouseController {
                         if (!s) return;
                         const existing = s.channels.indexOf(removedChannel);
                         if (existing !== -1) s.channels.splice(existing, 1);
-                        const insertAt = Math.min(Math.max(originalIndex, 0), s.channels.length);
+                        const insertAt = Math.min(
+                            Math.max(originalIndex ?? 0, 0),
+                            s.channels.length
+                        );
                         s.channels.splice(insertAt, 0, removedChannel);
                         ctx.player.refreshIndexes();
                     }

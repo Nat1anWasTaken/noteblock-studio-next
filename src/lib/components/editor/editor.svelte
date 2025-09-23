@@ -24,9 +24,9 @@
 
     const gutterWidth = 240;
 
-    let channelScroller: HTMLDivElement | null = null;
-    let channelInfosContainer: HTMLDivElement | null = null;
-    let timelineContentEl: HTMLDivElement | null = null;
+    let channelScroller = $state<HTMLDivElement | null>(null);
+    let channelInfosContainer = $state<HTMLDivElement | null>(null);
+    let timelineContentEl = $state<HTMLDivElement | null>(null);
 
     const onChannelsScroll = () => {
         editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
@@ -396,7 +396,7 @@
                     <!-- Left gutter: channel infos -->
                     <div
                         bind:this={channelInfosContainer}
-                        class="scrollbar-hidden flex shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-border bg-secondary/40"
+                        class="scrollbar-hidden relative flex shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-border bg-secondary/40"
                         style={`width:${gutterWidth}px`}
                         onscroll={onChannelInfosScroll}
                     >
@@ -532,11 +532,10 @@
                     <div
                         class="pointer-events-none absolute z-30"
                         style={`left:0; width:${gutterWidth}px; top:${
-                            editorMouse.dragTargetIndex * editorState.rowHeight -
-                            editorState.rowHeight / 2
+                            (editorMouse.dragTargetIndex + 1) * editorState.rowHeight
                         }px;`}
                     >
-                        <div class="h-0 border-t-2 border-dashed border-accent/90"></div>
+                        <div class="h-2 w-full rounded-sm bg-primary/70"></div>
                     </div>
                 {/if}
             </div>
