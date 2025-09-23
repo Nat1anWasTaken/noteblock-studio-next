@@ -58,12 +58,12 @@
     >
         {#each range(totalBars) as barIdx}
             <div
-                class="absolute inset-y-0 border-r border-border"
-                style={`left:${barIdx * barWidth}px; width:${barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.25)' : ''}`}
+                class="absolute inset-y-0 border-r border-border/30"
+                style={`left:${barIdx * barWidth}px; width:${barWidth}px; ${barIdx % 2 === 1 ? 'background-color:hsl(var(--secondary)/0.1)' : ''}`}
             >
                 {#if showLabels}
                     <div
-                        class="absolute top-1 left-1 rounded bg-secondary px-1.5 py-0.5 text-[11px] leading-none text-secondary-foreground"
+                        class="absolute top-1 left-1 rounded bg-secondary/50 px-1.5 py-0.5 text-[11px] leading-none text-secondary-foreground/80"
                     >
                         {barIdx + startBar + 1}
                     </div>
@@ -71,7 +71,7 @@
                 {#each range(beatsPerBar) as beatIdx}
                     {#if beatIdx > 0}
                         <div
-                            class="absolute inset-y-0 border-l border-border/80"
+                            class="absolute inset-y-0 border-l border-border/40"
                             style={`left:${beatIdx * pxPerBeat}px`}
                         ></div>
                     {/if}
@@ -79,7 +79,7 @@
                         {#each range(ticksPerBeat) as tickIdx}
                             {#if tickIdx > 0}
                                 <div
-                                    class="absolute inset-y-0 border-l border-border/40"
+                                    class="absolute inset-y-0 border-l border-border/20"
                                     style={`left:${beatIdx * pxPerBeat + tickIdx * pxPerTick}px`}
                                 ></div>
                             {/if}

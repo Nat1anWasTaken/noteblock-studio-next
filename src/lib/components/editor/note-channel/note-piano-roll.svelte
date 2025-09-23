@@ -198,7 +198,7 @@
 
                 <div class="flex flex-1 flex-col overflow-hidden">
                     <RulerShell
-                        class="items-center border-b border-border bg-secondary/40 text-sm"
+                        class="items-center border-b-4 border-border bg-secondary/20 text-sm"
                         gutterWidth={96}
                         contentWidth={Math.ceil(
                             pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
