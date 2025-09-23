@@ -297,7 +297,6 @@ export class PianoRollMouseController {
 
             // Track if any note key changed during this drag move
             let keyChanged = false;
-            const newKey = keyDelta !== 0 ? Math.min(87, Math.max(0, this.dragContext.notes[0]?.key ?? 0)) : undefined;
 
             for (const note of this.dragContext.notes) {
                 const orig = this.dragContext.original.get(note);
@@ -314,7 +313,11 @@ export class PianoRollMouseController {
             }
 
             // Play the first note if key changed and we have a section context
-            if (keyChanged && this.dragContext.notes.length > 0 && this.pianoRollState?.sectionData) {
+            if (
+                keyChanged &&
+                this.dragContext.notes.length > 0 &&
+                this.pianoRollState?.sectionData
+            ) {
                 const firstNote = this.dragContext.notes[0];
                 const context = this.pianoRollState.sectionData;
                 const currentKey = firstNote.key;
