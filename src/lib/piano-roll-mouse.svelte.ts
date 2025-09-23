@@ -1,5 +1,5 @@
 import { PointerMode } from '$lib/editor-state.svelte';
-import { player } from '$lib/playback.svelte';
+import { player, playNote } from '$lib/playback.svelte';
 import type { Note, NoteSection } from '$lib/types';
 
 export type PianoRollPointerMode = PointerMode.Normal | 'pen';
@@ -42,6 +42,7 @@ type DragContext = {
     startKey: number;
     pointerId: number;
     moved: boolean;
+    lastPlayedKey?: number;
 };
 
 type SelectionContext = { pointerId: number; startTick: number; startKey: number } | null;
@@ -116,6 +117,13 @@ export class PianoRollMouseController {
             const existing = this.findNoteAt(tick, key);
             if (existing) {
                 this.pianoRollState.selectNotes([existing]);
+                // Play the existing note immediately
+                const channel = player.song?.channels[context.channelIndex];
+                if (channel && channel.kind === 'note') {
+                    try {
+                        playNote(existing, channel.instrument);
+                    } catch {}
+                }
             } else {
                 const newNote: Note = {
                     tick,
@@ -126,6 +134,13 @@ export class PianoRollMouseController {
                 const created = player.addNote(context.channelIndex, context.sectionIndex, newNote);
                 if (created) {
                     this.pianoRollState.selectNotes([created]);
+                    // Play the new note immediately
+                    const channel = player.song?.channels[context.channelIndex];
+                    if (channel && channel.kind === 'note') {
+                        try {
+                            playNote(created, channel.instrument);
+                        } catch {}
+                    }
                 }
             }
             // Don't capture pointer in pen mode to avoid interfering with note creation
@@ -142,6 +157,17 @@ export class PianoRollMouseController {
         if (!section) return;
 
         if (this.pianoRollState.pointerMode === PointerMode.Normal) {
+            // Play the note immediately when clicked for audio feedback
+            const context = this.pianoRollState.sectionData;
+            if (context) {
+                const channel = player.song?.channels[context.channelIndex];
+                if (channel && channel.kind === 'note') {
+                    try {
+                        playNote(note, channel.instrument);
+                    } catch {}
+                }
+            }
+
             if (event.shiftKey) {
                 // Shift + click: toggle selection
                 const currentlySelected = this.pianoRollState.selectedNotes.includes(note);
@@ -269,12 +295,40 @@ export class PianoRollMouseController {
             const maxKeyDelta = 87 - this.dragContext.maxKey;
             keyDelta = Math.min(Math.max(keyDelta, minKeyDelta), maxKeyDelta);
 
+            // Track if any note key changed during this drag move
+            let keyChanged = false;
+            const newKey = keyDelta !== 0 ? Math.min(87, Math.max(0, this.dragContext.notes[0]?.key ?? 0)) : undefined;
+
             for (const note of this.dragContext.notes) {
                 const orig = this.dragContext.original.get(note);
                 if (!orig) continue;
                 const nextTick = this.clampTickToSection(orig.tick + tickDelta);
+                const nextKey = Math.min(87, Math.max(0, orig.key + keyDelta));
+
+                if (note.key !== nextKey) {
+                    keyChanged = true;
+                }
+
                 note.tick = nextTick;
-                note.key = Math.min(87, Math.max(0, orig.key + keyDelta));
+                note.key = nextKey;
+            }
+
+            // Play the first note if key changed and we have a section context
+            if (keyChanged && this.dragContext.notes.length > 0 && this.pianoRollState?.sectionData) {
+                const firstNote = this.dragContext.notes[0];
+                const context = this.pianoRollState.sectionData;
+                const currentKey = firstNote.key;
+
+                // Only play if the key is different from the last played key
+                if (this.dragContext.lastPlayedKey !== currentKey) {
+                    this.dragContext.lastPlayedKey = currentKey;
+                    const channel = player.song?.channels[context.channelIndex];
+                    if (channel && channel.kind === 'note') {
+                        try {
+                            playNote(firstNote, channel.instrument);
+                        } catch {}
+                    }
+                }
             }
 
             this.dragContext.moved ||= tickDelta !== 0 || keyDelta !== 0;
