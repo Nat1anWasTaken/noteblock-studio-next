@@ -340,9 +340,7 @@
                         gutterWidth={96}
                         class="z-40"
                         scrollLeft={pianoRollState.gridScrollLeft}
-                        pxPerTick={pianoRollState.pxPerTick > 0
-                            ? pianoRollState.pxPerTick
-                            : 1}
+                        pxPerTick={pianoRollState.pxPerTick > 0 ? pianoRollState.pxPerTick : 1}
                         currentTick={pianoRollState.cursorTick}
                         tickOffset={pianoRollState.sectionStartTick}
                         visible={pianoRollState.cursorVisible}
