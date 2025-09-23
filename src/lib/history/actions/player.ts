@@ -672,6 +672,7 @@ export function createAddNotesAction(
             }
 
             sortSectionNotes(section);
+            ctx.player.refreshIndexes();
             // Store the added notes with their indices for undo
             (this as any)._addedNotes = addedNotesWithIndices;
         },
@@ -693,6 +694,7 @@ export function createAddNotesAction(
                     section.notes.splice(insertIndex, 1);
                 }
             }
+            ctx.player.refreshIndexes();
         }
     };
 }

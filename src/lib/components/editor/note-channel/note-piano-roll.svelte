@@ -435,12 +435,23 @@
                                     <!-- Hover note preview for pen mode -->
                                     {#if pianoRollState.hoverNote && pianoRollState.pointerMode === 'pen'}
                                         {@const hover = pianoRollState.hoverNote}
-                                        {@const left = Math.max(0, Math.round(hover.tick * pianoRollState.pxPerTick))}
-                                        {@const top = (pianoRollState.keyRange.max - hover.key) * pianoRollState.keyHeight + ((pianoRollState.keyHeight - pianoRollState.noteLaneHeight) / 2)}
-                                        {@const width = Math.max(8, Math.round(1 * pianoRollState.pxPerTick))}
+                                        {@const left = Math.max(
+                                            0,
+                                            Math.round(hover.tick * pianoRollState.pxPerTick)
+                                        )}
+                                        {@const top =
+                                            (pianoRollState.keyRange.max - hover.key) *
+                                                pianoRollState.keyHeight +
+                                            (pianoRollState.keyHeight -
+                                                pianoRollState.noteLaneHeight) /
+                                                2}
+                                        {@const width = Math.max(
+                                            8,
+                                            Math.round(1 * pianoRollState.pxPerTick)
+                                        )}
                                         {@const height = pianoRollState.noteLaneHeight}
                                         <div
-                                            class="hover-note-preview absolute z-25 rounded-sm border-2 border-dashed pointer-events-none"
+                                            class="hover-note-preview pointer-events-none absolute z-25 rounded-sm border-2 border-dashed"
                                             style={`left:${left}px; top:${top}px; width:${width}px; height:${height}px;`}
                                         ></div>
                                     {/if}
