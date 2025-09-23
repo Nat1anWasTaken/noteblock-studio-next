@@ -188,6 +188,27 @@
         }
     }
 
+    function selectAllNotes() {
+        if (!pianoRollState.sectionData) return;
+
+        const allNotes = pianoRollState.sectionData.section.notes ?? [];
+        pianoRollState.selectNotes(allNotes);
+
+        if (allNotes.length > 0) {
+            toast.success(`Selected ${allNotes.length} note${allNotes.length === 1 ? '' : 's'}`);
+        }
+    }
+
+    function handleEscape() {
+        if (pianoRollState.selectedNotes.length > 0) {
+            // First ESCAPE: deselect notes
+            pianoRollState.selectNotes([]);
+        } else {
+            // Second ESCAPE or no selection: close sheet
+            pianoRollState.sheetOpen = false;
+        }
+    }
+
     onMount(() => {
         if (typeof document === 'undefined') return;
 
@@ -227,6 +248,20 @@
                 shortcut: 'MOD+V',
                 callback: pasteNotes,
                 scope: 'piano-roll'
+            },
+            {
+                id: 'piano-roll-select-all-notes',
+                title: 'Select All Notes',
+                shortcut: 'MOD+A',
+                callback: selectAllNotes,
+                scope: 'piano-roll'
+            },
+            {
+                id: 'piano-roll-escape',
+                title: 'Deselect Notes / Close Piano Roll',
+                shortcut: 'ESCAPE',
+                callback: handleEscape,
+                scope: 'piano-roll'
             }
         ]);
 
@@ -240,7 +275,9 @@
                 'piano-roll-backspace-selected-notes',
                 'piano-roll-copy-selected-notes',
                 'piano-roll-cut-selected-notes',
-                'piano-roll-paste-notes'
+                'piano-roll-paste-notes',
+                'piano-roll-select-all-notes',
+                'piano-roll-escape'
             ]);
 
             document.removeEventListener('noteplayed', handleNotePlayed as EventListener);
@@ -294,6 +331,14 @@
     <Sheet.Content
         side="bottom"
         class="h-[70vh] w-full max-w-none border-t border-border bg-background"
+        onkeydown={(event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                // Prevent default sheet closing behavior and handle ESCAPE ourselves
+                event.preventDefault();
+                event.stopPropagation();
+                handleEscape();
+            }
+        }}
     >
         {#if pianoRollState.sectionData}
             <div class="flex h-full flex-col">
