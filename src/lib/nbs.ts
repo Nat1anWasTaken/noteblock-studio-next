@@ -1,4 +1,5 @@
 import type { Note as NbsNote, Song as NbsSong } from '@nbsjs/core';
+import { Song as NbsjsSong, Note, toArrayBuffer } from '@nbsjs/core';
 import {
     Instrument,
     type Note as AppNote,
@@ -168,4 +169,71 @@ function mapBuiltInInstrument(id: number): Instrument | null {
 function clampNumber(n: number, min: number, max: number): number {
     if (!Number.isFinite(n)) return min;
     return Math.min(max, Math.max(min, n));
+}
+
+/**
+ * Convert an app Song to NBS format and return as ArrayBuffer.
+ *
+ * @param song The app Song to convert
+ * @returns ArrayBuffer containing NBS file data
+ */
+export function songToNbs(song: Song): ArrayBufferLike {
+    const nbsSong = new NbsjsSong();
+
+    // Set basic metadata
+    nbsSong.name = song.name;
+    nbsSong.author = song.author;
+    nbsSong.description = song.description;
+    nbsSong.setTempo(song.tempo);
+
+    // Process note channels
+    const noteChannels = song.channels.filter((ch) => ch.kind === 'note') as NoteChannel[];
+
+    noteChannels.forEach((channel) => {
+        const layer = nbsSong.layers.create();
+        layer.name = channel.name;
+        layer.volume = 100; // Default volume
+        layer.stereo = clampNumber(channel.pan, -100, 100);
+
+        // Add all notes from all sections of this channel
+        channel.sections.forEach((section) => {
+            section.notes.forEach((note) => {
+                const absoluteTick = section.startingTick + note.tick;
+                const nbsNote = new Note(channel.instrument, {
+                    key: note.key + 12, // shift one octave up to match NBS format
+                    velocity: note.velocity,
+                    pitch: note.pitch
+                });
+                layer.notes.set(absoluteTick, nbsNote);
+            });
+        });
+    });
+
+    return toArrayBuffer(nbsSong);
+}
+
+/**
+ * Download an app Song as a .nbs file in the browser.
+ *
+ * @param song The Song to export
+ * @param filename Optional filename (defaults to song name + .nbs)
+ */
+export function downloadSongAsNbs(song: Song, filename?: string): void {
+    const nbsData = songToNbs(song);
+    // Create a new non-resizable ArrayBuffer and copy the data
+    const buffer = new ArrayBuffer(nbsData.byteLength);
+    const view = new Uint8Array(buffer);
+    view.set(new Uint8Array(nbsData));
+
+    const blob = new Blob([buffer], { type: 'application/octet-stream' });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const finalFilename = filename || song.name || 'song';
+    a.download = finalFilename.endsWith('.nbs') ? finalFilename : `${finalFilename}.nbs`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
