@@ -145,6 +145,7 @@
         if (!pianoRollState.sectionData) return;
 
         const { channelIndex, sectionIndex } = pianoRollState.sectionData;
+        const sectionLength = pianoRollState.sectionData.section.length;
 
         // Find the earliest tick among clipboard notes to calculate offset
         const earliestTick = Math.min(...clipboardNotes.map((item) => item.note.tick));
@@ -160,12 +161,29 @@
             tick: Math.max(0, item.note.tick + offsetTick)
         }));
 
+        // Filter out notes that would be pasted outside the section bounds
+        const validNotes = newNotes.filter((note) => note.tick < sectionLength);
+
+        // Check if any notes would be placed outside the section
+        if (validNotes.length === 0) {
+            toast.error('Cannot paste notes outside the section bounds');
+            return;
+        }
+
+        // Warn if some notes were filtered out
+        if (validNotes.length < newNotes.length) {
+            const filteredCount = newNotes.length - validNotes.length;
+            toast.warning(
+                `${filteredCount} note${filteredCount === 1 ? '' : 's'} outside section bounds were not pasted`
+            );
+        }
+
         // Use the batch addNotes method for optimal performance and single history entry
-        const success = player.addNotes(channelIndex, sectionIndex, newNotes);
+        const success = player.addNotes(channelIndex, sectionIndex, validNotes);
 
         if (success) {
             toast.success(
-                `Pasted ${clipboardNotes.length} note${clipboardNotes.length === 1 ? '' : 's'}`
+                `Pasted ${validNotes.length} note${validNotes.length === 1 ? '' : 's'}`
             );
         } else {
             toast.error('Failed to paste notes');
