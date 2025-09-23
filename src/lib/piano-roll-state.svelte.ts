@@ -40,6 +40,9 @@ export class PianoRollState {
     } | null>(null);
     isMouseActive = $state(false);
 
+    // Hover state for pen mode preview
+    hoverNote = $state<{ tick: number; key: number } | null>(null);
+
     // Overlay optimization
     private overlayPendingRect: {
         left: number;
@@ -259,6 +262,7 @@ export class PianoRollState {
         // Clear selection state when changing modes
         this.selectionBox = null;
         this.selectionOverlayRect = null;
+        this.hoverNote = null;
         this.cancelOverlayFrame();
 
         // In pen mode, clear selected notes

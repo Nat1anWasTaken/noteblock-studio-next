@@ -28,6 +28,8 @@ interface PianoRollState {
     selectNotes: (notes: Note[]) => void;
     clearSelection: () => void;
     updateSelectionOverlayRect: () => void;
+    // Hover state for pen mode preview
+    hoverNote: { tick: number; key: number } | null;
 }
 export type KeyRange = { min: number; max: number };
 
@@ -110,6 +112,7 @@ export class PianoRollMouseController {
             this.selectionContext = null;
             this.pianoRollState.selectionBox = null;
             this.pianoRollState.selectionOverlayRect = null;
+            this.pianoRollState.hoverNote = null;
             this.dragContext = null;
 
             const context = this.pianoRollState.sectionData;
@@ -227,6 +230,7 @@ export class PianoRollMouseController {
             this.selectionContext = null;
             this.pianoRollState.selectionBox = null;
             this.pianoRollState.selectionOverlayRect = null;
+            this.pianoRollState.hoverNote = null;
             this.dragContext = null;
             this.pianoRollState.selectNotes([note]);
         }
@@ -265,13 +269,30 @@ export class PianoRollMouseController {
         this.finishPointerInteraction(event);
     };
 
+    handleGridPointerLeave = () => {
+        // Clear hover state when mouse leaves the grid
+        if (this.pianoRollState) {
+            this.pianoRollState.hoverNote = null;
+        }
+    };
+
     private processPointerMove(event: PointerEvent) {
         if (!this.pianoRollState) return;
         const section = this.pianoRollState.sectionData?.section;
         if (!section) return;
 
-        // Early exit if in pen mode - no selection or drag behavior
+        // Handle hover state for pen mode preview
         if (this.pianoRollState.pointerMode === 'pen') {
+            const tick = this.clampTickToSection(this.tickFromPointer(event));
+            const key = this.keyFromPointer(event);
+            const existingNote = this.findNoteAt(tick, key);
+
+            // Only show hover preview if there's no existing note at this position
+            if (!existingNote) {
+                this.pianoRollState.hoverNote = { tick, key };
+            } else {
+                this.pianoRollState.hoverNote = null;
+            }
             return;
         }
 
@@ -374,6 +395,7 @@ export class PianoRollMouseController {
             this.selectionContext = null;
             this.pianoRollState.selectionBox = null;
             this.pianoRollState.selectionOverlayRect = null;
+            this.pianoRollState.hoverNote = null;
             this.dragContext = null;
             return;
         }
