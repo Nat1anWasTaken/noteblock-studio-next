@@ -220,10 +220,15 @@ export class PianoRollState {
             label: string;
             isBlack: boolean;
             isMinecraftRange: boolean;
+            isOctaveBoundary: boolean;
         }> = [];
         for (let key = this.keyRange.max; key >= this.keyRange.min; key--) {
             const info = this.keyNumberToInfo(key);
-            rows.push({ key, ...info });
+            const nextKey = key - 1;
+            const nextOctave = nextKey >= this.keyRange.min ? Math.floor((nextKey + 9) / 12) : -1;
+            const currentOctave = Math.floor((key + 9) / 12);
+            const isOctaveBoundary = nextKey >= this.keyRange.min && nextOctave !== currentOctave;
+            rows.push({ key, ...info, isOctaveBoundary });
         }
         return rows;
     });

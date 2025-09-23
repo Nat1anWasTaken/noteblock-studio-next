@@ -200,7 +200,9 @@
                     <RulerShell
                         class="items-center border-b border-border bg-secondary/40 text-sm"
                         gutterWidth={96}
-                        contentWidth={pianoRollState.contentWidth}
+                        contentWidth={Math.ceil(
+                            pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
+                        ) * pianoRollState.barWidth}
                         scrollLeft={pianoRollState.gridScrollLeft}
                         pointerDownHandler={(container, event) => {
                             const relativeTick = editorMouse.tickFromClientX(
@@ -217,10 +219,14 @@
                         <TimelineGrid
                             class="z-0"
                             gutterWidth={0}
-                            contentWidth={pianoRollState.contentWidth}
+                            contentWidth={Math.ceil(
+                                pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
+                            ) * pianoRollState.barWidth}
                             scrollLeft={0}
                             barWidth={pianoRollState.barWidth}
-                            totalBars={pianoRollState.totalBars}
+                            totalBars={Math.ceil(
+                                pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar
+                            )}
                             beatsPerBar={pianoRollState.beatsPerBar}
                             pxPerBeat={editorState.pxPerBeat}
                             startBar={pianoRollState.sectionStartBar}
@@ -234,7 +240,7 @@
                     <div class="flex flex-1 overflow-hidden">
                         <div class="flex w-24 flex-col border-r border-border/50 bg-muted/40">
                             <div
-                                class="scrollbar-fade flex-1 overflow-auto"
+                                class="scrollbar-hidden flex-1 overflow-auto"
                                 bind:this={pianoRollState.keysScroller}
                                 onwheel={(event) => {
                                     const grid = pianoRollState.gridScroller;
@@ -249,7 +255,7 @@
                                 >
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
                                             style={`height:${pianoRollState.keyHeight}px;`}
                                         >
                                             {row.label}
@@ -268,7 +274,7 @@
                                 <div
                                     bind:this={pianoRollState.gridContent}
                                     class="relative"
-                                    style={`width:${pianoRollState.contentWidth}px; height:${pianoRollState.gridHeight}px;`}
+                                    style={`width:${Math.ceil(pianoRollState.sectionBeatLength / pianoRollState.beatsPerBar) * pianoRollState.barWidth}px; height:${pianoRollState.gridHeight}px;`}
                                     onpointerdown={pianoRollMouse.handleBackgroundPointerDown}
                                     onpointermove={pianoRollMouse.handleGridPointerMove}
                                     onpointerup={pianoRollMouse.handleGridPointerUp}
@@ -277,10 +283,16 @@
                                     <TimelineGrid
                                         gutterWidth={0}
                                         class="z-10"
-                                        contentWidth={pianoRollState.contentWidth}
+                                        contentWidth={Math.ceil(
+                                            pianoRollState.sectionBeatLength /
+                                                pianoRollState.beatsPerBar
+                                        ) * pianoRollState.barWidth}
                                         scrollLeft={0}
                                         barWidth={pianoRollState.barWidth}
-                                        totalBars={pianoRollState.totalBars}
+                                        totalBars={Math.ceil(
+                                            pianoRollState.sectionBeatLength /
+                                                pianoRollState.beatsPerBar
+                                        )}
                                         beatsPerBar={pianoRollState.beatsPerBar}
                                         pxPerBeat={editorState.pxPerBeat}
                                         startBar={pianoRollState.sectionStartBar}
@@ -291,7 +303,7 @@
 
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'}`}
+                                            class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
                                             style={`top:${index * pianoRollState.keyHeight}px; height:${pianoRollState.keyHeight}px;`}
                                         ></div>
                                     {/each}
@@ -356,6 +368,15 @@
 
     .scrollbar-fade {
         scrollbar-width: thin;
+    }
+
+    .scrollbar-hidden::-webkit-scrollbar {
+        display: none;
+    }
+
+    .scrollbar-hidden {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
 
     /* Fade-on-end highlight behavior:
