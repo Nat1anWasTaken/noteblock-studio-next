@@ -268,9 +268,20 @@ export class EditorMouseController {
 
     // --- Channel reorder: pointer down on gutter to begin drag ---
     handleChannelPointerDown = (channelIndex: number, ev: PointerEvent) => {
-        console.log('handle channel pointer down');
         if (ev.button !== 0) return;
         if (editorState.pointerMode !== PointerMode.Normal) return;
+
+        // If the pointerdown originated from an interactive element (buttons, inputs, selects, links,
+        // or other elements marked to opt-out), do not start a channel drag. This allows clicks on
+        // controls inside the channel info (solo/mute, instrument selector, etc.) to work normally.
+        const target = ev.target as HTMLElement | null;
+        if (target) {
+            const interactive = target.closest(
+                'button, [role="button"], input, select, textarea, a, label, [data-ignore-drag], .no-drag'
+            );
+            if (interactive) return;
+        }
+
         ev.preventDefault();
         ev.stopPropagation();
 
