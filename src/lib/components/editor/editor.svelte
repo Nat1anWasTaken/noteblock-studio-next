@@ -407,7 +407,7 @@
                                 {#if editorMouse.dragTargetIndex === i}
                                     <!-- Container with border for drag target -->
                                     <div
-                                        class="border-2 border-primary rounded"
+                                        class="rounded border-2 border-primary"
                                         style={`height:${editorState.rowHeight}px`}
                                     >
                                         {#if ch.kind === 'note'}
@@ -424,20 +424,18 @@
                                             />
                                         {/if}
                                     </div>
+                                {:else if ch.kind === 'note'}
+                                    <NoteChannelInfo
+                                        channel={ch}
+                                        index={i}
+                                        height={editorState.rowHeight}
+                                    />
                                 {:else}
-                                    {#if ch.kind === 'note'}
-                                        <NoteChannelInfo
-                                            channel={ch}
-                                            index={i}
-                                            height={editorState.rowHeight}
-                                        />
-                                    {:else}
-                                        <TempoChannelInfo
-                                            channel={ch}
-                                            index={i}
-                                            height={editorState.rowHeight}
-                                        />
-                                    {/if}
+                                    <TempoChannelInfo
+                                        channel={ch}
+                                        index={i}
+                                        height={editorState.rowHeight}
+                                    />
                                 {/if}
                             {/each}
                         {/if}
@@ -548,7 +546,6 @@
                         </div>
                     {/if}
                 {/if}
-
             </div>
         </Resizable.Pane>
     </Resizable.PaneGroup>
