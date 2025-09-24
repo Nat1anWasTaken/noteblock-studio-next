@@ -850,19 +850,33 @@ export class EditorMouseController {
             this.isDraggingChannel ||
             this.isResizingSection;
 
-        if (isDragOperation && timelineScroller) {
-            // Start timeline auto-scroll and update cursor position
-            if (!this._timelineAutoScroller.active) {
-                this._timelineAutoScroller.start(timelineScroller);
-            }
-            this._timelineAutoScroller.updateCursor(e.clientX, e.clientY);
+        if (isDragOperation) {
+            // For channel dragging, only enable vertical auto-scroll on the gutter
+            if (this.isDraggingChannel) {
+                // Stop timeline auto-scroll for channel dragging
+                this._timelineAutoScroller.stop();
 
-            // Also start gutter auto-scroll for vertical scrolling synchronization
-            if (gutterScroller && !this._gutterAutoScroller.active) {
-                this._gutterAutoScroller.start(gutterScroller);
-            }
-            if (gutterScroller) {
-                this._gutterAutoScroller.updateCursor(e.clientX, e.clientY);
+                // Only enable gutter auto-scroll for vertical scrolling
+                if (gutterScroller && !this._gutterAutoScroller.active) {
+                    this._gutterAutoScroller.start(gutterScroller);
+                }
+                if (gutterScroller) {
+                    this._gutterAutoScroller.updateCursor(e.clientX, e.clientY);
+                }
+            } else if (timelineScroller) {
+                // For section-related operations, enable timeline auto-scroll
+                if (!this._timelineAutoScroller.active) {
+                    this._timelineAutoScroller.start(timelineScroller);
+                }
+                this._timelineAutoScroller.updateCursor(e.clientX, e.clientY);
+
+                // Also enable gutter auto-scroll for vertical synchronization
+                if (gutterScroller && !this._gutterAutoScroller.active) {
+                    this._gutterAutoScroller.start(gutterScroller);
+                }
+                if (gutterScroller) {
+                    this._gutterAutoScroller.updateCursor(e.clientX, e.clientY);
+                }
             }
         } else {
             // Stop auto-scrolling when not in a drag operation
