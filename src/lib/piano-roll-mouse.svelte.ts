@@ -419,7 +419,7 @@ export class PianoRollMouseController {
 
         const isDragOperation = Boolean(
             this.dragContext ||
-            (this.selectionContext && this.pianoRollState.pointerMode === PointerMode.Normal)
+                (this.selectionContext && this.pianoRollState.pointerMode === PointerMode.Normal)
         );
 
         if (isDragOperation) {

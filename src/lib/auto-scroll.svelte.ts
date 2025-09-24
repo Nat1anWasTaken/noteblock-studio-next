@@ -105,10 +105,23 @@ export class AutoScroller {
 
         // Update scroll direction and speed based on cursor position
         this.updateScrollDirection(relativeX, relativeY, rect.width, rect.height);
-        this.updateScrollSpeed(relativeX, relativeY, rect.width, rect.height, clientX, clientY, rect);
+        this.updateScrollSpeed(
+            relativeX,
+            relativeY,
+            rect.width,
+            rect.height,
+            clientX,
+            clientY,
+            rect
+        );
     }
 
-    private updateScrollDirection(relativeX: number, relativeY: number, width: number, height: number): void {
+    private updateScrollDirection(
+        relativeX: number,
+        relativeY: number,
+        width: number,
+        height: number
+    ): void {
         const { proximityZone, horizontalScroll, verticalScroll } = this.config;
 
         // Horizontal scrolling
@@ -147,7 +160,8 @@ export class AutoScroller {
         clientY: number,
         rect: DOMRect
     ): void {
-        const { proximityZone, minScrollSpeed, maxScrollSpeed, outsideBoundsMultiplier } = this.config;
+        const { proximityZone, minScrollSpeed, maxScrollSpeed, outsideBoundsMultiplier } =
+            this.config;
 
         // Calculate horizontal speed
         if (this.currentDirection.horizontal) {
@@ -231,7 +245,10 @@ export class AutoScroller {
             scrollLeft = direction * this.currentSpeed.horizontal;
 
             // Clamp to scrollable bounds
-            const newScrollLeft = Math.max(0, Math.min(maxScrollLeft, element.scrollLeft + scrollLeft));
+            const newScrollLeft = Math.max(
+                0,
+                Math.min(maxScrollLeft, element.scrollLeft + scrollLeft)
+            );
             scrollLeft = newScrollLeft - element.scrollLeft;
         }
 

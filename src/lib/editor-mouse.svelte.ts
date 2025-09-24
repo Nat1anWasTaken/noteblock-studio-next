@@ -841,7 +841,8 @@ export class EditorMouseController {
     // Update auto-scroll for active drag operations
     private updateAutoScrollForDragOperations(e: PointerEvent) {
         // Get scrollable elements - need to get them dynamically since they may change
-        const timelineScroller = document.querySelector('[data-editor-content]')?.parentElement as HTMLElement;
+        const timelineScroller = document.querySelector('[data-editor-content]')
+            ?.parentElement as HTMLElement;
         const gutterScroller = document.querySelector('.scrollbar-hidden') as HTMLElement;
 
         const isDragOperation =
