@@ -190,21 +190,49 @@ export function songToNbs(song: Song): ArrayBufferLike {
     const noteChannels = song.channels.filter((ch) => ch.kind === 'note') as NoteChannel[];
 
     noteChannels.forEach((channel) => {
-        const layer = nbsSong.layers.create();
-        layer.name = channel.name;
-        layer.volume = 100; // Default volume
-        layer.stereo = clampNumber(channel.pan, -100, 100);
-
-        // Add all notes from all sections of this channel
+        // Collect all notes from all sections with their absolute ticks
+        const allNotes: Array<{ tick: number; note: AppNote }> = [];
         channel.sections.forEach((section) => {
             section.notes.forEach((note) => {
                 const absoluteTick = section.startingTick + note.tick;
+                allNotes.push({ tick: absoluteTick, note });
+            });
+        });
+
+        // Group notes by tick to identify simultaneous notes
+        const notesByTick = new Map<number, AppNote[]>();
+        allNotes.forEach(({ tick, note }) => {
+            if (!notesByTick.has(tick)) {
+                notesByTick.set(tick, []);
+            }
+            notesByTick.get(tick)!.push(note);
+        });
+
+        // Find maximum number of simultaneous notes at any tick
+        const maxSimultaneous = Math.max(
+            1,
+            ...Array.from(notesByTick.values()).map((notes) => notes.length)
+        );
+
+        // Create separate layers for each voice/simultaneous note position
+        const layers: any[] = [];
+        for (let i = 0; i < maxSimultaneous; i++) {
+            const layer = nbsSong.layers.create();
+            layer.name = maxSimultaneous > 1 ? `${channel.name} ${i + 1}` : channel.name;
+            layer.volume = 100; // Default volume
+            layer.stereo = clampNumber(channel.pan, -100, 100);
+            layers.push(layer);
+        }
+
+        // Distribute notes across layers
+        notesByTick.forEach((notes, tick) => {
+            notes.forEach((note, index) => {
                 const nbsNote = new Note(channel.instrument, {
                     key: note.key + 12, // shift one octave up to match NBS format
                     velocity: note.velocity,
                     pitch: note.pitch
                 });
-                layer.notes.set(absoluteTick, nbsNote);
+                layers[index].notes.set(tick, nbsNote);
             });
         });
     });
