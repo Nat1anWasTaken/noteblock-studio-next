@@ -7,4 +7,14 @@
     onpointerup={editorMouse.handleWindowPointerUp}
     onpointercancel={() => editorMouse.cancel()}
     onpointerleave={() => editorMouse.cancel()}
+    onwheel={(e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                editorState.zoomIn();
+            } else if (e.deltaY > 0) {
+                editorState.zoomOut();
+            }
+        }
+    }}
 />
