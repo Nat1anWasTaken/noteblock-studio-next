@@ -80,6 +80,34 @@ export class EditorState {
     maxRowZoom = 2.5;
     rowHeight = $derived(Math.round(this.baseRowHeight * this._rowZoom));
 
+    // Flag to trigger follow cursor logic after zoom
+    _shouldFollowAfterZoom = $state(false);
+
+    // Zoom throttling state
+    private _pendingZoom = $state<number | null>(null);
+    private _zoomThrottleId = $state<number | null>(null);
+
+    private _applyPendingZoom() {
+        if (this._pendingZoom !== null) {
+            this.setPxPerBeat(this._pendingZoom);
+            this._pendingZoom = null;
+            this._shouldFollowAfterZoom = true;
+        }
+        this._zoomThrottleId = null;
+    }
+
+    private _scheduleZoom(newPxPerBeat: number) {
+        this._pendingZoom = newPxPerBeat;
+
+        if (this._zoomThrottleId !== null) {
+            return; // Already scheduled
+        }
+
+        this._zoomThrottleId = requestAnimationFrame(() => {
+            this._applyPendingZoom();
+        });
+    }
+
     setRowZoom(z: number) {
         const clamped = Math.min(this.maxRowZoom, Math.max(this.minRowZoom, z));
         this._rowZoom = clamped;
@@ -99,11 +127,21 @@ export class EditorState {
     }
 
     zoomIn(factor = 1.2) {
-        this.setPxPerBeat(this.pxPerBeat * factor);
+        const newValue = Math.min(
+            this.maxPxPerBeat,
+            Math.max(this.minPxPerBeat, this.pxPerBeat * factor)
+        );
+        const rounded = Math.round(newValue);
+        this._scheduleZoom(rounded);
     }
 
     zoomOut(factor = 1.2) {
-        this.setPxPerBeat(this.pxPerBeat / factor);
+        const newValue = Math.min(
+            this.maxPxPerBeat,
+            Math.max(this.minPxPerBeat, this.pxPerBeat / factor)
+        );
+        const rounded = Math.round(newValue);
+        this._scheduleZoom(rounded);
     }
 
     setScrollLeft(px: number) {

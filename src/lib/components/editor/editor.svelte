@@ -75,10 +75,13 @@
         const x = playheadContentX;
 
         // Only auto-scroll while playing and enabled to avoid fighting manual seeks
-        if (!player.isPlaying || !editorState.autoScrollEnabled) return;
+        const shouldAutoScroll =
+            (player.isPlaying && editorState.autoScrollEnabled) ||
+            editorState._shouldFollowAfterZoom;
+        if (!shouldAutoScroll) return;
 
         const isOutOfView = x < left + 4 || x > right - 4; // small margin
-        if (!isOutOfView) return;
+        if (!isOutOfView && !editorState._shouldFollowAfterZoom) return;
 
         // Place playhead near the left edge (with padding), clamped to content bounds
         const desired = Math.round(x - leftPadding);
@@ -86,6 +89,11 @@
         const clamped = Math.min(maxScroll, Math.max(0, desired));
         if (Math.abs(clamped - left) > 1) {
             editorState.setScrollLeft(clamped);
+        }
+
+        // Clear the zoom follow flag after applying
+        if (editorState._shouldFollowAfterZoom) {
+            editorState._shouldFollowAfterZoom = false;
         }
     });
 
@@ -473,6 +481,16 @@
                                 onpointerleave={() => editorMouse.handleTimelineBlankPointerLeave()}
                                 onpointercancel={() =>
                                     editorMouse.handleTimelineBlankPointerLeave()}
+                                onwheel={(e) => {
+                                    if (e.ctrlKey || e.metaKey) {
+                                        e.preventDefault();
+                                        if (e.deltaY < 0) {
+                                            editorState.zoomIn();
+                                        } else if (e.deltaY > 0) {
+                                            editorState.zoomOut();
+                                        }
+                                    }
+                                }}
                             ></div>
 
                             <!-- Channel row separators -->
