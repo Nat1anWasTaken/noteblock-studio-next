@@ -156,13 +156,19 @@ export class EditorState {
     }
 
     zoomIn(factor = 1.2) {
-        const newValue = Math.min(this.maxPxPerBeat, Math.max(this.minPxPerBeat, this.pxPerBeat * factor));
+        const newValue = Math.min(
+            this.maxPxPerBeat,
+            Math.max(this.minPxPerBeat, this.pxPerBeat * factor)
+        );
         const rounded = Math.round(newValue);
         this._scheduleZoom(rounded);
     }
 
     zoomOut(factor = 1.2) {
-        const newValue = Math.min(this.maxPxPerBeat, Math.max(this.minPxPerBeat, this.pxPerBeat / factor));
+        const newValue = Math.min(
+            this.maxPxPerBeat,
+            Math.max(this.minPxPerBeat, this.pxPerBeat / factor)
+        );
         const rounded = Math.round(newValue);
         this._scheduleZoom(rounded);
     }
