@@ -71,7 +71,36 @@ export class EditorState {
         const ticksPerBar = Math.max(1, this.ticksPerBeat * this.beatsPerBar);
         return Math.ceil(this.lengthTicks / ticksPerBar);
     });
-    contentWidth = $derived.by(() => this.totalBars * this.barWidth);
+
+    // Cache contentWidth calculation to reduce frequent recalculation during resize
+    private _cachedContentWidth = $state(0);
+    private _lastBarWidth = $state(0);
+    private _lastTotalBars = $state(0);
+    private _contentWidthUpdateScheduled = $state(false);
+
+    contentWidth = $derived.by(() => {
+        const currentBarWidth = this.barWidth;
+        const currentTotalBars = this.totalBars;
+
+        // Only recalculate if values have actually changed
+        if (currentBarWidth === this._lastBarWidth && currentTotalBars === this._lastTotalBars) {
+            return this._cachedContentWidth;
+        }
+
+        // Throttle contentWidth updates during rapid changes (like window resize)
+        if (!this._contentWidthUpdateScheduled) {
+            this._contentWidthUpdateScheduled = true;
+            queueMicrotask(() => {
+                this._cachedContentWidth = currentTotalBars * currentBarWidth;
+                this._lastBarWidth = currentBarWidth;
+                this._lastTotalBars = currentTotalBars;
+                this._contentWidthUpdateScheduled = false;
+            });
+        }
+
+        // Return cached value while update is scheduled
+        return this._cachedContentWidth || currentTotalBars * currentBarWidth;
+    });
 
     // --- Vertical zoom (row height) ---
     baseRowHeight = 72;

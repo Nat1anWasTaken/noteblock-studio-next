@@ -28,26 +28,47 @@
     let channelInfosContainer = $state<HTMLDivElement | null>(null);
     let timelineContentEl = $state<HTMLDivElement | null>(null);
 
+    // Throttled scroll handlers to prevent excessive state updates during resize
+    let channelsScrollThrottled = false;
+    let infosScrollThrottled = false;
+
     const onChannelsScroll = () => {
-        editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
-        editorState.setScrollTop(channelScroller?.scrollTop ?? 0);
+        if (channelsScrollThrottled) return;
+        channelsScrollThrottled = true;
+
+        requestAnimationFrame(() => {
+            editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
+            editorState.setScrollTop(channelScroller?.scrollTop ?? 0);
+            channelsScrollThrottled = false;
+        });
     };
 
     const onChannelInfosScroll = () => {
-        editorState.setScrollTop(channelInfosContainer?.scrollTop ?? 0);
+        if (infosScrollThrottled) return;
+        infosScrollThrottled = true;
+
+        requestAnimationFrame(() => {
+            editorState.setScrollTop(channelInfosContainer?.scrollTop ?? 0);
+            infosScrollThrottled = false;
+        });
     };
 
-    $effect(() => {
+    // Use $effect.pre to prevent cascading reactive updates during scroll sync
+    $effect.pre(() => {
         if (!channelScroller) return;
-        if (Math.abs(channelScroller.scrollLeft - editorState.scrollLeft) > 1) {
-            channelScroller.scrollLeft = editorState.scrollLeft;
-        }
-        if (Math.abs(channelScroller.scrollTop - editorState.scrollTop) > 1) {
-            channelScroller.scrollTop = editorState.scrollTop;
+
+        // Batch DOM writes to prevent layout thrashing
+        const scrollLeftDiff = Math.abs(channelScroller.scrollLeft - editorState.scrollLeft);
+        const scrollTopDiff = Math.abs(channelScroller.scrollTop - editorState.scrollTop);
+
+        if (scrollLeftDiff > 1 || scrollTopDiff > 1) {
+            // Batch scroll updates in a single operation
+            if (scrollLeftDiff > 1) channelScroller.scrollLeft = editorState.scrollLeft;
+            if (scrollTopDiff > 1) channelScroller.scrollTop = editorState.scrollTop;
         }
     });
 
-    $effect(() => {
+    $effect.pre(() => {
         if (!channelInfosContainer) return;
         if (Math.abs(channelInfosContainer.scrollTop - editorState.scrollTop) > 1) {
             channelInfosContainer.scrollTop = editorState.scrollTop;
@@ -63,19 +84,45 @@
     const leftPadding = $derived(
         Math.min(240, Math.max(48, Math.round(editorState.pxPerBeat * 1)))
     );
+
+    // Cache viewport width to avoid repeated DOM reads during resize
+    let cachedViewportWidth = $state(0);
+    let viewportUpdateScheduled = $state(false);
+
+    // Throttled viewport width update to reduce DOM reads during resize
+    function updateViewportWidth() {
+        if (viewportUpdateScheduled) return;
+        viewportUpdateScheduled = true;
+        requestAnimationFrame(() => {
+            const scroller = channelScroller;
+            if (scroller) {
+                cachedViewportWidth = scroller.clientWidth;
+            }
+            viewportUpdateScheduled = false;
+        });
+    }
+
+    // Update cached viewport width when scroller changes
     $effect(() => {
-        // Re-run when playhead moves or viewport changes
+        if (channelScroller) {
+            updateViewportWidth();
+        }
+    });
+
+    $effect(() => {
+        // Only trigger auto-scroll calculations when actually playing and auto-scroll enabled
+        if (!player.isPlaying || !editorState.autoScrollEnabled) return;
+
         const scroller = channelScroller;
         if (!scroller) return;
-        const viewportWidth = scroller.clientWidth;
+
+        // Use cached viewport width, fallback to DOM read only if cache is stale
+        const viewportWidth = cachedViewportWidth || scroller.clientWidth;
         if (viewportWidth <= 0) return;
 
         const left = editorState.scrollLeft;
         const right = left + viewportWidth;
         const x = playheadContentX;
-
-        // Only auto-scroll while playing and enabled to avoid fighting manual seeks
-        if (!player.isPlaying || !editorState.autoScrollEnabled) return;
 
         const isOutOfView = x < left + 4 || x > right - 4; // small margin
         if (!isOutOfView) return;
@@ -88,6 +135,11 @@
             editorState.setScrollLeft(clamped);
         }
     });
+
+    // Update cached viewport width on window resize
+    function handleResize() {
+        updateViewportWidth();
+    }
 
     const channels = $derived(player.song?.channels ?? []);
 
@@ -379,6 +431,8 @@
         };
     });
 </script>
+
+<svelte:window onresize={handleResize} />
 
 <div class="flex h-screen flex-col">
     <EditorHeader />

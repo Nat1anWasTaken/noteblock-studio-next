@@ -34,8 +34,12 @@
     let scroller: HTMLDivElement | null = null;
     let contentEl: HTMLDivElement | null = null;
 
+    // Throttle scroll events to prevent excessive updates during resize
+    let scrollThrottled = false;
+
     // Keep the internal scroller aligned with the provided scrollLeft prop
-    $effect(() => {
+    // Use $effect.pre to prevent cascading updates during scroll sync
+    $effect.pre(() => {
         const el = scroller;
         if (!el) return;
         if (Math.abs(el.scrollLeft - scrollLeft) > 1) {
@@ -44,10 +48,19 @@
     });
 
     function handleScroll() {
-        const el = scroller;
-        if (!el) return;
-        const left = el.scrollLeft;
-        dispatch('scrollLeftChange', left);
+        if (scrollThrottled) return;
+        scrollThrottled = true;
+
+        requestAnimationFrame(() => {
+            const el = scroller;
+            if (!el) {
+                scrollThrottled = false;
+                return;
+            }
+            const left = el.scrollLeft;
+            dispatch('scrollLeftChange', left);
+            scrollThrottled = false;
+        });
     }
 
     function handlePointerDown(event: PointerEvent) {

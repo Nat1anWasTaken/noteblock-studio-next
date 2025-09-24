@@ -34,7 +34,8 @@
         }
     });
 
-    $effect(() => {
+    // Use $effect.pre to prevent cascading updates during scroll sync
+    $effect.pre(() => {
         const grid = pianoRollState.gridScroller;
         if (!grid) return;
         if (Math.abs(grid.scrollLeft - pianoRollState.gridScrollLeft) > 1) {
@@ -295,19 +296,46 @@
         Math.min(240, Math.max(48, Math.round(editorState.pxPerBeat * 1)))
     );
 
+    // Cache viewport width to avoid repeated DOM reads during resize
+    let cachedPianoViewportWidth = $state(0);
+    let pianoViewportUpdateScheduled = $state(false);
+
+    // Throttled viewport width update for piano roll
+    function updatePianoViewportWidth() {
+        if (pianoViewportUpdateScheduled) return;
+        pianoViewportUpdateScheduled = true;
+        requestAnimationFrame(() => {
+            const scroller = pianoRollState.gridScroller;
+            if (scroller) {
+                cachedPianoViewportWidth = scroller.clientWidth;
+            }
+            pianoViewportUpdateScheduled = false;
+        });
+    }
+
+    // Update cached viewport width when scroller changes
     $effect(() => {
+        if (pianoRollState.gridScroller && pianoRollState.sheetOpen) {
+            updatePianoViewportWidth();
+        }
+    });
+
+    $effect(() => {
+        // Only trigger auto-scroll calculations when actually playing and conditions are met
+        if (!player.isPlaying || !editorState.autoScrollEnabled || !pianoRollState.sheetOpen)
+            return;
+        if (!pianoRollState.cursorVisible) return;
+
         const scroller = pianoRollState.gridScroller;
-        if (!scroller || !pianoRollState.sheetOpen) return;
-        const viewportWidth = scroller.clientWidth;
+        if (!scroller) return;
+
+        // Use cached viewport width, fallback to DOM read only if cache is stale
+        const viewportWidth = cachedPianoViewportWidth || scroller.clientWidth;
         if (viewportWidth <= 0) return;
 
         const left = pianoRollState.gridScrollLeft;
         const right = left + viewportWidth;
         const x = playheadContentX;
-
-        if (!player.isPlaying || !editorState.autoScrollEnabled) return;
-
-        if (!pianoRollState.cursorVisible) return;
 
         const isOutOfView = x < left + 4 || x > right - 4;
         if (!isOutOfView) return;
