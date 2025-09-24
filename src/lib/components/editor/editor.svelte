@@ -481,6 +481,7 @@
                                 onpointerleave={() => editorMouse.handleTimelineBlankPointerLeave()}
                                 onpointercancel={() =>
                                     editorMouse.handleTimelineBlankPointerLeave()}
+                                onwheel={editorMouse.handleWheel}
                             ></div>
 
                             <!-- Channel row separators -->
