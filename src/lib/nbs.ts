@@ -184,7 +184,12 @@ export function songToNbs(song: Song): ArrayBufferLike {
     nbsSong.name = song.name;
     nbsSong.author = song.author;
     nbsSong.description = song.description;
-    nbsSong.setTempo(song.tempo);
+
+    // Find the first tempo channel and use its first tempo event
+    const tempoChannel = song.channels.find(ch => ch.kind === 'tempo') as TempoChannel | undefined;
+    const firstTempoEvent = tempoChannel?.tempoChanges?.[0];
+    const tempo = firstTempoEvent?.tempo ?? song.tempo;
+    nbsSong.setTempo(tempo);
 
     // Process note channels
     const noteChannels = song.channels.filter((ch) => ch.kind === 'note') as NoteChannel[];
