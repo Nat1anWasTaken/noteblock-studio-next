@@ -399,6 +399,7 @@
                                     grid.scrollBy({ left: event.deltaX, top: event.deltaY });
 
                                     event.preventDefault();
+                                    event.preventDefault();
                                 }}
                             >
                                 <div
