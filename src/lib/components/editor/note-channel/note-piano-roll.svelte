@@ -406,7 +406,7 @@
                                 >
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-muted/70 text-muted-foreground' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
+                                            class={`flex items-center justify-end pr-3 text-xs ${row.isBlack ? 'bg-background' : 'bg-muted/70 text-muted-foreground'} ${!row.isMinecraftRange ? 'opacity-40' : ''} ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
                                             style={`height:${pianoRollState.keyHeight}px;`}
                                         >
                                             {row.label}
@@ -455,7 +455,7 @@
 
                                     {#each pianoRollState.keyRows as row, index}
                                         <div
-                                            class={`${row.isBlack ? 'bg-muted/60' : 'bg-background'} ${!row.isMinecraftRange ? 'opacity-40' : ''} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
+                                            class={`${row.isBlack ? 'bg-background' : 'bg-muted/60'} ${!row.isMinecraftRange ? 'opacity-40' : ''} absolute right-0 left-0 ${index === pianoRollState.keyRows.length - 1 ? '' : 'border-b border-border/30'} ${row.isOctaveBoundary ? 'border-b-2 border-b-primary/20' : ''}`}
                                             style={`top:${index * pianoRollState.keyHeight}px; height:${pianoRollState.keyHeight}px;`}
                                         ></div>
                                     {/each}
