@@ -225,7 +225,7 @@ export function songToNbs(song: Song): ArrayBufferLike {
         const layers: any[] = [];
         for (let i = 0; i < maxSimultaneous; i++) {
             const layer = nbsSong.layers.create();
-            layer.name = maxSimultaneous > 1 ? `${channel.name} ${i + 1}` : channel.name;
+            layer.name = maxSimultaneous > 1 ? `${channel.name} (${i + 1})` : channel.name;
             layer.volume = 100; // Default volume
             layer.stereo = clampNumber(channel.pan, -100, 100);
             layers.push(layer);
