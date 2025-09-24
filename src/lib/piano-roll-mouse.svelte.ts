@@ -1,3 +1,4 @@
+import { AutoScroller } from '$lib/auto-scroll.svelte';
 import { PointerMode } from '$lib/editor-state.svelte';
 import { player, playNote } from '$lib/playback.svelte';
 import type { Note, NoteSection } from '$lib/types';
@@ -16,6 +17,8 @@ interface PianoRollState {
     } | null;
     selectionOverlayRect: { left: number; top: number; width: number; height: number } | null;
     gridContent: HTMLDivElement | null;
+    gridScroller: HTMLDivElement | null;
+    keysScroller: HTMLDivElement | null;
     keyRange: { min: number; max: number };
     keyHeight: number;
     pxPerTick: number;
@@ -57,6 +60,24 @@ const DEFAULT_NOTE_VELOCITY = 100;
 const DEFAULT_NOTE_PITCH = 0;
 export class PianoRollMouseController {
     private pianoRollState: PianoRollState | null = null;
+
+    // Auto-scroll instances
+    private _gridAutoScroller = new AutoScroller({
+        proximityZone: 50,
+        maxScrollSpeed: 10,
+        minScrollSpeed: 2,
+        outsideBoundsMultiplier: 2.5,
+        horizontalScroll: true,
+        verticalScroll: true
+    });
+    private _keysAutoScroller = new AutoScroller({
+        proximityZone: 50,
+        maxScrollSpeed: 8,
+        minScrollSpeed: 1,
+        outsideBoundsMultiplier: 2,
+        horizontalScroll: false,
+        verticalScroll: true
+    });
 
     private dragContext: DragContext | null = null;
     private selectionContext: SelectionContext = null;
@@ -281,6 +302,9 @@ export class PianoRollMouseController {
         const section = this.pianoRollState.sectionData?.section;
         if (!section) return;
 
+        // Update auto-scroll for active drag operations
+        this.updateAutoScrollForDragOperations(event);
+
         // Handle hover state for pen mode preview
         if (this.pianoRollState.pointerMode === 'pen') {
             const tick = this.clampTickToSection(this.tickFromPointer(event));
@@ -386,6 +410,41 @@ export class PianoRollMouseController {
         }
     }
 
+    // Update auto-scroll for active drag operations
+    private updateAutoScrollForDragOperations(event: PointerEvent) {
+        if (!this.pianoRollState) return;
+
+        const gridScroller = this.pianoRollState.gridScroller;
+        const keysScroller = this.pianoRollState.keysScroller;
+
+        const isDragOperation = Boolean(
+            this.dragContext ||
+            (this.selectionContext && this.pianoRollState.pointerMode === PointerMode.Normal)
+        );
+
+        if (isDragOperation) {
+            // Start grid auto-scroll for note dragging and selection
+            if (gridScroller && !this._gridAutoScroller.active) {
+                this._gridAutoScroller.start(gridScroller);
+            }
+            if (gridScroller) {
+                this._gridAutoScroller.updateCursor(event.clientX, event.clientY);
+            }
+
+            // Start keys auto-scroll for vertical synchronization
+            if (keysScroller && !this._keysAutoScroller.active) {
+                this._keysAutoScroller.start(keysScroller);
+            }
+            if (keysScroller) {
+                this._keysAutoScroller.updateCursor(event.clientX, event.clientY);
+            }
+        } else {
+            // Stop auto-scrolling when not in a drag operation
+            this._gridAutoScroller.stop();
+            this._keysAutoScroller.stop();
+        }
+    }
+
     private finishPointerInteraction(event: PointerEvent) {
         if (!this.pianoRollState) return;
         const context = this.pianoRollState.sectionData;
@@ -397,6 +456,9 @@ export class PianoRollMouseController {
             this.pianoRollState.selectionOverlayRect = null;
             this.pianoRollState.hoverNote = null;
             this.dragContext = null;
+            // Stop auto-scrolling
+            this._gridAutoScroller.stop();
+            this._keysAutoScroller.stop();
             return;
         }
 
@@ -447,6 +509,10 @@ export class PianoRollMouseController {
                 // ignore
             }
         }
+
+        // Stop auto-scrolling when interactions finish
+        this._gridAutoScroller.stop();
+        this._keysAutoScroller.stop();
     }
 
     private snapTick(value: number): number {

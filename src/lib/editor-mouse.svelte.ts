@@ -1,3 +1,4 @@
+import { AutoScroller } from './auto-scroll.svelte';
 import { editorState, PointerMode } from './editor-state.svelte';
 import { historyManager } from './history';
 import { player } from './playback.svelte';
@@ -30,6 +31,24 @@ export class EditorMouseController {
     dragGhost = $state<{ name?: string; instrument?: number; kind?: string } | null>(null);
     // full channel reference for rendering the actual component as ghost
     dragGhostChannel = $state<any | null>(null);
+
+    // Auto-scroll instances
+    private _timelineAutoScroller = new AutoScroller({
+        proximityZone: 50,
+        maxScrollSpeed: 12,
+        minScrollSpeed: 2,
+        outsideBoundsMultiplier: 2.5,
+        horizontalScroll: true,
+        verticalScroll: true
+    });
+    private _gutterAutoScroller = new AutoScroller({
+        proximityZone: 50,
+        maxScrollSpeed: 8,
+        minScrollSpeed: 1,
+        outsideBoundsMultiplier: 2,
+        horizontalScroll: false,
+        verticalScroll: true
+    });
 
     // Context captured on pointerdown
     private _contentEl: HTMLElement | null = null;
@@ -639,6 +658,9 @@ export class EditorMouseController {
     // Window-scoped handlers (wired via <svelte:window> in a component)
     handleWindowPointerMove = (e: PointerEvent) => {
         if (!this._contentEl) return;
+
+        // Update auto-scroll cursor position for active drag operations
+        this.updateAutoScrollForDragOperations(e);
         if (this.isSelecting) {
             const curTick = this.tickFromClientX(this._contentEl, e.clientX);
             this._moved ||= Math.abs(e.clientX - this._startX) > 3;
@@ -816,6 +838,39 @@ export class EditorMouseController {
         }
     };
 
+    // Update auto-scroll for active drag operations
+    private updateAutoScrollForDragOperations(e: PointerEvent) {
+        // Get scrollable elements - need to get them dynamically since they may change
+        const timelineScroller = document.querySelector('[data-editor-content]')?.parentElement as HTMLElement;
+        const gutterScroller = document.querySelector('.scrollbar-hidden') as HTMLElement;
+
+        const isDragOperation =
+            this.isSelectingSections ||
+            this.isDraggingSection ||
+            this.isDraggingChannel ||
+            this.isResizingSection;
+
+        if (isDragOperation && timelineScroller) {
+            // Start timeline auto-scroll and update cursor position
+            if (!this._timelineAutoScroller.active) {
+                this._timelineAutoScroller.start(timelineScroller);
+            }
+            this._timelineAutoScroller.updateCursor(e.clientX, e.clientY);
+
+            // Also start gutter auto-scroll for vertical scrolling synchronization
+            if (gutterScroller && !this._gutterAutoScroller.active) {
+                this._gutterAutoScroller.start(gutterScroller);
+            }
+            if (gutterScroller) {
+                this._gutterAutoScroller.updateCursor(e.clientX, e.clientY);
+            }
+        } else {
+            // Stop auto-scrolling when not in a drag operation
+            this._timelineAutoScroller.stop();
+            this._gutterAutoScroller.stop();
+        }
+    }
+
     handleWindowPointerUp = (e: PointerEvent) => {
         if (!this._contentEl) return this.reset();
         if (this.isSelecting) {
@@ -932,6 +987,10 @@ export class EditorMouseController {
     }
 
     private reset() {
+        // Stop auto-scrolling when resetting
+        this._timelineAutoScroller.stop();
+        this._gutterAutoScroller.stop();
+
         this.isSelecting = false;
         this.isScrubbing = false;
         this.isSelectingSections = false;
