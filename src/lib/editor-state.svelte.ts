@@ -80,6 +80,9 @@ export class EditorState {
     maxRowZoom = 2.5;
     rowHeight = $derived(Math.round(this.baseRowHeight * this._rowZoom));
 
+    // Flag to trigger follow cursor logic after zoom
+    _shouldFollowAfterZoom = $state(false);
+
     setRowZoom(z: number) {
         const clamped = Math.min(this.maxRowZoom, Math.max(this.minRowZoom, z));
         this._rowZoom = clamped;
@@ -99,11 +102,23 @@ export class EditorState {
     }
 
     zoomIn(factor = 1.2) {
-        this.setPxPerBeat(this.pxPerBeat * factor);
+        const newValue = Math.min(
+            this.maxPxPerBeat,
+            Math.max(this.minPxPerBeat, this.pxPerBeat * factor)
+        );
+        const rounded = Math.round(newValue);
+        this.setPxPerBeat(rounded);
+        this._shouldFollowAfterZoom = true;
     }
 
     zoomOut(factor = 1.2) {
-        this.setPxPerBeat(this.pxPerBeat / factor);
+        const newValue = Math.min(
+            this.maxPxPerBeat,
+            Math.max(this.minPxPerBeat, this.pxPerBeat / factor)
+        );
+        const rounded = Math.round(newValue);
+        this.setPxPerBeat(rounded);
+        this._shouldFollowAfterZoom = true;
     }
 
     setScrollLeft(px: number) {
