@@ -110,8 +110,9 @@
     });
 
     $effect(() => {
-        // Only trigger auto-scroll calculations when actually playing and auto-scroll enabled
-        if (!player.isPlaying || !editorState.autoScrollEnabled) return;
+        // Auto-scroll when playing and auto-scroll enabled, OR when zoom triggers follow cursor
+        const shouldAutoScroll = (player.isPlaying && editorState.autoScrollEnabled) || editorState._shouldFollowAfterZoom;
+        if (!shouldAutoScroll) return;
 
         const scroller = channelScroller;
         if (!scroller) return;
@@ -125,7 +126,7 @@
         const x = playheadContentX;
 
         const isOutOfView = x < left + 4 || x > right - 4; // small margin
-        if (!isOutOfView) return;
+        if (!isOutOfView && !editorState._shouldFollowAfterZoom) return;
 
         // Place playhead near the left edge (with padding), clamped to content bounds
         const desired = Math.round(x - leftPadding);
@@ -133,6 +134,11 @@
         const clamped = Math.min(maxScroll, Math.max(0, desired));
         if (Math.abs(clamped - left) > 1) {
             editorState.setScrollLeft(clamped);
+        }
+
+        // Clear the zoom follow flag after applying
+        if (editorState._shouldFollowAfterZoom) {
+            editorState._shouldFollowAfterZoom = false;
         }
     });
 
