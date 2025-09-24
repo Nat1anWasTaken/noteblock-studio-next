@@ -997,6 +997,17 @@ export class EditorMouseController {
         this.reset();
     };
 
+    handleWheel(ev: WheelEvent) {
+        if (ev.ctrlKey || ev.metaKey) {
+            ev.preventDefault();
+            if (ev.deltaY < 0) {
+                editorState.zoomIn();
+            } else if (ev.deltaY > 0) {
+                editorState.zoomOut();
+            }
+        }
+    }
+
     cancel() {
         this.reset();
     }
