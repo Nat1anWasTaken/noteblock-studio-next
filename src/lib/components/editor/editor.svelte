@@ -533,6 +533,16 @@
                                 onpointerleave={() => editorMouse.handleTimelineBlankPointerLeave()}
                                 onpointercancel={() =>
                                     editorMouse.handleTimelineBlankPointerLeave()}
+                                onwheel={(e) => {
+                                    if (e.ctrlKey || e.metaKey) {
+                                        e.preventDefault();
+                                        if (e.deltaY < 0) {
+                                            editorState.zoomIn();
+                                        } else if (e.deltaY > 0) {
+                                            editorState.zoomOut();
+                                        }
+                                    }
+                                }}
                             ></div>
 
                             <!-- Channel row separators -->
