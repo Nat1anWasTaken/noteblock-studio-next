@@ -404,18 +404,40 @@
                             <div class="px-3 py-2 text-sm text-muted-foreground">No channels</div>
                         {:else}
                             {#each channels as ch, i}
-                                {#if ch.kind === 'note'}
-                                    <NoteChannelInfo
-                                        channel={ch}
-                                        index={i}
-                                        height={editorState.rowHeight}
-                                    />
+                                {#if editorMouse.dragTargetIndex === i}
+                                    <!-- Container with border for drag target -->
+                                    <div
+                                        class="border-2 border-primary rounded"
+                                        style={`height:${editorState.rowHeight}px`}
+                                    >
+                                        {#if ch.kind === 'note'}
+                                            <NoteChannelInfo
+                                                channel={ch}
+                                                index={i}
+                                                height={editorState.rowHeight}
+                                            />
+                                        {:else}
+                                            <TempoChannelInfo
+                                                channel={ch}
+                                                index={i}
+                                                height={editorState.rowHeight}
+                                            />
+                                        {/if}
+                                    </div>
                                 {:else}
-                                    <TempoChannelInfo
-                                        channel={ch}
-                                        index={i}
-                                        height={editorState.rowHeight}
-                                    />
+                                    {#if ch.kind === 'note'}
+                                        <NoteChannelInfo
+                                            channel={ch}
+                                            index={i}
+                                            height={editorState.rowHeight}
+                                        />
+                                    {:else}
+                                        <TempoChannelInfo
+                                            channel={ch}
+                                            index={i}
+                                            height={editorState.rowHeight}
+                                        />
+                                    {/if}
                                 {/if}
                             {/each}
                         {/if}
@@ -527,17 +549,6 @@
                     {/if}
                 {/if}
 
-                {#if editorMouse.dragTargetIndex !== null && channelInfosContainer}
-                    <!-- Target insertion border on the gutter (positioned relative to channel infos container) -->
-                    <div
-                        class="pointer-events-none absolute z-30"
-                        style={`left:0; width:${gutterWidth}px; top:${
-                            (editorMouse.dragTargetIndex + 1) * editorState.rowHeight
-                        }px;`}
-                    >
-                        <div class="h-2 w-full rounded-sm bg-primary/70"></div>
-                    </div>
-                {/if}
             </div>
         </Resizable.Pane>
     </Resizable.PaneGroup>
