@@ -446,13 +446,6 @@
                         bind:this={channelScroller}
                         class="flex-1 overflow-auto bg-background"
                         onscroll={onChannelsScroll}
-                        onpointerdown={(e) => {
-                            // Forward background clicks to the same blank-timeline handler
-                            if (e.button !== 0) return;
-                            if (e.target !== e.currentTarget) return;
-                            const contentEl = timelineContentEl;
-                            if (contentEl) editorMouse.handleTimelineBlankPointerDown(contentEl, e);
-                        }}
                     >
                         <div
                             bind:this={timelineContentEl}
