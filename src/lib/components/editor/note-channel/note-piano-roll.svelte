@@ -398,7 +398,7 @@
                                     if (!grid) return;
                                     grid.scrollBy({ left: event.deltaX, top: event.deltaY });
 
-                                    event.preventDefault();
+                                    editorMouse.handleWheel(event);
                                     event.preventDefault();
                                 }}
                             >
@@ -433,7 +433,6 @@
                                     onpointerup={pianoRollMouse.handleGridPointerUp}
                                     onpointercancel={pianoRollMouse.handleGridPointerCancel}
                                     onpointerleave={pianoRollMouse.handleGridPointerLeave}
-                                    onwheel={editorMouse.handleWheel}
                                 >
                                     <TimelineGrid
                                         gutterWidth={0}
