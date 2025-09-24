@@ -430,6 +430,7 @@
                                     onpointerup={pianoRollMouse.handleGridPointerUp}
                                     onpointercancel={pianoRollMouse.handleGridPointerCancel}
                                     onpointerleave={pianoRollMouse.handleGridPointerLeave}
+                                    onwheel={editorMouse.handleWheel}
                                 >
                                     <TimelineGrid
                                         gutterWidth={0}
