@@ -1,5 +1,6 @@
 <script lang="ts">
     import { editorMouse } from '$lib/editor-mouse.svelte';
+    import { editorState } from '$lib/editor-state.svelte';
 </script>
 
 <svelte:window
