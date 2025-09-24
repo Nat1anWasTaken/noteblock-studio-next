@@ -397,9 +397,6 @@
                                     const grid = pianoRollState.gridScroller;
                                     if (!grid) return;
                                     grid.scrollBy({ left: event.deltaX, top: event.deltaY });
-
-                                    editorMouse.handleWheel(event);
-                                    event.preventDefault();
                                 }}
                             >
                                 <div
