@@ -5,7 +5,11 @@
     import { convertNbsSong } from '$lib/nbs';
     import ResumeSavedSongDialog from '$lib/components/editor/resume-saved-song-dialog.svelte';
     import { player } from '$lib/playback.svelte';
-    import { clearStoredSong, loadSongFromStorage, type StoredSongPayload } from '$lib/song-storage';
+    import {
+        clearStoredSong,
+        loadSongFromStorage,
+        type StoredSongPayload
+    } from '$lib/song-storage';
     import type { Song, TempoChannel } from '$lib/types';
     import { onMount } from 'svelte';
     import { fromArrayBuffer } from '@nbsjs/core';

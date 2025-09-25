@@ -3,7 +3,11 @@
     import Editor from '$lib/components/editor/editor.svelte';
     import ResumeSavedSongDialog from '$lib/components/editor/resume-saved-song-dialog.svelte';
     import { player } from '$lib/playback.svelte';
-    import { clearStoredSong, loadSongFromStorage, type StoredSongPayload } from '$lib/song-storage';
+    import {
+        clearStoredSong,
+        loadSongFromStorage,
+        type StoredSongPayload
+    } from '$lib/song-storage';
     import { onDestroy, onMount } from 'svelte';
     import { toast } from 'svelte-sonner';
 

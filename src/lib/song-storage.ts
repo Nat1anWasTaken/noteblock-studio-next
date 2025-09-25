@@ -46,7 +46,8 @@ export function loadSongFromStorage(): StoredSongPayload | null {
             console.warn('Unsupported saved song version', version);
             return null;
         }
-        const savedAt = typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString();
+        const savedAt =
+            typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date().toISOString();
         return {
             version,
             savedAt,
