@@ -45,7 +45,6 @@
     const icon = $derived(INSTRUMENT_ICONS[channel.instrument]);
 
     async function startEditing() {
-        console.log('start editing');
         editingName = true;
         await tick();
         inputElement?.focus();

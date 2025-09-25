@@ -3,14 +3,28 @@
     import Button from '$lib/components/ui/button/button.svelte';
     import { readSongFromNbxFile } from '$lib/files';
     import { convertNbsSong } from '$lib/nbs';
+    import ResumeSavedSongDialog from '$lib/components/editor/resume-saved-song-dialog.svelte';
     import { player } from '$lib/playback.svelte';
+    import { clearStoredSong, loadSongFromStorage, type StoredSongPayload } from '$lib/song-storage';
     import type { Song, TempoChannel } from '$lib/types';
+    import { onMount } from 'svelte';
     import { fromArrayBuffer } from '@nbsjs/core';
     import { toast } from 'svelte-sonner';
     import CirclePlus from '~icons/lucide/circle-plus';
     import FolderOpen from '~icons/lucide/folder-open';
     import Piano from '~icons/lucide/keyboard-music';
     import Music from '~icons/lucide/music-3';
+
+    let resumeDialogOpen = $state(false);
+    let storedSong = $state<StoredSongPayload | null>(null);
+
+    onMount(() => {
+        const stored = loadSongFromStorage();
+        if (stored) {
+            storedSong = stored;
+            resumeDialogOpen = true;
+        }
+    });
 
     function handleImportNBS() {
         try {
@@ -131,6 +145,25 @@
             toast.error('Failed to create empty song.');
         }
     }
+
+    function handleResumeStoredSong() {
+        if (!storedSong) return;
+        player.setSong(storedSong.song);
+        resumeDialogOpen = false;
+        toast.success(`Resumed "${storedSong.song.name || 'Untitled Song'}"`);
+        goto('/edit');
+    }
+
+    function handleDiscardStoredSong() {
+        clearStoredSong();
+        storedSong = null;
+        resumeDialogOpen = false;
+        toast.success('Discarded saved song');
+    }
+
+    function handleIgnoreStoredSong() {
+        resumeDialogOpen = false;
+    }
 </script>
 
 <main class="flex min-h-screen flex-col items-center justify-center gap-2 p-24">
@@ -170,3 +203,14 @@
         </Button>
     </div>
 </main>
+
+{#if storedSong}
+    <ResumeSavedSongDialog
+        bind:open={resumeDialogOpen}
+        song={storedSong.song}
+        savedAt={storedSong.savedAt}
+        onResume={handleResumeStoredSong}
+        onDiscard={handleDiscardStoredSong}
+        onCancel={handleIgnoreStoredSong}
+    />
+{/if}

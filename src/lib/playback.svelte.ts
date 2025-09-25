@@ -24,6 +24,7 @@ import {
     type NoteRemovalChange,
     type NoteUpdateChange
 } from './history';
+import { saveSongToStorage } from './song-storage';
 import {
     Instrument,
     type Note,
@@ -324,6 +325,7 @@ export class Player {
     private _channelsById: Map<string, NoteChannel> = new Map();
 
     private _song = $state<Song | null>(null);
+    private _persistTimer: ReturnType<typeof setTimeout> | null = null;
 
     get song(): Song | null {
         return this._song;
@@ -461,6 +463,7 @@ export class Player {
             this._selectionStart = this.clampTick(this._selectionStart);
         if (this._selectionEnd !== null) this._selectionEnd = this.clampTick(this._selectionEnd);
         this.resyncSchedulerOnStateChange();
+        this.schedulePersist();
     }
 
     /** Enable or disable the metronome clicks during playback. */
@@ -734,6 +737,7 @@ export class Player {
         }
         // If playing, ensure scheduler respects the new state
         this.resyncSchedulerOnStateChange();
+        this.schedulePersist();
     }
 
     /**
@@ -1855,6 +1859,21 @@ export class Player {
         this._muteTickAudio = false;
     }
 
+    private schedulePersist() {
+        if (!browser) return;
+        if (!this._song) return;
+        if (this._persistTimer) clearTimeout(this._persistTimer);
+        this._persistTimer = setTimeout(() => {
+            this._persistTimer = null;
+            if (!this._song) return;
+            saveSongToStorage(this._song);
+        }, 200);
+    }
+
+    notifySongMutated() {
+        this.schedulePersist();
+    }
+
     /**
      * Reset all player state to initial values.
      * Stops playback if currently playing and resets position, selection, and other state.
@@ -1904,3 +1923,9 @@ export class Player {
 }
 
 export const player = new Player();
+
+if (browser) {
+    historyManager.addEventListener('history:change', () => {
+        player.notifySongMutated();
+    });
+}
