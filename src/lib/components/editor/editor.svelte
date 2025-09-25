@@ -261,7 +261,9 @@
                 section: {
                     ...item.section,
                     startingTick: Math.max(0, item.section.startingTick + offsetTick),
-                    name: `${item.section.name} (Copy)`
+                    name: item.section.name.trimEnd().endsWith('(Copy)')
+                        ? item.section.name
+                        : `${item.section.name} (Copy)`
                 } as NoteSection
             };
         });
