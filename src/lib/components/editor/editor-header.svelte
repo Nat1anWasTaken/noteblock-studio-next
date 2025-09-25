@@ -11,6 +11,7 @@
     import { editorState, PointerMode } from '$lib/editor-state.svelte';
     import { historyManager } from '$lib/history';
     import { LoopMode, player } from '$lib/playback.svelte';
+    import { flagSuppressNextResumePrompt } from '$lib/song-storage';
     import { cn } from '$lib/utils';
     import Redo from '~icons/lucide/redo';
     import Undo from '~icons/lucide/undo';
@@ -52,6 +53,10 @@
     };
     const toggleMetronome = () => player.setMetronomeEnabled(!player.metronomeEnabled);
     const toggleAutoScroll = () => editorState.setAutoScrollEnabled(!editorState.autoScrollEnabled);
+    const handleBack = () => {
+        flagSuppressNextResumePrompt();
+        history.back();
+    };
 
     let tempoInputElement = $state<HTMLInputElement | null>(null);
 
@@ -239,7 +244,7 @@
             size="icon"
             aria-label="Back"
             class="text-primary"
-            onclick={() => history.back()}
+            onclick={handleBack}
         >
             <ChevronLeft class="size-5" />
         </Button>

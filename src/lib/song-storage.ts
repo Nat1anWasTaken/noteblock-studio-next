@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import type { Song } from './types';
 
 const STORAGE_KEY = 'noteblock-studio:saved-song';
+const SUPPRESS_PROMPT_KEY = `${STORAGE_KEY}:suppress`;
 
 export interface StoredSongPayload {
     version: number;
@@ -73,6 +74,29 @@ export function hasStoredSong(): boolean {
     try {
         return localStorage.getItem(STORAGE_KEY) !== null;
     } catch {
+        return false;
+    }
+}
+
+export function flagSuppressNextResumePrompt(): void {
+    if (!browser) return;
+    try {
+        sessionStorage.setItem(SUPPRESS_PROMPT_KEY, '1');
+    } catch (error) {
+        console.error('Failed to flag resume prompt suppression', error);
+    }
+}
+
+export function consumeSuppressNextResumePrompt(): boolean {
+    if (!browser) return false;
+    try {
+        const flagged = sessionStorage.getItem(SUPPRESS_PROMPT_KEY) === '1';
+        if (flagged) {
+            sessionStorage.removeItem(SUPPRESS_PROMPT_KEY);
+        }
+        return flagged;
+    } catch (error) {
+        console.error('Failed to read resume prompt suppression flag', error);
         return false;
     }
 }
