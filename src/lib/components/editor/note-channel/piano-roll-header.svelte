@@ -63,7 +63,6 @@
     }
 
     async function startEditing() {
-        console.log('start editing section name');
         editingName = true;
         await tick();
         inputElement?.focus();
