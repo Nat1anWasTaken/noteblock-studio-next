@@ -1,6 +1,6 @@
 import { AutoScroller } from './auto-scroll.svelte';
 import { editorState, PointerMode } from './editor-state.svelte';
-import { historyManager } from './history';
+import { historyManager, createMergeSectionsAction } from './history';
 import { player } from './playback.svelte';
 import type { NoteChannel } from './types';
 
@@ -576,31 +576,21 @@ export class EditorMouseController {
         const nextSec = ch.sections[sectionIndex + 1];
         if (!sec || !nextSec) return;
 
-        const secStart = sec.startingTick ?? 0;
-        const nextStart = nextSec.startingTick ?? 0;
+        // Create deep copies of the original sections for undo
+        const originalFirstSection = JSON.parse(JSON.stringify(sec));
+        const originalSecondSection = JSON.parse(JSON.stringify(nextSec));
 
-        // Build merged notes: left notes unchanged (relative to secStart), right notes adjusted to secStart
-        const mergedNotes: any[] = [];
-        for (const n of sec.notes ?? []) {
-            mergedNotes.push({ ...n });
-        }
-        for (const n of nextSec.notes ?? []) {
-            const absTick = nextStart + (n.tick ?? 0);
-            const relTick = Math.max(0, Math.round(absTick - secStart));
-            mergedNotes.push({ ...n, tick: relTick });
-        }
+        // Create and execute the merge action
+        const action = createMergeSectionsAction(
+            channelIndex,
+            sectionIndex,
+            originalFirstSection,
+            originalSecondSection
+        );
 
-        // New length covers the furthest end of both sections
-        const mergedEnd = Math.max(secStart + (sec.length ?? 0), nextStart + (nextSec.length ?? 0));
-        sec.length = Math.max(0, mergedEnd - secStart);
-        sec.notes = mergedNotes;
-        sec.name = sec.name || nextSec.name || 'Merged';
+        historyManager.execute(action);
 
-        // Remove the next section from the channel
-        ch.sections.splice(sectionIndex + 1, 1);
-
-        // Refresh indexes and select the merged section
-        player.refreshIndexes();
+        // Select the merged section
         editorState.setSelectedSections([{ channelIndex, sectionIndex }]);
 
         // Clear merge hover
