@@ -778,3 +778,73 @@ export function createMoveSectionAction(
         }
     };
 }
+
+/**
+ * Action for merging two adjacent sections
+ */
+export function createMergeSectionsAction(
+    channelIndex: number,
+    firstSectionIndex: number,
+    originalFirstSection: NoteSection,
+    originalSecondSection: NoteSection
+): HistoryAction {
+    return {
+        label: 'Merge sections',
+        do(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind !== 'note') return;
+
+            const firstSection = channel.sections[firstSectionIndex];
+            const secondSection = channel.sections[firstSectionIndex + 1];
+            if (!firstSection || !secondSection) return;
+
+            const firstStart = firstSection.startingTick ?? 0;
+            const secondStart = secondSection.startingTick ?? 0;
+
+            // Build merged notes: first section notes unchanged (relative to firstStart),
+            // second section notes adjusted to firstStart
+            const mergedNotes: Note[] = [];
+            for (const note of firstSection.notes ?? []) {
+                mergedNotes.push(cloneNote(note));
+            }
+            for (const note of secondSection.notes ?? []) {
+                const absTick = secondStart + (note.tick ?? 0);
+                const relTick = Math.max(0, Math.round(absTick - firstStart));
+                mergedNotes.push({ ...cloneNote(note), tick: relTick });
+            }
+
+            // New length covers the furthest end of both sections
+            const mergedEnd = Math.max(
+                firstStart + (firstSection.length ?? 0),
+                secondStart + (secondSection.length ?? 0)
+            );
+            firstSection.length = Math.max(0, mergedEnd - firstStart);
+            firstSection.notes = mergedNotes;
+            firstSection.name = firstSection.name || secondSection.name || 'Merged';
+
+            // Remove the second section
+            channel.sections.splice(firstSectionIndex + 1, 1);
+
+            sortSectionNotes(firstSection);
+            ctx.player.refreshIndexes();
+        },
+        undo(ctx) {
+            const song = getSong(ctx.player);
+            const channel = song.channels[channelIndex];
+            if (channel?.kind !== 'note') return;
+
+            // Restore the original sections
+            if (channel.sections[firstSectionIndex]) {
+                // Replace the merged section with the original first section
+                channel.sections[firstSectionIndex] = { ...originalFirstSection };
+            }
+
+            // Re-insert the original second section
+            const insertIndex = Math.min(firstSectionIndex + 1, channel.sections.length);
+            channel.sections.splice(insertIndex, 0, { ...originalSecondSection });
+
+            ctx.player.refreshIndexes();
+        }
+    };
+}
