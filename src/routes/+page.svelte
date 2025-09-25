@@ -8,6 +8,7 @@
     import {
         clearStoredSong,
         loadSongFromStorage,
+        consumeSuppressNextResumePrompt,
         type StoredSongPayload
     } from '$lib/song-storage';
     import type { Song, TempoChannel } from '$lib/types';
@@ -23,6 +24,11 @@
     let storedSong = $state<StoredSongPayload | null>(null);
 
     onMount(() => {
+        if (consumeSuppressNextResumePrompt()) {
+            resumeDialogOpen = false;
+            storedSong = null;
+            return;
+        }
         const stored = loadSongFromStorage();
         if (stored) {
             storedSong = stored;
