@@ -151,7 +151,10 @@ export class EditorMouseController {
         this.clearNewSectionHover();
 
         const rect = contentEl.getBoundingClientRect();
-        const relY = ev.clientY - rect.top;
+        // Get current scroll position directly from the scrollable element
+        const scroller = contentEl.parentElement;
+        const scrollTop = scroller?.scrollTop ?? 0;
+        const relY = ev.clientY - rect.top + scrollTop;
         const potentialIndex = Math.floor(relY / editorState.rowHeight);
         const channels = player.song?.channels ?? [];
         if (
@@ -669,10 +672,16 @@ export class EditorMouseController {
             const curTick = this.tickFromClientX(this._contentEl, e.clientX);
 
             const contentRect = this._contentEl.getBoundingClientRect();
-            const startChannel = Math.floor(
-                (this._startY - contentRect.top) / editorState.rowHeight
+            // Get current scroll position directly from the scrollable element to handle auto-scroll
+            const scroller = this._contentEl.parentElement;
+            const scrollTop = scroller?.scrollTop ?? 0;
+
+            // Use the stored start channel index (calculated at drag start)
+            const startChannel = this._startChannelIndex ?? 0;
+            // Calculate current channel using current mouse position
+            const curChannel = Math.floor(
+                (e.clientY - contentRect.top + scrollTop) / editorState.rowHeight
             );
-            const curChannel = Math.floor((e.clientY - contentRect.top) / editorState.rowHeight);
 
             const minChan = Math.max(0, Math.min(startChannel, curChannel));
             const maxChan = Math.max(0, Math.max(startChannel, curChannel));
@@ -713,7 +722,7 @@ export class EditorMouseController {
                     ]);
                 }
             } else {
-                // Replace selection
+                // Replace selection with the complete selection area
                 editorState.setSelectedSections(selections);
             }
 
