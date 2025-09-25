@@ -27,10 +27,47 @@
     let channelScroller = $state<HTMLDivElement | null>(null);
     let channelInfosContainer = $state<HTMLDivElement | null>(null);
     let timelineContentEl = $state<HTMLDivElement | null>(null);
+    let suppressManualScrollDetection = false;
+    let suppressManualScrollTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function beginAutoScrollSuppression() {
+        suppressManualScrollDetection = true;
+        if (suppressManualScrollTimer) {
+            clearTimeout(suppressManualScrollTimer);
+        }
+        suppressManualScrollTimer = setTimeout(() => {
+            suppressManualScrollDetection = false;
+            suppressManualScrollTimer = undefined;
+        }, 120);
+    }
 
     const onChannelsScroll = () => {
-        editorState.setScrollLeft(channelScroller?.scrollLeft ?? 0);
-        editorState.setScrollTop(channelScroller?.scrollTop ?? 0);
+        const currentScrollLeft = channelScroller?.scrollLeft ?? 0;
+        const currentScrollTop = channelScroller?.scrollTop ?? 0;
+        const manualScroll = !suppressManualScrollDetection;
+
+        editorState.setScrollLeft(currentScrollLeft);
+        editorState.setScrollTop(currentScrollTop);
+
+        if (
+            manualScroll &&
+            editorState.autoScrollEnabled &&
+            player.isPlaying &&
+            channelScroller &&
+            channelScroller.clientWidth > 0
+        ) {
+            const viewportWidth = channelScroller.clientWidth;
+            const leftEdge = currentScrollLeft;
+            const rightEdge = leftEdge + viewportWidth;
+            const margin = 4;
+            const playheadX = playheadContentX;
+            const isPlayheadVisible =
+                playheadX >= leftEdge + margin && playheadX <= rightEdge - margin;
+
+            if (!isPlayheadVisible) {
+                editorState.setAutoScrollEnabled(false);
+            }
+        }
     };
 
     const onChannelInfosScroll = () => {
@@ -88,6 +125,7 @@
         const maxScroll = Math.max(0, editorState.contentWidth - viewportWidth);
         const clamped = Math.min(maxScroll, Math.max(0, desired));
         if (Math.abs(clamped - left) > 1) {
+            beginAutoScrollSuppression();
             editorState.setScrollLeft(clamped);
         }
 
