@@ -61,23 +61,51 @@ function mapPercussionInstrument(midi: number): Instrument {
     return Instrument.Pling;
 }
 
+const MIDI_TO_KEY_OFFSET = 21;
+const OCTAVE_INTERVAL = 12;
+
 function clampToRange(value: number, min: number, max: number): number {
     if (Number.isNaN(value) || !Number.isFinite(value)) return min;
     return Math.max(min, Math.min(max, value));
 }
 
+function centerMidiWithinNoteblockRange(midiValue: number): number {
+    const minMidi = NOTEBLOCK_LOWEST_KEY_IN_MIDI + MIDI_TO_KEY_OFFSET;
+    const maxMidi = NOTEBLOCK_HIGHEST_KEY_IN_MIDI + MIDI_TO_KEY_OFFSET;
+
+    if (midiValue < minMidi) {
+        const steps = Math.ceil((minMidi - midiValue) / OCTAVE_INTERVAL);
+        return midiValue + steps * OCTAVE_INTERVAL;
+    }
+
+    if (midiValue > maxMidi) {
+        const steps = Math.ceil((midiValue - maxMidi) / OCTAVE_INTERVAL);
+        return midiValue - steps * OCTAVE_INTERVAL;
+    }
+
+    return midiValue;
+}
+
 export function intoChannelAsInstrument(
     midiTrack: TrackJSON,
     instrument: Instrument,
-    tickScale = 1
+    tickScale = 1,
+    transpose = 0,
+    transposeWithinRange = false
 ): NoteChannel {
     const notes: Note[] = midiTrack.notes
-        .map((midiNote) => ({
-            tick: Math.max(0, Math.round(midiNote.ticks * tickScale)),
-            key: clampToRange(Math.round(midiNote.midi - 21), 0, 87),
-            velocity: clampToRange(Math.round(midiNote.velocity * 100), 0, 100),
-            pitch: 0 // Default pitch adjustment
-        }))
+        .map((midiNote) => {
+            let midiValue = Math.round(midiNote.midi + transpose);
+            if (transposeWithinRange) {
+                midiValue = centerMidiWithinNoteblockRange(midiValue);
+            }
+            return {
+                tick: Math.max(0, Math.round(midiNote.ticks * tickScale)),
+                key: clampToRange(midiValue - MIDI_TO_KEY_OFFSET, 0, 87),
+                velocity: clampToRange(Math.round(midiNote.velocity * 100), 0, 100),
+                pitch: 0 // Default pitch adjustment
+            } satisfies Note;
+        })
         .sort((a, b) => a.tick - b.tick);
 
     const sectionLength = notes.length ? Math.max(...notes.map((n) => n.tick)) + 1 : 0;

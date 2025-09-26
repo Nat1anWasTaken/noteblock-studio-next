@@ -30,6 +30,8 @@
     import type { MidiJSON, TrackJSON } from '@tonejs/midi';
     import * as MidiModule from '@tonejs/midi';
     import { toast } from 'svelte-sonner';
+    import ArrowDownIcon from '~icons/lucide/arrow-down';
+    import ArrowUpIcon from '~icons/lucide/arrow-up';
 
     type MidiCtor = typeof import('@tonejs/midi').Midi;
     const midiCtor =
@@ -49,6 +51,8 @@
         instrument: Instrument;
         mode: ChannelMode;
         percussionMapping: PercussionMapping | null;
+        transpose: number;
+        transposeWithinRange: boolean;
     }
 
     interface Props {
@@ -64,6 +68,11 @@
     let errorMessage = $state<string | null>(null);
 
     let fileInput: HTMLInputElement | null = null;
+
+    const MIDI_TO_KEY_OFFSET = 21;
+    const MIN_TRANSPOSE = -36;
+    const MAX_TRANSPOSE = 36;
+    const OCTAVE_INTERVAL = 12;
 
     const canImport = $derived(
         assignments.length > 0 && assignments.some((assignment) => assignment.track.notes.length)
@@ -131,6 +140,7 @@
                 const defaultInstrument = guessInstrumentForTrack(track);
                 const isPercussion = track.channel === 9;
                 const mode: ChannelMode = isPercussion ? 'percussion' : 'instrument';
+                const defaultTranspose = isPercussion ? 0 : findOptimalOctaveTranspose(track);
 
                 return {
                     track,
@@ -138,10 +148,143 @@
                     name: name || `Channel ${channelNumber}`,
                     instrument: defaultInstrument,
                     mode,
-                    percussionMapping: isPercussion ? createDefaultPercussionMapping(track) : null
+                    percussionMapping: isPercussion ? createDefaultPercussionMapping(track) : null,
+                    transpose: defaultTranspose,
+                    transposeWithinRange: false
                 };
             })
             .filter((assignment) => assignment.track.notes.length > 0);
+    }
+
+    function clampTranspose(value: number): number {
+        if (!Number.isFinite(value)) return 0;
+        const rounded = Math.round(value);
+        return Math.max(MIN_TRANSPOSE, Math.min(MAX_TRANSPOSE, rounded));
+    }
+
+    function adjustTranspose(index: number, delta: number) {
+        const assignment = assignments[index];
+        if (!assignment) return;
+
+        const next = clampTranspose(assignment.transpose + delta);
+        if (next === assignment.transpose) return;
+
+        assignment.transpose = next;
+        assignments = [...assignments];
+    }
+
+    function setTransposeWithinRange(index: number, value: boolean) {
+        const assignment = assignments[index];
+        if (!assignment) return;
+
+        assignment.transposeWithinRange = value;
+        assignments = [...assignments];
+    }
+
+    function snapMidiToNoteblockRange(midiValue: number): number {
+        const minMidi = NOTEBLOCK_LOWEST_KEY_IN_MIDI + MIDI_TO_KEY_OFFSET;
+        const maxMidi = NOTEBLOCK_HIGHEST_KEY_IN_MIDI + MIDI_TO_KEY_OFFSET;
+
+        if (midiValue < minMidi) {
+            const steps = Math.ceil((minMidi - midiValue) / OCTAVE_INTERVAL);
+            return midiValue + steps * OCTAVE_INTERVAL;
+        }
+
+        if (midiValue > maxMidi) {
+            const steps = Math.ceil((midiValue - maxMidi) / OCTAVE_INTERVAL);
+            return midiValue - steps * OCTAVE_INTERVAL;
+        }
+
+        return midiValue;
+    }
+
+    function computeOutOfRangeNotes(
+        track: TrackJSON,
+        transpose: number,
+        transposeWithinRange = false
+    ) {
+        let below = 0;
+        let above = 0;
+
+        for (const note of track.notes) {
+            let midiValue = Math.round(note.midi + transpose);
+            if (transposeWithinRange) {
+                midiValue = snapMidiToNoteblockRange(midiValue);
+            }
+            const key = midiValue - MIDI_TO_KEY_OFFSET;
+            if (key < NOTEBLOCK_LOWEST_KEY_IN_MIDI) {
+                below += 1;
+            } else if (key > NOTEBLOCK_HIGHEST_KEY_IN_MIDI) {
+                above += 1;
+            }
+        }
+
+        return { below, above } as const;
+    }
+
+    function findOptimalOctaveTranspose(track: TrackJSON): number {
+        if (track.notes.length === 0) return 0;
+
+        const zeroStats = computeOutOfRangeNotes(track, 0);
+        let bestTranspose = 0;
+        let bestTotal = zeroStats.above + zeroStats.below;
+        let bestImbalance = Math.abs(zeroStats.above - zeroStats.below);
+        let bestAbsTranspose = 0;
+
+        for (
+            let candidate = MIN_TRANSPOSE;
+            candidate <= MAX_TRANSPOSE;
+            candidate += OCTAVE_INTERVAL
+        ) {
+            if (candidate === 0) continue;
+
+            const { below, above } = computeOutOfRangeNotes(track, candidate);
+            const total = below + above;
+            const imbalance = Math.abs(above - below);
+            const absTranspose = Math.abs(candidate);
+
+            const isBetter =
+                total < bestTotal ||
+                (total === bestTotal && imbalance < bestImbalance) ||
+                (total === bestTotal &&
+                    imbalance === bestImbalance &&
+                    absTranspose < bestAbsTranspose) ||
+                (total === bestTotal &&
+                    imbalance === bestImbalance &&
+                    absTranspose === bestAbsTranspose &&
+                    candidate > bestTranspose);
+
+            if (!isBetter) continue;
+
+            bestTranspose = candidate;
+            bestTotal = total;
+            bestImbalance = imbalance;
+            bestAbsTranspose = absTranspose;
+        }
+
+        return bestTranspose;
+    }
+
+    function formatTransposeDisplay(transpose: number): string {
+        const semitoneLabel = transpose > 0 ? `+${transpose}` : String(transpose);
+        if (transpose === 0) return semitoneLabel;
+
+        const octaves = transpose / OCTAVE_INTERVAL;
+        const absOctaves = Math.abs(octaves);
+        const isWhole = Number.isInteger(octaves);
+        const rounded = Math.round(absOctaves * 100) / 100;
+        if (rounded === 0) return semitoneLabel;
+
+        let displayValue: string;
+        if (isWhole) {
+            displayValue = absOctaves.toString();
+        } else {
+            displayValue = rounded.toFixed(2).replace(/\.0+$/, '').replace(/\.$/, '');
+        }
+
+        const octaveWord = rounded === 1 ? 'octave' : 'octaves';
+        const sign = octaves > 0 ? '+' : '-';
+        return `${semitoneLabel} (${sign}${displayValue} ${octaveWord})`;
     }
 
     function setMode(index: number, mode: ChannelMode) {
@@ -441,6 +584,156 @@
                                                         ]}</span
                                                     >
                                                 </InstrumentSelector>
+                                            {/if}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell class="w-52 px-4 py-3 align-top">
+                                        {@const rawStats = computeOutOfRangeNotes(
+                                            assignment.track,
+                                            assignment.transpose
+                                        )}
+                                        {@const adjustedStats = computeOutOfRangeNotes(
+                                            assignment.track,
+                                            assignment.transpose,
+                                            assignment.transposeWithinRange
+                                        )}
+                                        {@const hasRawOverflow =
+                                            rawStats.above > 0 || rawStats.below > 0}
+                                        {@const displayStats = assignment.transposeWithinRange
+                                            ? adjustedStats
+                                            : rawStats}
+                                        {@const hasDisplayOverflow =
+                                            displayStats.above > 0 || displayStats.below > 0}
+                                        {@const rawSummary = [
+                                            rawStats.below
+                                                ? `${rawStats.below} ${
+                                                      rawStats.below === 1 ? 'note' : 'notes'
+                                                  } below`
+                                                : null,
+                                            rawStats.above
+                                                ? `${rawStats.above} ${
+                                                      rawStats.above === 1 ? 'note' : 'notes'
+                                                  } above`
+                                                : null
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                        {@const displaySummary = [
+                                            displayStats.below
+                                                ? `${displayStats.below} ${
+                                                      displayStats.below === 1 ? 'note' : 'notes'
+                                                  } below`
+                                                : null,
+                                            displayStats.above
+                                                ? `${displayStats.above} ${
+                                                      displayStats.above === 1 ? 'note' : 'notes'
+                                                  } above`
+                                                : null
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                        {@const isInstrument = assignment.mode === 'instrument'}
+                                        {@const transposeWithinRange =
+                                            assignment.transposeWithinRange}
+                                        {@const transposeDisplay = formatTransposeDisplay(
+                                            assignment.transpose
+                                        )}
+
+                                        <div class="flex flex-col gap-1.5">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
+                                                    aria-label="Transpose down one octave"
+                                                    title="Transpose down by 1 octave"
+                                                    disabled={!isInstrument}
+                                                    onclick={() =>
+                                                        adjustTranspose(index, -OCTAVE_INTERVAL)}
+                                                >
+                                                    <ArrowDownIcon class="size-4" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
+                                                    aria-label="Transpose down one semitone"
+                                                    title="Transpose down by 1 semitone"
+                                                    disabled={!isInstrument}
+                                                    onclick={() => adjustTranspose(index, -1)}
+                                                >
+                                                    &lt;
+                                                </button>
+                                                <div
+                                                    class="min-w-[9.5rem] text-center text-sm font-medium text-foreground"
+                                                >
+                                                    {transposeDisplay}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
+                                                    aria-label="Transpose up one semitone"
+                                                    title="Transpose up by 1 semitone"
+                                                    disabled={!isInstrument}
+                                                    onclick={() => adjustTranspose(index, 1)}
+                                                >
+                                                    &gt;
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
+                                                    aria-label="Transpose up one octave"
+                                                    title="Transpose up by 1 octave"
+                                                    disabled={!isInstrument}
+                                                    onclick={() =>
+                                                        adjustTranspose(index, OCTAVE_INTERVAL)}
+                                                >
+                                                    <ArrowUpIcon class="size-4" />
+                                                </button>
+
+                                                <label
+                                                    class="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        class="h-4 w-4 rounded border border-border bg-background text-primary shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                                        checked={transposeWithinRange}
+                                                        disabled={!isInstrument}
+                                                        onchange={(event) =>
+                                                            setTransposeWithinRange(
+                                                                index,
+                                                                event.currentTarget.checked
+                                                            )}
+                                                    />
+                                                    <span class="text-xs text-foreground">
+                                                        Transpose into range
+                                                    </span>
+                                                </label>
+                                            </div>
+
+                                            {#if hasDisplayOverflow}
+                                                <p
+                                                    class="text-xs text-amber-600 dark:text-amber-400"
+                                                >
+                                                    {displaySummary}
+                                                </p>
+                                            {:else}
+                                                <div
+                                                    class="space-y-0.5 text-xs text-muted-foreground"
+                                                >
+                                                    <p>All notes within Noteblock range.</p>
+                                                    {#if transposeWithinRange && hasRawOverflow}
+                                                        <p class="text-muted-foreground/80">
+                                                            {rawSummary} will be shifted to the nearest
+                                                            octave when importing.
+                                                        </p>
+                                                    {/if}
+                                                </div>
+                                            {/if}
+
+                                            {#if !isInstrument}
+                                                <p class="text-xs text-muted-foreground">
+                                                    Transpose applies when importing as an
+                                                    instrument.
+                                                </p>
                                             {/if}
                                         </div>
                                     </TableCell>
