@@ -3,6 +3,12 @@
     import InstrumentSelector from '$lib/components/editor/note-channel/instrument-selector.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
     import Input from '$lib/components/ui/input/input.svelte';
+    import {
+        TooltipContent,
+        TooltipProvider,
+        Tooltip as TooltipRoot,
+        TooltipTrigger
+    } from '$lib/components/ui/tooltip';
     import { editorMouse } from '$lib/editor-mouse.svelte';
     import { player } from '$lib/playback.svelte';
     import type { NoteChannel } from '$lib/types';
@@ -122,34 +128,50 @@
                 </div>
             {/if}
             <div class="flex flex-row gap-2">
-                <div class="flex flex-col">
-                    <Button
-                        size="sm"
-                        onclick={toggleMute}
-                        variant="outline"
-                        class={cn(
-                            'h-8 w-8 p-0 text-xs font-bold',
-                            isChannelMuted
-                                ? 'bg-red-600 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white hover:dark:bg-red-600'
-                                : ''
-                        )}
-                    >
-                        M
-                    </Button>
-                    <Button
-                        size="sm"
-                        onclick={toggleSolo}
-                        variant="outline"
-                        class={cn(
-                            'h-8 w-8 p-0 text-xs font-bold',
-                            isAnyMuted && !isChannelMuted
-                                ? 'bg-yellow-600 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white hover:dark:bg-yellow-600'
-                                : ''
-                        )}
-                    >
-                        S
-                    </Button>
-                </div>
+                <TooltipProvider>
+                    <div class="flex flex-col">
+                        <TooltipRoot>
+                            <TooltipTrigger>
+                                <Button
+                                    size="sm"
+                                    onclick={toggleMute}
+                                    variant="outline"
+                                    class={cn(
+                                        'h-8 w-8 p-0 text-xs font-bold',
+                                        isChannelMuted
+                                            ? 'bg-red-600 text-white hover:bg-red-600 dark:bg-red-600 dark:text-white hover:dark:bg-red-600'
+                                            : ''
+                                    )}
+                                >
+                                    M
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right"
+                                >{isChannelMuted ? 'Unmute' : 'Mute'}</TooltipContent
+                            >
+                        </TooltipRoot>
+                        <TooltipRoot>
+                            <TooltipTrigger>
+                                <Button
+                                    size="sm"
+                                    onclick={toggleSolo}
+                                    variant="outline"
+                                    class={cn(
+                                        'h-8 w-8 p-0 text-xs font-bold',
+                                        isAnyMuted && !isChannelMuted
+                                            ? 'bg-yellow-600 text-white hover:bg-yellow-600 dark:bg-yellow-600 dark:text-white hover:dark:bg-yellow-600'
+                                            : ''
+                                    )}
+                                >
+                                    S
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right"
+                                >{isAnyMuted && !isChannelMuted ? 'Unsolo' : 'Solo'}</TooltipContent
+                            >
+                        </TooltipRoot>
+                    </div>
+                </TooltipProvider>
 
                 <InstrumentSelector
                     selectedInstrument={channel.instrument}
