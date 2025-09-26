@@ -62,6 +62,10 @@ export interface Note {
     pitch: number; // -1200 (lower) to 1200 (higher)
 }
 
+export const NOTEBLOCK_LOWEST_KEY_IN_MIDI = 21;
+export const NOTEBLOCK_HIGHEST_KEY_IN_MIDI = 45;
+export const NOTEBLOCK_KEY_CENTER_IN_MIDI = 27; // C3 in Noteblock tuning
+
 export enum Instrument {
     Piano = 0, // Air
     DoubleBass = 1, // Wood

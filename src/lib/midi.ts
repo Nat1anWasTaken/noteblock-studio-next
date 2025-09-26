@@ -1,0 +1,151 @@
+import type { TrackJSON } from '@tonejs/midi';
+import type { Note, NoteChannel } from './types.js';
+import {
+    Instrument,
+    NOTEBLOCK_HIGHEST_KEY_IN_MIDI,
+    NOTEBLOCK_LOWEST_KEY_IN_MIDI
+} from './types.js';
+
+export interface PercussionTarget {
+    instrument: Instrument;
+    key: number;
+}
+
+export type PercussionMapping = Record<number, PercussionTarget>;
+
+export function guessInstrumentForTrack(track: TrackJSON): Instrument {
+    const program = track.instrument.number ?? 0;
+
+    if (track.channel === 9) {
+        return Instrument.BassDrum;
+    }
+
+    if (program >= 8 && program <= 15) return Instrument.Bell; // Chromatic percussion
+    if (program >= 16 && program <= 23) return Instrument.Chime; // Organs / sustained
+    if (program >= 24 && program <= 31) return Instrument.Guitar; // Guitars
+    if (program >= 32 && program <= 39) return Instrument.DoubleBass; // Basses
+    if (program >= 40 && program <= 47) return Instrument.Flute; // Strings
+    if (program >= 48 && program <= 55) return Instrument.Flute; // Ensemble strings
+    if (program >= 56 && program <= 63) return Instrument.Didgeridoo; // Brass
+    if (program >= 64 && program <= 71) return Instrument.Flute; // Reeds
+    if (program >= 72 && program <= 79) return Instrument.Flute; // Pipes
+    if (program >= 80 && program <= 95) return Instrument.Bit; // Synth leads/pads
+    if (program >= 96 && program <= 103) return Instrument.Pling; // FX
+    if (program >= 104 && program <= 111) return Instrument.Banjo; // Ethnic
+    if (program >= 112 && program <= 119) return Instrument.SnareDrum; // Percussive
+    if (program >= 120) return Instrument.Click; // Sound effects
+
+    return Instrument.Piano;
+}
+
+const MIDI_TO_KEY_OFFSET = 21;
+const OCTAVE_INTERVAL = 12;
+
+function clampToRange(value: number, min: number, max: number): number {
+    if (Number.isNaN(value) || !Number.isFinite(value)) return min;
+    return Math.max(min, Math.min(max, value));
+}
+
+function centerMidiWithinNoteblockRange(midiValue: number): number {
+    const minMidi = NOTEBLOCK_LOWEST_KEY_IN_MIDI + MIDI_TO_KEY_OFFSET;
+    const maxMidi = NOTEBLOCK_HIGHEST_KEY_IN_MIDI + MIDI_TO_KEY_OFFSET;
+
+    if (midiValue < minMidi) {
+        const steps = Math.ceil((minMidi - midiValue) / OCTAVE_INTERVAL);
+        return midiValue + steps * OCTAVE_INTERVAL;
+    }
+
+    if (midiValue > maxMidi) {
+        const steps = Math.ceil((midiValue - maxMidi) / OCTAVE_INTERVAL);
+        return midiValue - steps * OCTAVE_INTERVAL;
+    }
+
+    return midiValue;
+}
+
+export function intoChannelAsInstrument(
+    midiTrack: TrackJSON,
+    instrument: Instrument,
+    tickScale = 1,
+    transpose = 0,
+    transposeWithinRange = false
+): NoteChannel {
+    const notes: Note[] = midiTrack.notes
+        .map((midiNote) => {
+            let midiValue = Math.round(midiNote.midi + transpose);
+            if (transposeWithinRange) {
+                midiValue = centerMidiWithinNoteblockRange(midiValue);
+            }
+            return {
+                tick: Math.max(0, Math.round(midiNote.ticks * tickScale)),
+                key: clampToRange(midiValue - MIDI_TO_KEY_OFFSET, 0, 87),
+                velocity: clampToRange(Math.round(midiNote.velocity * 100), 0, 100),
+                pitch: 0 // Default pitch adjustment
+            } satisfies Note;
+        })
+        .sort((a, b) => a.tick - b.tick);
+
+    const sectionLength = notes.length ? Math.max(...notes.map((n) => n.tick)) + 1 : 0;
+
+    return {
+        kind: 'note',
+        name: midiTrack.name || `${instrument} Track`,
+        sections: [
+            {
+                startingTick: 0,
+                length: sectionLength,
+                notes,
+                name: 'Main Section'
+            }
+        ],
+        pan: 0,
+        instrument,
+        isMuted: false
+    };
+}
+
+export function intoChannelWithMapping(
+    midiTrack: TrackJSON,
+    mapping: PercussionMapping,
+    tickScale = 1
+): NoteChannel[] {
+    const channelMap = new Map<Instrument, Note[]>();
+
+    for (const midiNote of midiTrack.notes) {
+        const mappedNote = mapping[midiNote.midi];
+        if (!mappedNote) continue;
+
+        const note: Note = {
+            tick: Math.max(0, Math.round(midiNote.ticks * tickScale)),
+            key: clampToRange(mappedNote.key, 0, 87),
+            velocity: clampToRange(Math.round(midiNote.velocity * 100), 0, 100),
+            pitch: 0
+        };
+
+        if (!channelMap.has(mappedNote.instrument)) {
+            channelMap.set(mappedNote.instrument, []);
+        }
+        channelMap.get(mappedNote.instrument)!.push(note);
+    }
+
+    return Array.from(channelMap.entries()).map(([instrument, entries]) => {
+        const sorted = entries.sort((a, b) => a.tick - b.tick);
+        const sectionLength = sorted.length ? Math.max(...sorted.map((n) => n.tick)) + 1 : 0;
+
+        return {
+            kind: 'note' as const,
+            name: `Percussion ${instrument}`,
+            sections: [
+                {
+                    startingTick: 0,
+                    length: sectionLength,
+                    notes: sorted,
+                    name: 'Main Section'
+                }
+            ],
+            pan: 0,
+            instrument,
+            isMuted: false
+        };
+    });
+}
