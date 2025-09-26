@@ -603,8 +603,6 @@
                                             assignment.transpose,
                                             assignment.transposeWithinRange
                                         )}
-                                        {@const hasRawOverflow =
-                                            rawStats.above > 0 || rawStats.below > 0}
                                         {@const displayStats = assignment.transposeWithinRange
                                             ? adjustedStats
                                             : rawStats}
