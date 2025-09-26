@@ -1,7 +1,7 @@
 <script lang="ts">
     import * as Popover from '$lib/components/ui/popover';
     import type { Instrument } from '$lib/types';
-    import { INSTRUMENT_NAMES, INSTRUMENT_ICONS, ALL_INSTRUMENTS } from '$lib/types';
+    import { ALL_INSTRUMENTS, INSTRUMENT_ICONS, INSTRUMENT_NAMES } from '$lib/types';
     import { cn } from '$lib/utils';
 
     interface Props {
@@ -26,9 +26,11 @@
         children
     }: Props = $props();
 
-    function handleSelect(instrument: Instrument) {
+    function handleSelect(instrument: Instrument, event: MouseEvent) {
         onSelect(instrument);
         open = false;
+        const target = event.currentTarget as HTMLElement;
+        target.blur();
     }
 </script>
 
@@ -59,7 +61,7 @@
                         'flex flex-col items-center gap-1 rounded-sm p-2 text-xs transition-colors hover:bg-muted',
                         selectedInstrument === instrument ? 'bg-muted' : ''
                     )}
-                    onclick={() => handleSelect(instrument)}
+                    onclick={(event) => handleSelect(instrument, event)}
                     aria-label={`Select ${INSTRUMENT_NAMES[instrument]}`}
                 >
                     <img
