@@ -23,6 +23,8 @@
         Instrument,
         INSTRUMENT_ICONS,
         INSTRUMENT_NAMES,
+        NOTEBLOCK_HIGHEST_KEY_IN_MIDI,
+        NOTEBLOCK_LOWEST_KEY_IN_MIDI,
         type NoteChannel,
         type Song,
         type TempoChannel
@@ -355,7 +357,9 @@
                     const channel = intoChannelAsInstrument(
                         assignment.track,
                         assignment.instrument,
-                        tickScale
+                        tickScale,
+                        assignment.transpose,
+                        assignment.transposeWithinRange
                     );
                     channel.name = assignment.name;
                     noteChannels.push(channel);
@@ -508,6 +512,7 @@
                                 <TableHead class="w-32 px-4 py-2">MIDI Channel</TableHead>
                                 <TableHead class="w-[30rem] px-4 py-2">Track</TableHead>
                                 <TableHead class="w-[26rem] px-4 py-2">Target</TableHead>
+                                <TableHead class="w-52 px-4 py-2">Transpose</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>

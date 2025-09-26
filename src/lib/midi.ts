@@ -1,6 +1,10 @@
 import type { TrackJSON } from '@tonejs/midi';
 import type { Note, NoteChannel } from './types.js';
-import { Instrument } from './types.js';
+import {
+    Instrument,
+    NOTEBLOCK_HIGHEST_KEY_IN_MIDI,
+    NOTEBLOCK_LOWEST_KEY_IN_MIDI
+} from './types.js';
 
 export interface PercussionTarget {
     instrument: Instrument;
