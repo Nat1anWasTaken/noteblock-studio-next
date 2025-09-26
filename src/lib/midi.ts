@@ -38,33 +38,6 @@ export function guessInstrumentForTrack(track: TrackJSON): Instrument {
     return Instrument.Piano;
 }
 
-export function createDefaultPercussionMapping(track: TrackJSON): PercussionMapping {
-    const mapping: PercussionMapping = {};
-
-    for (const note of track.notes) {
-        const midi = note.midi;
-        if (mapping[midi]) continue;
-
-        mapping[midi] = {
-            instrument: mapPercussionInstrument(midi),
-            key: clampToRange(Math.round(midi - 21), 0, 87)
-        };
-    }
-
-    return mapping;
-}
-
-function mapPercussionInstrument(midi: number): Instrument {
-    if (midi <= 36) return Instrument.BassDrum;
-    if (midi <= 40) return Instrument.SnareDrum;
-    if (midi <= 46) return Instrument.Click;
-    if (midi <= 52) return Instrument.Bell;
-    if (midi <= 60) return Instrument.Guitar;
-    if (midi <= 72) return Instrument.Flute;
-    if (midi <= 84) return Instrument.Bit;
-    return Instrument.Pling;
-}
-
 const MIDI_TO_KEY_OFFSET = 21;
 const OCTAVE_INTERVAL = 12;
 

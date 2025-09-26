@@ -13,12 +13,12 @@
         TableRow
     } from '$lib/components/ui/table';
     import {
-        createDefaultPercussionMapping,
         guessInstrumentForTrack,
         intoChannelAsInstrument,
         intoChannelWithMapping,
         type PercussionMapping
     } from '$lib/midi';
+    import { PERCUSSION_MAPPING } from '$lib/percussion-mapping';
     import { player } from '$lib/playback.svelte';
     import {
         Instrument,
@@ -151,7 +151,7 @@
                     name: name || `Channel ${channelNumber}`,
                     instrument: defaultInstrument,
                     mode,
-                    percussionMapping: isPercussion ? createDefaultPercussionMapping(track) : null,
+                    percussionMapping: isPercussion ? PERCUSSION_MAPPING : null,
                     transpose: defaultTranspose,
                     transposeWithinRange: false
                 };
@@ -296,7 +296,7 @@
 
         assignment.mode = mode;
         if (mode === 'percussion' && !assignment.percussionMapping) {
-            assignment.percussionMapping = createDefaultPercussionMapping(assignment.track);
+            assignment.percussionMapping = PERCUSSION_MAPPING;
         }
         assignments = [...assignments];
     }
