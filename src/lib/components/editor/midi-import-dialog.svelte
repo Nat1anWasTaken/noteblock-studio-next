@@ -665,6 +665,33 @@
                                                     class="py-1 text-center text-sm font-medium text-foreground"
                                                 >
                                                     {transposeDisplay}
+                                                    {#if hasDisplayOverflow}
+                                                        <p
+                                                            class="text-xs text-wrap text-amber-600 dark:text-amber-400"
+                                                        >
+                                                            {displaySummary}
+                                                        </p>
+                                                    {:else}
+                                                        <div
+                                                            class="space-y-0.5 text-xs text-wrap text-muted-foreground"
+                                                        >
+                                                            {#if transposeWithinRange}
+                                                                <p
+                                                                    class="text-wrap text-muted-foreground/80"
+                                                                >
+                                                                    <span class="font-bold"
+                                                                        >{rawSummary}</span
+                                                                    > will be shifted to the nearest
+                                                                    octave when importing.
+                                                                </p>
+                                                            {:else}
+                                                                <p>
+                                                                    All notes within Noteblock
+                                                                    range. ({rawSummary})
+                                                                </p>
+                                                            {/if}
+                                                        </div>
+                                                    {/if}
                                                 </div>
 
                                                 <Button
@@ -698,28 +725,6 @@
                                                     </span>
                                                 </label>
                                             </div>
-
-                                            {#if hasDisplayOverflow}
-                                                <p
-                                                    class="text-xs text-wrap text-amber-600 dark:text-amber-400"
-                                                >
-                                                    {displaySummary}
-                                                </p>
-                                            {:else}
-                                                <div
-                                                    class="space-y-0.5 text-xs text-wrap text-muted-foreground"
-                                                >
-                                                    <p>All notes within Noteblock range.</p>
-                                                    {#if transposeWithinRange && hasRawOverflow}
-                                                        <p
-                                                            class="text-wrap text-muted-foreground/80"
-                                                        >
-                                                            {rawSummary} will be shifted to the nearest
-                                                            octave when importing.
-                                                        </p>
-                                                    {/if}
-                                                </div>
-                                            {/if}
 
                                             {#if !isInstrument}
                                                 <p class="text-xs text-wrap text-muted-foreground">
