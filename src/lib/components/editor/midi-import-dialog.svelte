@@ -11,6 +11,7 @@
         TableHeader,
         TableRow
     } from '$lib/components/ui/table';
+    import { Checkbox } from '$lib/components/ui/checkbox';
     import {
         createDefaultPercussionMapping,
         guessInstrumentForTrack,
@@ -697,15 +698,13 @@
                                                 <label
                                                     class="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none"
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        class="h-4 w-4 rounded border border-border bg-background text-primary shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                                    <Checkbox
                                                         checked={transposeWithinRange}
                                                         disabled={!isInstrument}
-                                                        onchange={(event) =>
+                                                        onCheckedChange={(checked) =>
                                                             setTransposeWithinRange(
                                                                 index,
-                                                                event.currentTarget.checked
+                                                                checked ?? false
                                                             )}
                                                     />
                                                     <span class="text-xs text-foreground">
