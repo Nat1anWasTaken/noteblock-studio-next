@@ -185,6 +185,22 @@ function startAudioSource(src: AudioBufferSourceNode, when?: number): void {
     }
 }
 
+type ScheduledAudioEvent = {
+    type: 'audio';
+    node: AudioBufferSourceNode;
+    when: number;
+    tick: number;
+};
+
+type ScheduledHtmlEvent = {
+    type: 'html';
+    timeout: ReturnType<typeof setTimeout>;
+    when: number;
+    tick: number;
+};
+
+type ScheduledEvent = ScheduledAudioEvent | ScheduledHtmlEvent;
+
 async function playWithHtmlAudio(
     instrument: Instrument,
     key: number,
@@ -312,7 +328,7 @@ export class Player {
     private _nextTickToSchedule = 0;
     private _nextNoteTime = 0; // in audioCtx.currentTime seconds
     private _muteTickAudio = false; // suppress audio inside nextTick() when UI-updating
-    private _scheduled: Array<{ node: AudioBufferSourceNode; when: number; tick: number }> = [];
+    private _scheduled: ScheduledEvent[] = [];
 
     // Cached sorted tempo changes for quick lookup
     private _tempoChangeList: TempoChange[] = [];
@@ -1655,10 +1671,13 @@ export class Player {
         const ctx = this._audioCtx;
         const buf = this._buffers.get(instrument);
         if (!buf) {
-            // Fallback to HTMLAudio if buffer not ready yet
+            // Fallback to HTMLAudio if buffer not ready yet; honor scheduled timing
             const id = `${tick}:${note.key}:${instrument}`;
-            emitNotePlayed(id, 120);
-            void playSound(instrument, note.key, note.velocity, note.pitch);
+            void this.loadInstrumentBuffer(instrument);
+            this.scheduleHtmlPlayback(when, tick, () => {
+                emitNotePlayed(id, 120);
+                void playSound(instrument, note.key, note.velocity, note.pitch);
+            });
             return;
         }
         const src = ctx.createBufferSource();
@@ -1681,7 +1700,7 @@ export class Player {
                 emitNotePlayed(id, 120);
             } catch {}
         }
-        this.trackScheduled(src, when, tick);
+        this.trackScheduledAudio(src, when, tick);
     }
 
     private scheduleMetronome(when: number, accent: boolean, tick: number) {
@@ -1691,14 +1710,34 @@ export class Player {
         src.buffer = this._metronomeBuffer;
         this.connectWithReverb(src, accent ? 0.8 : 0.5);
         startAudioSource(src, when);
-        this.trackScheduled(src, when, tick);
+        this.trackScheduledAudio(src, when, tick);
     }
 
-    private trackScheduled(node: AudioBufferSourceNode, when: number, tick: number) {
-        this._scheduled.push({ node, when, tick });
+    private removeScheduled(entry: ScheduledEvent) {
+        this._scheduled = this._scheduled.filter((e) => e !== entry);
+    }
+
+    private trackScheduledAudio(node: AudioBufferSourceNode, when: number, tick: number) {
+        const entry: ScheduledAudioEvent = { type: 'audio', node, when, tick };
+        this._scheduled.push(entry);
         node.onended = () => {
-            this._scheduled = this._scheduled.filter((e) => e.node !== node);
+            this.removeScheduled(entry);
         };
+    }
+
+    private scheduleHtmlPlayback(when: number, tick: number, run: () => void) {
+        const ctx = this._audioCtx;
+        const delayMs = ctx ? Math.max(0, (when - ctx.currentTime) * 1000) : 0;
+        let entry: ScheduledHtmlEvent;
+        const timeout = setTimeout(() => {
+            try {
+                run();
+            } finally {
+                this.removeScheduled(entry);
+            }
+        }, delayMs);
+        entry = { type: 'html', timeout, when, tick } as ScheduledHtmlEvent;
+        this._scheduled.push(entry);
     }
 
     private cancelScheduledFromNow() {
@@ -1706,9 +1745,13 @@ export class Player {
         const now = this._audioCtx.currentTime - 0.002;
         for (const e of this._scheduled) {
             if (e.when >= now) {
-                try {
-                    e.node.stop(0);
-                } catch {}
+                if (e.type === 'audio') {
+                    try {
+                        e.node.stop(0);
+                    } catch {}
+                } else {
+                    clearTimeout(e.timeout);
+                }
             }
         }
         this._scheduled = [];
