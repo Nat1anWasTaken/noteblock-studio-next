@@ -2,6 +2,7 @@
     import { goto } from '$app/navigation';
     import InstrumentSelector from '$lib/components/editor/note-channel/instrument-selector.svelte';
     import Button from '$lib/components/ui/button/button.svelte';
+    import { Checkbox } from '$lib/components/ui/checkbox';
     import * as Dialog from '$lib/components/ui/dialog/index.js';
     import {
         Table,
@@ -11,7 +12,6 @@
         TableHeader,
         TableRow
     } from '$lib/components/ui/table';
-    import { Checkbox } from '$lib/components/ui/checkbox';
     import {
         createDefaultPercussionMapping,
         guessInstrumentForTrack,
@@ -460,7 +460,7 @@
 </script>
 
 <Dialog.Root bind:open>
-    <Dialog.Content class="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden">
+    <Dialog.Content class="flex max-h-[85vh] w-5xl !max-w-none flex-col overflow-hidden">
         <Dialog.Header>
             <Dialog.Title>Import MIDI</Dialog.Title>
             <Dialog.Description>
@@ -479,11 +479,11 @@
             />
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <p class="text-sm font-medium text-muted-foreground">Selected file</p>
+                    <p class="text-sm font-medium text-wrap text-muted-foreground">Selected file</p>
                     {#if midiFileName}
-                        <p class="text-sm font-medium">{midiFileName}</p>
+                        <p class="text-sm font-medium text-wrap">{midiFileName}</p>
                     {:else}
-                        <p class="text-sm text-muted-foreground">No file selected</p>
+                        <p class="text-sm text-wrap text-muted-foreground">No file selected</p>
                     {/if}
                 </div>
                 <Button variant="outline" onclick={openFilePicker} disabled={isLoading}>
@@ -499,7 +499,7 @@
 
             {#if errorMessage}
                 <div
-                    class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                    class="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-wrap text-destructive"
                 >
                     {errorMessage}
                 </div>
@@ -507,26 +507,28 @@
 
             {#if assignments.length > 0}
                 <div class="rounded-md border">
-                    <Table class="border-collapse text-sm">
+                    <Table class="table-fixed border-collapse text-sm">
                         <TableHeader class="bg-muted/40 text-muted-foreground">
                             <TableRow class="border-border/80">
-                                <TableHead class="w-32 px-4 py-2">MIDI Channel</TableHead>
-                                <TableHead class="w-[30rem] px-4 py-2">Track</TableHead>
-                                <TableHead class="w-[26rem] px-4 py-2">Target</TableHead>
-                                <TableHead class="w-52 px-4 py-2">Transpose</TableHead>
+                                <TableHead class="w-20 max-w-32 px-4 py-2">MIDI Ch.</TableHead>
+                                <TableHead class="max-w-[30rem] px-4 py-2">Track</TableHead>
+                                <TableHead class="max-w-[26rem] px-4 py-2">Target</TableHead>
+                                <TableHead class="max-w-52 px-4 py-2">Transpose</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {#each assignments as assignment, index}
                                 <TableRow class="border-border/60">
                                     <TableCell
-                                        class="w-24 px-4 py-3 align-top font-mono text-sm font-medium"
+                                        class="w-20 max-w-32 px-4 py-3 align-top font-mono text-sm font-medium"
                                     >
                                         {assignment.channelNumber}
                                     </TableCell>
-                                    <TableCell class="w-[26rem] px-4 py-3 align-top">
-                                        <p class="font-medium">{assignment.name}</p>
-                                        <p class="text-xs text-muted-foreground">
+                                    <TableCell class="max-w-[30rem] px-4 py-3 align-top">
+                                        <p class="font-medium break-words">{assignment.name}</p>
+                                        <p
+                                            class="text-xs text-wrap break-words whitespace-normal text-muted-foreground"
+                                        >
                                             {(
                                                 assignment.track.instrument.name ||
                                                 'Unknown instrument'
@@ -534,34 +536,32 @@
                                             · {describeTrack(assignment)}
                                         </p>
                                     </TableCell>
-                                    <TableCell class="w-[22rem] px-4 py-3 align-top">
+                                    <TableCell class="max-w-[26rem] px-4 py-3 align-top">
                                         <div class="flex flex-col gap-2">
-                                            {#if assignment.track.channel === 9}
-                                                <div class="flex flex-wrap gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant={assignment.mode === 'instrument'
-                                                            ? 'default'
-                                                            : 'outline'}
-                                                        onclick={() => setMode(index, 'instrument')}
-                                                    >
-                                                        Instrument
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant={assignment.mode === 'percussion'
-                                                            ? 'default'
-                                                            : 'outline'}
-                                                        onclick={() => setMode(index, 'percussion')}
-                                                    >
-                                                        Percussion
-                                                    </Button>
-                                                </div>
-                                            {/if}
+                                            <div class="flex flex-wrap gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant={assignment.mode === 'instrument'
+                                                        ? 'default'
+                                                        : 'outline'}
+                                                    onclick={() => setMode(index, 'instrument')}
+                                                >
+                                                    Instrument
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant={assignment.mode === 'percussion'
+                                                        ? 'default'
+                                                        : 'outline'}
+                                                    onclick={() => setMode(index, 'percussion')}
+                                                >
+                                                    Percussion
+                                                </Button>
+                                            </div>
 
                                             {#if assignment.mode === 'percussion' && assignment.percussionMapping}
                                                 <div
-                                                    class="w-full rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground"
+                                                    class="w-full rounded-md border border-dashed px-3 py-2 text-xs text-wrap text-muted-foreground"
                                                 >
                                                     {describePercussion(
                                                         assignment.percussionMapping
@@ -593,7 +593,7 @@
                                             {/if}
                                         </div>
                                     </TableCell>
-                                    <TableCell class="w-52 px-4 py-3 align-top">
+                                    <TableCell class="max-w-52 px-4 py-3 align-top">
                                         {@const rawStats = computeOutOfRangeNotes(
                                             assignment.track,
                                             assignment.transpose
@@ -646,46 +646,11 @@
                                         )}
 
                                         <div class="flex flex-col gap-1.5">
-                                            <div class="flex flex-wrap items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
-                                                    aria-label="Transpose down one octave"
-                                                    title="Transpose down by 1 octave"
-                                                    disabled={!isInstrument}
-                                                    onclick={() =>
-                                                        adjustTranspose(index, -OCTAVE_INTERVAL)}
-                                                >
-                                                    <ArrowDownIcon class="size-4" />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
-                                                    aria-label="Transpose down one semitone"
-                                                    title="Transpose down by 1 semitone"
-                                                    disabled={!isInstrument}
-                                                    onclick={() => adjustTranspose(index, -1)}
-                                                >
-                                                    &lt;
-                                                </button>
-                                                <div
-                                                    class="min-w-[9.5rem] text-center text-sm font-medium text-foreground"
-                                                >
-                                                    {transposeDisplay}
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-xs font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
-                                                    aria-label="Transpose up one semitone"
-                                                    title="Transpose up by 1 semitone"
-                                                    disabled={!isInstrument}
-                                                    onclick={() => adjustTranspose(index, 1)}
-                                                >
-                                                    &gt;
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-background"
+                                            <div class="flex flex-col gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    class="h-8 w-full justify-center gap-2"
                                                     aria-label="Transpose up one octave"
                                                     title="Transpose up by 1 octave"
                                                     disabled={!isInstrument}
@@ -693,10 +658,31 @@
                                                         adjustTranspose(index, OCTAVE_INTERVAL)}
                                                 >
                                                     <ArrowUpIcon class="size-4" />
-                                                </button>
+                                                    +1 Octave
+                                                </Button>
+
+                                                <div
+                                                    class="py-1 text-center text-sm font-medium text-foreground"
+                                                >
+                                                    {transposeDisplay}
+                                                </div>
+
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    class="h-8 w-full justify-center gap-2"
+                                                    aria-label="Transpose down one octave"
+                                                    title="Transpose down by 1 octave"
+                                                    disabled={!isInstrument}
+                                                    onclick={() =>
+                                                        adjustTranspose(index, -OCTAVE_INTERVAL)}
+                                                >
+                                                    <ArrowDownIcon class="size-4" />
+                                                    -1 Octave
+                                                </Button>
 
                                                 <label
-                                                    class="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none"
+                                                    class="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none"
                                                 >
                                                     <Checkbox
                                                         checked={transposeWithinRange}
@@ -715,17 +701,19 @@
 
                                             {#if hasDisplayOverflow}
                                                 <p
-                                                    class="text-xs text-amber-600 dark:text-amber-400"
+                                                    class="text-xs text-wrap text-amber-600 dark:text-amber-400"
                                                 >
                                                     {displaySummary}
                                                 </p>
                                             {:else}
                                                 <div
-                                                    class="space-y-0.5 text-xs text-muted-foreground"
+                                                    class="space-y-0.5 text-xs text-wrap text-muted-foreground"
                                                 >
                                                     <p>All notes within Noteblock range.</p>
                                                     {#if transposeWithinRange && hasRawOverflow}
-                                                        <p class="text-muted-foreground/80">
+                                                        <p
+                                                            class="text-wrap text-muted-foreground/80"
+                                                        >
                                                             {rawSummary} will be shifted to the nearest
                                                             octave when importing.
                                                         </p>
@@ -734,7 +722,7 @@
                                             {/if}
 
                                             {#if !isInstrument}
-                                                <p class="text-xs text-muted-foreground">
+                                                <p class="text-xs text-wrap text-muted-foreground">
                                                     Transpose applies when importing as an
                                                     instrument.
                                                 </p>
@@ -748,7 +736,7 @@
                 </div>
             {:else}
                 <div
-                    class="rounded-md border border-dashed px-6 py-12 text-center text-sm text-muted-foreground"
+                    class="rounded-md border border-dashed px-6 py-12 text-center text-sm text-wrap text-muted-foreground"
                 >
                     {#if isLoading}
                         Reading MIDI file...
