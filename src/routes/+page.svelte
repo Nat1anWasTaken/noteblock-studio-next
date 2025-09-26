@@ -3,6 +3,7 @@
     import Button from '$lib/components/ui/button/button.svelte';
     import { readSongFromNbxFile } from '$lib/files';
     import { convertNbsSong } from '$lib/nbs';
+    import MidiImportDialog from '$lib/components/editor/midi-import-dialog.svelte';
     import ResumeSavedSongDialog from '$lib/components/editor/resume-saved-song-dialog.svelte';
     import { player } from '$lib/playback.svelte';
     import {
@@ -21,6 +22,7 @@
     import Music from '~icons/lucide/music-3';
 
     let resumeDialogOpen = $state(false);
+    let midiImportOpen = $state(false);
     let storedSong = $state<StoredSongPayload | null>(null);
 
     onMount(() => {
@@ -206,13 +208,15 @@
         <Button
             variant="outline"
             class="flex h-32 w-32 flex-1 shrink flex-col items-center justify-center text-wrap text-muted-foreground"
-            onclick={() => toast.info('Feature not implemented yet!')}
+            onclick={() => (midiImportOpen = true)}
         >
             <Piano />
             Import MIDI
         </Button>
     </div>
 </main>
+
+<MidiImportDialog bind:open={midiImportOpen} />
 
 {#if storedSong}
     <ResumeSavedSongDialog
