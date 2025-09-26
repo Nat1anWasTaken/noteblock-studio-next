@@ -79,7 +79,7 @@ export function intoChannelAsInstrument(
             return {
                 tick: Math.max(0, Math.round(midiNote.ticks * tickScale)),
                 key: clampToRange(midiValue - MIDI_TO_KEY_OFFSET, 0, 87),
-                velocity: clampToRange(Math.round(midiNote.velocity * 100), 0, 100),
+                velocity: 100,
                 pitch: 0 // Default pitch adjustment
             } satisfies Note;
         })
