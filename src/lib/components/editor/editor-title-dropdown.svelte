@@ -126,6 +126,15 @@
         toast.success('Song exported as NBS file!');
     }
 
+    function handleExportAsDatapack() {
+        if (!player.song) {
+            console.warn('No song loaded to export');
+            return;
+        }
+
+        toast.info('Datapack export coming soon!');
+    }
+
     onMount(() => {
         commandManager.registerCommands([
             {
@@ -139,10 +148,16 @@
                 title: 'Export as NBS',
                 callback: handleExportAsNbs,
                 shortcut: 'MOD+SHIFT+N'
+            },
+            {
+                id: 'export-datapack',
+                title: 'Export as Datapack',
+                callback: handleExportAsDatapack,
+                shortcut: 'MOD+SHIFT+D'
             }
         ]);
 
-        return () => commandManager.unregisterCommands(['save', 'save-as', 'export-nbs']);
+        return () => commandManager.unregisterCommands(['save', 'save-as', 'export-nbs', 'export-datapack']);
     });
 </script>
 
@@ -155,5 +170,6 @@
         <DropdownMenuItem onclick={handleSave} disabled>Save</DropdownMenuItem>
         <DropdownMenuItem onclick={handleSaveAs}>Save As</DropdownMenuItem>
         <DropdownMenuItem onclick={handleExportAsNbs}>Export as NBS</DropdownMenuItem>
+        <DropdownMenuItem onclick={handleExportAsDatapack}>Export as Datapack</DropdownMenuItem>
     </DropdownMenuContent>
 </DropdownMenu>
