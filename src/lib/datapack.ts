@@ -1,5 +1,5 @@
-import { Instrument, type NoteChannel, type Song } from './types';
 import JSZip from 'jszip';
+import { Instrument, type NoteChannel, type Song } from './types';
 
 export type Direction = 'north' | 'south' | 'east' | 'west';
 
@@ -331,11 +331,11 @@ tellraw @a {"text":"[${songName}] Stopped.","color":"yellow"}`;
 function generateFunctionTags(namespace: string): DatapackFile[] {
     return [
         {
-            path: `data/minecraft/tags/functions/load.json`,
+            path: `data/minecraft/tags/function/load.json`,
             content: JSON.stringify({ values: [`${namespace}:load`] }, null, 2)
         },
         {
-            path: `data/minecraft/tags/functions/tick.json`,
+            path: `data/minecraft/tags/function/tick.json`,
             content: JSON.stringify({ values: [`${namespace}:tick`] }, null, 2)
         }
     ];
@@ -433,13 +433,13 @@ export function generateSongTickFunctions(
 
         // Create tick function file
         files.push({
-            path: `data/${namespace}/functions/song/tick/${tick}.mcfunction`,
+            path: `data/${namespace}/function/song/tick/${tick}.mcfunction`,
             content: commands.join('\n')
         });
 
         // Create cleanup function file
         files.push({
-            path: `data/${namespace}/functions/song/cleanup/${tick}.mcfunction`,
+            path: `data/${namespace}/function/song/cleanup/${tick}.mcfunction`,
             content: cleanupCommands.join('\n')
         });
     });
@@ -470,19 +470,19 @@ export function createDatapack(
 
     const files: DatapackFile[] = [
         {
-            path: `data/${namespace}/functions/load.mcfunction`,
+            path: `data/${namespace}/function/load.mcfunction`,
             content: generateLoadFunction(scoreboardName, songName, songLengthTicks)
         },
         {
-            path: `data/${namespace}/functions/tick.mcfunction`,
+            path: `data/${namespace}/function/tick.mcfunction`,
             content: generateTickFunction(namespace, scoreboardName)
         },
         {
-            path: `data/${namespace}/functions/play_tick.mcfunction`,
+            path: `data/${namespace}/function/play_tick.mcfunction`,
             content: generatePlayTickFunction(namespace, scoreboardName, ticksWithNotes)
         },
         {
-            path: `data/${namespace}/functions/start.mcfunction`,
+            path: `data/${namespace}/function/start.mcfunction`,
             content: generateStartFunction(
                 scoreboardName,
                 songName,
@@ -491,7 +491,7 @@ export function createDatapack(
             )
         },
         {
-            path: `data/${namespace}/functions/stop.mcfunction`,
+            path: `data/${namespace}/function/stop.mcfunction`,
             content: generateStopFunction(scoreboardName, songName)
         },
         ...generateFunctionTags(namespace)
@@ -500,7 +500,7 @@ export function createDatapack(
     // Add setup function if there are setup commands
     if (setupCommands.length > 0) {
         files.push({
-            path: `data/${namespace}/functions/setup.mcfunction`,
+            path: `data/${namespace}/function/setup.mcfunction`,
             content: setupCommands.join('\n')
         });
     }
