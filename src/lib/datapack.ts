@@ -407,7 +407,7 @@ function generateFunctionTags(namespace: string): DatapackFile[] {
  */
 function generatePlayNoteCommands(entry: NoteblockEntry, visualizer: boolean): string[] {
     const commands: string[] = [];
-    const { noteblock, redstoneBlock, instrument, key } = entry;
+    const { redstoneBlock, instrument, key } = entry;
     const noteblockPitch = calculateNoteblockPitch(key);
 
     // Calculate playsound pitch (0.5 * 2^(noteblock_pitch/12))
