@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { Instrument, type NoteChannel, type Song } from './types';
+import { Instrument, type NoteChannel, type Song, type TempoChannel } from './types';
 
 export type Direction = 'north' | 'south' | 'east' | 'west';
 
@@ -56,7 +56,7 @@ export interface Datapack {
 export function generateNoteblockMap(
     song: Song,
     startPos: Coordinate = { x: 0, y: 64, z: 0 },
-    direction: Direction = 'east'
+    direction: Direction = 'west'
 ): NoteblockMap {
     const map: NoteblockMap = [];
     let currentPos = { ...startPos };
@@ -252,16 +252,25 @@ function isValidNoteblockKey(key: number): boolean {
 function generateLoadFunction(
     scoreboardName: string,
     songName: string,
-    songLengthTicks: number
+    songLengthTicks: number,
+    tempo: number
 ): string {
+    // For scoreboard math: multiply song ticks by 20, divide by tempo
+    // This way we can use integer math: game_tick * tempo <= song_tick * 20
+    const scaledLength = songLengthTicks * 20;
+
     return `# Initialize scoreboards for music playback
 scoreboard objectives add ${scoreboardName}_playing dummy "Music Playing State"
 scoreboard objectives add ${scoreboardName}_tick dummy "Current Music Tick"
+scoreboard objectives add ${scoreboardName}_game dummy "Game Tick Counter"
 
 # Set default values
 scoreboard players set #playing ${scoreboardName}_playing 0
 scoreboard players set #tick ${scoreboardName}_tick 0
-scoreboard players set #length ${scoreboardName}_tick ${songLengthTicks}
+scoreboard players set #game ${scoreboardName}_game 0
+scoreboard players set #length ${scoreboardName}_tick ${scaledLength}
+scoreboard players set #tempo ${scoreboardName}_tick ${tempo}
+scoreboard players set #20 ${scoreboardName}_tick 20
 
 tellraw @a {"text":"[${songName}] Datapack loaded!","color":"green"}`;
 }
@@ -285,20 +294,24 @@ function generatePlayTickFunction(
     const tickExecutes =
         ticksWithNotes.length > 0
             ? ticksWithNotes
-                  .map(
-                      (tick) =>
-                          `execute if score #tick ${scoreboardName}_tick matches ${tick} run function ${namespace}:song/tick/${tick}`
-                  )
+                  .map((tick) => {
+                      // Scale tick by 20 for comparison (song_tick * 20)
+                      const scaledTick = tick * 20;
+                      return `execute if score #tick ${scoreboardName}_tick matches ${scaledTick} run function ${namespace}:song/tick/${tick}`;
+                  })
                   .join('\n')
             : `# No tick functions generated yet`;
 
     return `# Execute the current tick's music function if it exists
 ${tickExecutes}
 
-# Advance to next tick
-scoreboard players add #tick ${scoreboardName}_tick 1
+# Advance tick counter: #tick = #game * #tempo (game_ticks * ticks_per_second)
+# Since 20 game ticks = 1 second, this gives us the correct song tick position
+scoreboard players add #game ${scoreboardName}_game 1
+scoreboard players operation #tick ${scoreboardName}_tick = #game ${scoreboardName}_game
+scoreboard players operation #tick ${scoreboardName}_tick *= #tempo ${scoreboardName}_tick
 
-# Check if song has ended
+# Check if song has ended (compare scaled values)
 execute if score #tick ${scoreboardName}_tick >= #length ${scoreboardName}_tick run function ${namespace}:stop`;
 }
 
@@ -345,6 +358,7 @@ function generateStartFunction(
     return `# Start music playback
 scoreboard players set #playing ${scoreboardName}_playing 1
 scoreboard players set #tick ${scoreboardName}_tick 0
+scoreboard players set #game ${scoreboardName}_game 0
 ${setupCall}
 tellraw @a {"text":"[${songName}] Now playing!","color":"aqua"}`;
 }
@@ -356,6 +370,7 @@ function generateStopFunction(scoreboardName: string, songName: string): string 
     return `# Stop music playback
 scoreboard players set #playing ${scoreboardName}_playing 0
 scoreboard players set #tick ${scoreboardName}_tick 0
+scoreboard players set #game ${scoreboardName}_game 0
 
 tellraw @a {"text":"[${songName}] Stopped.","color":"yellow"}`;
 }
@@ -507,6 +522,7 @@ export function createDatapack(
     description?: string,
     namespace: string = 'noteblock_studio',
     songLengthTicks: number = 0,
+    tempo: number = 20,
     ticksWithNotes: number[] = [],
     setupCommands: string[] = []
 ): Datapack {
@@ -516,7 +532,7 @@ export function createDatapack(
     const files: DatapackFile[] = [
         {
             path: `data/${namespace}/function/load.mcfunction`,
-            content: generateLoadFunction(scoreboardName, songName, songLengthTicks)
+            content: generateLoadFunction(scoreboardName, songName, songLengthTicks, tempo)
         },
         {
             path: `data/${namespace}/function/tick.mcfunction`,
@@ -582,7 +598,7 @@ export function createSongDatapack(
         description,
         visualizer = true,
         startPos = { x: 0, y: 64, z: 0 },
-        direction = 'east'
+        direction = 'west'
     } = options;
 
     // Generate noteblock map
@@ -607,12 +623,19 @@ export function createSongDatapack(
         )
     ).sort((a, b) => a - b);
 
+    // Get tempo from the first tempo change in the tempo channel, or fall back to song.tempo
+    const tempoChannel = song.channels.find((ch) => ch.kind === 'tempo') as
+        | TempoChannel
+        | undefined;
+    const actualTempo = tempoChannel?.tempoChanges?.[0]?.tempo ?? song.tempo;
+
     // Create base datapack
     const datapack = createDatapack(
         song.name,
         description,
         namespace,
         song.length,
+        actualTempo,
         ticksWithNotes,
         setupCommands
     );
