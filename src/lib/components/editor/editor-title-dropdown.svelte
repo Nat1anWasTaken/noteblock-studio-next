@@ -11,6 +11,7 @@
     import { player } from '$lib/playback.svelte';
     import { onMount } from 'svelte';
     import { toast } from 'svelte-sonner';
+    import DatapackExportDialog from './datapack-export-dialog.svelte';
 
     interface Props {
         class?: string;
@@ -18,6 +19,8 @@
     }
 
     let { class: className, children }: Props = $props();
+
+    let datapackDialogOpen = $state(false);
 
     function handleSave() {
         toast.warning(
@@ -126,6 +129,15 @@
         toast.success('Song exported as NBS file!');
     }
 
+    async function handleExportAsDatapack() {
+        if (!player.song) {
+            console.warn('No song loaded to export');
+            return;
+        }
+
+        datapackDialogOpen = true;
+    }
+
     onMount(() => {
         commandManager.registerCommands([
             {
@@ -139,10 +151,17 @@
                 title: 'Export as NBS',
                 callback: handleExportAsNbs,
                 shortcut: 'MOD+SHIFT+N'
+            },
+            {
+                id: 'export-datapack',
+                title: 'Export as Datapack',
+                callback: handleExportAsDatapack,
+                shortcut: 'MOD+SHIFT+D'
             }
         ]);
 
-        return () => commandManager.unregisterCommands(['save', 'save-as', 'export-nbs']);
+        return () =>
+            commandManager.unregisterCommands(['save', 'save-as', 'export-nbs', 'export-datapack']);
     });
 </script>
 
@@ -155,5 +174,8 @@
         <DropdownMenuItem onclick={handleSave} disabled>Save</DropdownMenuItem>
         <DropdownMenuItem onclick={handleSaveAs}>Save As</DropdownMenuItem>
         <DropdownMenuItem onclick={handleExportAsNbs}>Export as NBS</DropdownMenuItem>
+        <DropdownMenuItem onclick={handleExportAsDatapack}>Export as Datapack</DropdownMenuItem>
     </DropdownMenuContent>
 </DropdownMenu>
+
+<DatapackExportDialog bind:open={datapackDialogOpen} song={player.song} />
