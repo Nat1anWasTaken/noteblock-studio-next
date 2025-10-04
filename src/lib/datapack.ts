@@ -56,7 +56,7 @@ export interface Datapack {
 export function generateNoteblockMap(
     song: Song,
     startPos: Coordinate = { x: 0, y: 64, z: 0 },
-    direction: Direction = 'west'
+    direction: Direction = 'east'
 ): NoteblockMap {
     const map: NoteblockMap = [];
     let currentPos = { ...startPos };
@@ -84,9 +84,20 @@ export function generateNoteblockMap(
             });
         });
 
+        // Sort pitches by key based on direction
+        // For west/north (negative direction), lower pitches go first (will be leftmost)
+        // For east/south (positive direction), higher pitches go first (so lower pitches end up leftmost)
+        const sortedPitches = Array.from(uniquePitches.values()).sort((a, b) => {
+            if (direction === 'west' || direction === 'north') {
+                return a.key - b.key; // ascending: lower pitch first
+            } else {
+                return b.key - a.key; // descending: higher pitch first
+            }
+        });
+
         // Create noteblock entries for each unique pitch (only valid ones)
         const entries: NoteblockEntry[] = [];
-        uniquePitches.forEach(({ key, pitch }) => {
+        sortedPitches.forEach(({ key, pitch }) => {
             // Skip notes outside valid noteblock range
             if (!isValidNoteblockKey(key)) {
                 return;
@@ -598,7 +609,7 @@ export function createSongDatapack(
         description,
         visualizer = true,
         startPos = { x: 0, y: 64, z: 0 },
-        direction = 'west'
+        direction = 'east'
     } = options;
 
     // Generate noteblock map
