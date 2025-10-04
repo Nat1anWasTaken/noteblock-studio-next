@@ -8,6 +8,7 @@
     import { createSongDatapack, datapackToZip, type Direction } from '$lib/datapack';
     import type { Song } from '$lib/types';
     import { toast } from 'svelte-sonner';
+    import { player } from '$lib/playback.svelte';
 
     interface Props {
         open?: boolean;
@@ -191,7 +192,7 @@
                         id="tempo-override"
                         type="number"
                         bind:value={tempoOverride}
-                        placeholder={song?.tempo.toString() || ''}
+                        placeholder={player.tempo.toString()}
                         step="0.01"
                         min="0"
                     />
