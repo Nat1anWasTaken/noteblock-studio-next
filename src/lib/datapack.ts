@@ -615,6 +615,7 @@ export function createSongDatapack(
         visualizer?: boolean;
         startPos?: Coordinate;
         direction?: Direction;
+        tempoOverride?: number;
     } = {}
 ): Datapack {
     const {
@@ -622,7 +623,8 @@ export function createSongDatapack(
         description,
         visualizer = true,
         startPos = { x: 0, y: 64, z: 0 },
-        direction = 'east'
+        direction = 'east',
+        tempoOverride
     } = options;
 
     // Generate noteblock map
@@ -647,11 +649,11 @@ export function createSongDatapack(
         )
     ).sort((a, b) => a - b);
 
-    // Get tempo from the first tempo change in the tempo channel, or fall back to song.tempo
+    // Get tempo from override, or from the first tempo change in the tempo channel, or fall back to song.tempo
     const tempoChannel = song.channels.find((ch) => ch.kind === 'tempo') as
         | TempoChannel
         | undefined;
-    const rawTempo = tempoChannel?.tempoChanges?.[0]?.tempo ?? song.tempo;
+    const rawTempo = tempoOverride ?? tempoChannel?.tempoChanges?.[0]?.tempo ?? song.tempo;
     const actualTempo = Math.round(rawTempo * 100) / 100;
 
     // Create base datapack
