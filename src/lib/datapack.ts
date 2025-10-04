@@ -84,9 +84,14 @@ export function generateNoteblockMap(
             });
         });
 
-        // Create noteblock entries for each unique pitch
+        // Create noteblock entries for each unique pitch (only valid ones)
         const entries: NoteblockEntry[] = [];
         uniquePitches.forEach(({ key, pitch }) => {
+            // Skip notes outside valid noteblock range
+            if (!isValidNoteblockKey(key)) {
+                return;
+            }
+
             const noteblock = { ...currentPos };
             const blockUnder = { ...currentPos, y: currentPos.y - 1 };
             const redstoneBlock = getRedstoneBlockPos(currentPos, direction);
@@ -195,9 +200,31 @@ const INSTRUMENT_UNDER_BLOCKS: Record<Instrument, string> = {
 };
 
 /**
+ * Maps instruments to their corresponding noteblock sound names for playsound command
+ */
+const INSTRUMENT_SOUNDS: Record<Instrument, string> = {
+    [Instrument.Piano]: 'harp',
+    [Instrument.DoubleBass]: 'bass',
+    [Instrument.BassDrum]: 'basedrum',
+    [Instrument.SnareDrum]: 'snare',
+    [Instrument.Click]: 'hat',
+    [Instrument.Guitar]: 'guitar',
+    [Instrument.Flute]: 'flute',
+    [Instrument.Bell]: 'bell',
+    [Instrument.Chime]: 'chime',
+    [Instrument.Xylophone]: 'xylophone',
+    [Instrument.IronXylophone]: 'iron_xylophone',
+    [Instrument.CowBell]: 'cow_bell',
+    [Instrument.Didgeridoo]: 'didgeridoo',
+    [Instrument.Bit]: 'bit',
+    [Instrument.Banjo]: 'banjo',
+    [Instrument.Pling]: 'pling'
+};
+
+/**
  * Calculates the Minecraft noteblock pitch (0-24) from a key value
  * @param key The key value (0-87 where 0 is A0, 33-57 is within noteblock range)
- * @returns The noteblock pitch value (0-24), clamped to valid range
+ * @returns The noteblock pitch value (can be outside 0-24 range)
  */
 function calculateNoteblockPitch(key: number): number {
     // Convert key to MIDI note number (key 0 = MIDI 21)
@@ -205,10 +232,18 @@ function calculateNoteblockPitch(key: number): number {
 
     // Noteblock base pitch is F♯3 (MIDI 54) = pitch 0
     // Each increment is one semitone
-    const pitch = midiNote - 54;
+    // Adding 12 to shift up by one octave to match expected range
+    const pitch = midiNote - 54 + 12;
 
-    // Clamp to valid noteblock range (0-24)
-    return Math.max(0, Math.min(24, pitch));
+    return pitch;
+}
+
+/**
+ * Checks if a key is within the valid noteblock range
+ */
+function isValidNoteblockKey(key: number): boolean {
+    const pitch = calculateNoteblockPitch(key);
+    return pitch >= 0 && pitch <= 24;
 }
 
 /**
@@ -346,7 +381,17 @@ function generateFunctionTags(namespace: string): DatapackFile[] {
  */
 function generatePlayNoteCommands(entry: NoteblockEntry, visualizer: boolean): string[] {
     const commands: string[] = [];
-    const { redstoneBlock, instrument } = entry;
+    const { noteblock, redstoneBlock, instrument, key } = entry;
+    const noteblockPitch = calculateNoteblockPitch(key);
+
+    // Calculate playsound pitch (0.5 * 2^(noteblock_pitch/12))
+    const playsoundPitch = 0.5 * Math.pow(2, noteblockPitch / 12);
+    const soundName = INSTRUMENT_SOUNDS[instrument];
+
+    // Play sound to all players at their position
+    commands.push(
+        `execute as @a at @s run playsound minecraft:block.note_block.${soundName} record @s ~ ~ ~ 1 ${playsoundPitch.toFixed(6)}`
+    );
 
     // If visualizer is enabled, summon falling block
     if (visualizer) {
