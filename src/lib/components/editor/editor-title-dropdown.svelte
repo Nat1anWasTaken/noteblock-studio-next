@@ -11,6 +11,7 @@
     import { player } from '$lib/playback.svelte';
     import { onMount } from 'svelte';
     import { toast } from 'svelte-sonner';
+    import { createSongDatapack, datapackToZip } from '$lib/datapack';
 
     interface Props {
         class?: string;
@@ -126,13 +127,68 @@
         toast.success('Song exported as NBS file!');
     }
 
-    function handleExportAsDatapack() {
+    async function handleExportAsDatapack() {
         if (!player.song) {
             console.warn('No song loaded to export');
             return;
         }
 
-        toast.info('Datapack export coming soon!');
+        const suggestedName = player.song.name || 'Untitled';
+        await exportDatapackWithPicker(suggestedName);
+    }
+
+    async function exportDatapackWithPicker(suggestedName: string) {
+        if (!player.song) return;
+
+        // Generate the datapack
+        const datapack = createSongDatapack(player.song, {
+            namespace: 'noteblock_studio',
+            visualizer: true
+        });
+
+        // Try modern File System Access API first
+        if ('showSaveFilePicker' in window) {
+            try {
+                const options = {
+                    suggestedName: `${suggestedName}_datapack.zip`,
+                    types: [
+                        {
+                            description: 'Minecraft Datapack',
+                            accept: {
+                                'application/zip': ['.zip']
+                            }
+                        }
+                    ]
+                };
+
+                const handle = await (window as any).showSaveFilePicker(options);
+                const zipBlob = await datapackToZip(datapack);
+
+                const writable = await handle.createWritable();
+                await writable.write(zipBlob);
+                await writable.close();
+
+                toast.success('Datapack exported successfully!');
+                return;
+            } catch (error: any) {
+                if (error.name === 'AbortError') {
+                    return;
+                }
+            }
+        }
+
+        // Fallback to regular download
+        const zipBlob = await datapackToZip(datapack);
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${suggestedName}_datapack.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success('Datapack exported successfully!');
     }
 
     onMount(() => {

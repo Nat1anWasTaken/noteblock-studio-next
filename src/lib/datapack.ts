@@ -1,4 +1,5 @@
 import { Instrument, type NoteChannel, type Song } from './types';
+import JSZip from 'jszip';
 
 export type Direction = 'north' | 'south' | 'east' | 'west';
 
@@ -575,4 +576,41 @@ export function createSongDatapack(
     datapack.files.push(...tickFunctions);
 
     return datapack;
+}
+
+/**
+ * Converts a datapack to a downloadable zip blob
+ * @param datapack The datapack to convert
+ * @returns A Promise that resolves to a Blob containing the zip file
+ */
+export async function datapackToZip(datapack: Datapack): Promise<Blob> {
+    const zip = new JSZip();
+
+    // Add pack.mcmeta
+    zip.file('pack.mcmeta', JSON.stringify(datapack['pack.mcmeta'], null, 4));
+
+    // Add all datapack files
+    datapack.files.forEach((file) => {
+        zip.file(file.path, file.content);
+    });
+
+    // Generate the zip blob
+    return await zip.generateAsync({ type: 'blob' });
+}
+
+/**
+ * Downloads a datapack as a zip file
+ * @param datapack The datapack to download
+ * @param filename The filename (without extension)
+ */
+export async function downloadDatapack(datapack: Datapack, filename: string): Promise<void> {
+    const blob = await datapackToZip(datapack);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
