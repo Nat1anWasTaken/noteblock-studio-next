@@ -351,6 +351,14 @@ function generateSetupCommands(noteblockMap: NoteblockMap): string[] {
             const pitch = calculateNoteblockPitch(key);
             const underBlock = INSTRUMENT_UNDER_BLOCKS[instrument];
 
+            // If the block is sand, place glass underneath it to prevent falling
+            if (underBlock === 'sand') {
+                const glassBlock = { ...blockUnder, y: blockUnder.y - 1 };
+                commands.push(
+                    `setblock ${glassBlock.x} ${glassBlock.y} ${glassBlock.z} minecraft:glass`
+                );
+            }
+
             // Place the block under the noteblock
             commands.push(
                 `setblock ${blockUnder.x} ${blockUnder.y} ${blockUnder.z} minecraft:${underBlock}`
