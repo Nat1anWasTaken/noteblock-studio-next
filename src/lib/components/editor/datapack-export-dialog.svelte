@@ -125,18 +125,22 @@
         <div class="grid gap-4 py-4">
             <div class="grid grid-cols-4 items-center gap-4">
                 <Label for="namespace" class="text-right">Namespace</Label>
-                <Input
-                    bind:this={namespaceInput}
-                    id="namespace"
-                    bind:value={namespace}
-                    placeholder="noteblock_studio"
-                    class="col-span-3"
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' && namespace.trim()) {
-                            handleExport();
-                        }
-                    }}
-                />
+                <div class="col-span-3">
+                    <Input
+                        bind:this={namespaceInput}
+                        id="namespace"
+                        bind:value={namespace}
+                        placeholder="noteblock_studio"
+                        onkeydown={(e) => {
+                            if (e.key === 'Enter' && namespace.trim()) {
+                                handleExport();
+                            }
+                        }}
+                    />
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        Use <code class="bg-muted px-1 py-0.5 rounded">/function {namespace}:start</code> to start the song
+                    </p>
+                </div>
             </div>
 
             <div class="grid grid-cols-4 items-center gap-4">
