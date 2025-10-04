@@ -266,21 +266,23 @@ function generateLoadFunction(
     songLengthTicks: number,
     tempo: number
 ): string {
-    // For scoreboard math: multiply song ticks by 20, divide by tempo
-    // This way we can use integer math: game_tick * tempo <= song_tick * 20
-    const scaledLength = songLengthTicks * 20;
+    // Scale tempo by 100 to handle 2 decimal places
+    // Formula: song_tick = (game_tick * tempo) / 20
+    const scaledTempo = Math.round(tempo * 100);
+    const scaledLength = songLengthTicks * 100;
 
     return `# Initialize scoreboards for music playback
 scoreboard objectives add ${scoreboardName}_playing dummy "Music Playing State"
-scoreboard objectives add ${scoreboardName}_tick dummy "Current Music Tick"
+scoreboard objectives add ${scoreboardName}_tick dummy "Current Music Tick (scaled by 100)"
 scoreboard objectives add ${scoreboardName}_game dummy "Game Tick Counter"
 
 # Set default values
 scoreboard players set #playing ${scoreboardName}_playing 0
 scoreboard players set #tick ${scoreboardName}_tick 0
+scoreboard players set #last ${scoreboardName}_tick -100
 scoreboard players set #game ${scoreboardName}_game 0
 scoreboard players set #length ${scoreboardName}_tick ${scaledLength}
-scoreboard players set #tempo ${scoreboardName}_tick ${tempo}
+scoreboard players set #tempo ${scoreboardName}_tick ${scaledTempo}
 scoreboard players set #20 ${scoreboardName}_tick 20
 
 tellraw @a {"text":"[${songName}] Datapack loaded!","color":"green"}`;
@@ -305,24 +307,33 @@ function generatePlayTickFunction(
     const tickExecutes =
         ticksWithNotes.length > 0
             ? ticksWithNotes
-                  .map((tick) => {
-                      // Scale tick by 20 for comparison (song_tick * 20)
-                      const scaledTick = tick * 20;
-                      return `execute if score #tick ${scoreboardName}_tick matches ${scaledTick} run function ${namespace}:song/tick/${tick}`;
+                  .map((tick, index) => {
+                      // Scale tick by 100 for comparison
+                      const scaledTick = tick * 100;
+                      // Use range to handle integer division rounding
+                      const nextTick = index < ticksWithNotes.length - 1 ? ticksWithNotes[index + 1] : tick + 1;
+                      const scaledNextTick = nextTick * 100;
+                      return `execute if score #tick ${scoreboardName}_tick matches ${scaledTick}..${scaledNextTick - 1} if score #last ${scoreboardName}_tick matches ..${scaledTick - 1} run function ${namespace}:song/tick/${tick}`;
                   })
                   .join('\n')
             : `# No tick functions generated yet`;
 
-    return `# Execute the current tick's music function if it exists
-${tickExecutes}
-
-# Advance tick counter: #tick = #game * #tempo (game_ticks * ticks_per_second)
-# Since 20 game ticks = 1 second, this gives us the correct song tick position
-scoreboard players add #game ${scoreboardName}_game 1
+    return `# Calculate current tick: song_tick = (game_tick * tempo) / 20
+# With scaling: #tick = (#game * #tempo) / 20
 scoreboard players operation #tick ${scoreboardName}_tick = #game ${scoreboardName}_game
 scoreboard players operation #tick ${scoreboardName}_tick *= #tempo ${scoreboardName}_tick
+scoreboard players operation #tick ${scoreboardName}_tick /= #20 ${scoreboardName}_tick
 
-# Check if song has ended (compare scaled values)
+# Execute the current tick's music function if it exists (only if we haven't played it yet)
+${tickExecutes}
+
+# Update last played tick
+scoreboard players operation #last ${scoreboardName}_tick = #tick ${scoreboardName}_tick
+
+# Advance game tick counter
+scoreboard players add #game ${scoreboardName}_game 1
+
+# Check if song has ended
 execute if score #tick ${scoreboardName}_tick >= #length ${scoreboardName}_tick run function ${namespace}:stop`;
 }
 
@@ -369,6 +380,7 @@ function generateStartFunction(
     return `# Start music playback
 scoreboard players set #playing ${scoreboardName}_playing 1
 scoreboard players set #tick ${scoreboardName}_tick 0
+scoreboard players set #last ${scoreboardName}_tick -100
 scoreboard players set #game ${scoreboardName}_game 0
 ${setupCall}
 tellraw @a {"text":"[${songName}] Now playing!","color":"aqua"}`;
@@ -381,6 +393,7 @@ function generateStopFunction(scoreboardName: string, songName: string): string 
     return `# Stop music playback
 scoreboard players set #playing ${scoreboardName}_playing 0
 scoreboard players set #tick ${scoreboardName}_tick 0
+scoreboard players set #last ${scoreboardName}_tick -100
 scoreboard players set #game ${scoreboardName}_game 0
 
 tellraw @a {"text":"[${songName}] Stopped.","color":"yellow"}`;
@@ -638,7 +651,8 @@ export function createSongDatapack(
     const tempoChannel = song.channels.find((ch) => ch.kind === 'tempo') as
         | TempoChannel
         | undefined;
-    const actualTempo = tempoChannel?.tempoChanges?.[0]?.tempo ?? song.tempo;
+    const rawTempo = tempoChannel?.tempoChanges?.[0]?.tempo ?? song.tempo;
+    const actualTempo = Math.round(rawTempo * 100) / 100;
 
     // Create base datapack
     const datapack = createDatapack(
