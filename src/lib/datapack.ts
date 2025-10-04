@@ -311,7 +311,8 @@ function generatePlayTickFunction(
                       // Scale tick by 100 for comparison
                       const scaledTick = tick * 100;
                       // Use range to handle integer division rounding
-                      const nextTick = index < ticksWithNotes.length - 1 ? ticksWithNotes[index + 1] : tick + 1;
+                      const nextTick =
+                          index < ticksWithNotes.length - 1 ? ticksWithNotes[index + 1] : tick + 1;
                       const scaledNextTick = nextTick * 100;
                       return `execute if score #tick ${scoreboardName}_tick matches ${scaledTick}..${scaledNextTick - 1} if score #last ${scoreboardName}_tick matches ..${scaledTick - 1} run function ${namespace}:song/tick/${tick}`;
                   })

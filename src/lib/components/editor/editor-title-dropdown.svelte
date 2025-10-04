@@ -160,7 +160,8 @@
             }
         ]);
 
-        return () => commandManager.unregisterCommands(['save', 'save-as', 'export-nbs', 'export-datapack']);
+        return () =>
+            commandManager.unregisterCommands(['save', 'save-as', 'export-nbs', 'export-datapack']);
     });
 </script>
 

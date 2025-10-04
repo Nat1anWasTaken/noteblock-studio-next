@@ -138,7 +138,9 @@
                         }}
                     />
                     <p class="mt-1 text-xs text-muted-foreground">
-                        Use <code class="bg-muted px-1 py-0.5 rounded">/function {namespace}:start</code> to start the song
+                        Use <code class="rounded bg-muted px-1 py-0.5"
+                            >/function {namespace}:start</code
+                        > to start the song
                     </p>
                 </div>
             </div>
@@ -189,7 +191,7 @@
                         id="tempo-override"
                         type="number"
                         bind:value={tempoOverride}
-                        placeholder={song?.tempo.toString() || ""}
+                        placeholder={song?.tempo.toString() || ''}
                         step="0.01"
                         min="0"
                     />
@@ -203,7 +205,10 @@
                 <Label class="text-right">Visualizer</Label>
                 <div class="col-span-3">
                     <label class="flex cursor-pointer items-center gap-2">
-                        <Checkbox checked={visualizer} onCheckedChange={(checked) => (visualizer = checked ?? true)} />
+                        <Checkbox
+                            checked={visualizer}
+                            onCheckedChange={(checked) => (visualizer = checked ?? true)}
+                        />
                         <span class="text-sm text-muted-foreground">
                             Enable falling block visualization
                         </span>
